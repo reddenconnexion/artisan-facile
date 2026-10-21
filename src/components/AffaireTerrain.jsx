@@ -339,7 +339,7 @@ const AffaireTerrain = ({ quote, linkedDocs = [] }) => {
 
                 {/* Heures */}
                 <Card className="p-4">
-                    <SectionTitle icon={Timer} title="Heures" to="/app/heures" linkLabel="Pointage" />
+                    <SectionTitle icon={Timer} title="Heures" to="/app/heures?tab=feuille" linkLabel="Pointage" />
                     {hours.count === 0 ? (
                         <p className="text-sm text-gray-500 dark:text-gray-400">Aucune heure pointée.</p>
                     ) : (

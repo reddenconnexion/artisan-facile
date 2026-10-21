@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import {
     ChevronLeft, ChevronRight, Download, Plus, Pencil, Trash2, Loader2,
-    TrendingUp, AlertTriangle, CheckCircle, HelpCircle, Hammer,
+    TrendingUp, AlertTriangle, CheckCircle, HelpCircle, Hammer, CalendarDays,
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
-import { DismissibleHelp, EmptyState, LoadingState } from '../components/ui';
+import { DismissibleHelp, EmptyState, LoadingState, SegmentedControl } from '../components/ui';
 import TimeClockWidget from '../components/TimeClockWidget';
 import { exportToCSV } from '../utils/csvExport';
 import {
@@ -40,15 +40,21 @@ const WorksiteCard = ({ worksite, hourlyRate }) => {
     const { estimated, spent, quote, totalHt, amendmentCount } = worksite;
     const { progress, overrunHours, overrunCost, status } = laborProfitability(estimated, spent, hourlyRate);
     const { bar, text, Icon } = STATUS_STYLES[status];
-    const label = [quote.title, quote.client_name].filter(Boolean).join(' — ') || `Devis #${quote.id}`;
+    // Le client en titre : c'est par lui qu'on reconnaît un chantier. L'intitulé
+    // du devis passe en dessous.
+    const heading = quote.client_name || quote.title || `Devis #${quote.id}`;
+    const subheading = quote.client_name ? quote.title : null;
 
     return (
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5">
             <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0">
-                    <Link to={`/app/affaires/${quote.id}`} className="font-bold text-gray-900 dark:text-white hover:underline truncate block">
-                        {label}
+                    <Link to={`/app/affaires/${quote.id}`} className="text-lg font-bold text-gray-900 dark:text-white hover:underline truncate block">
+                        {heading}
                     </Link>
+                    {subheading && (
+                        <p className="text-sm text-gray-600 dark:text-gray-300 truncate">{subheading}</p>
+                    )}
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                         {amendmentCount > 0
                             ? <>Devis + {amendmentCount > 1 ? `${amendmentCount} avenants` : 'avenant'} : {formatCurrencyRounded(totalHt || 0)} HT</>
@@ -96,6 +102,11 @@ const WorksiteCard = ({ worksite, hourlyRate }) => {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+const TABS = [
+    { id: 'rentabilite', label: 'Rentabilité par chantier', icon: TrendingUp },
+    { id: 'feuille', label: "Feuille d'heures", icon: CalendarDays },
+];
+
 const QUICK_HOURS = [
     { label: '1 h', value: '1' },
     { label: '2 h', value: '2' },
@@ -113,6 +124,16 @@ const TimeTracking = () => {
     const [weekStart, setWeekStart] = useState(() => startOfWeek());
     const [deletingId, setDeletingId] = useState(null);
     const { invalidateTimeTracking } = useInvalidateCache();
+
+    // Onglet dans l'URL (?tab=feuille) : le lien « feuille d'heures » du
+    // pointeur ouvre directement le bon onglet.
+    const [searchParams, setSearchParams] = useSearchParams();
+    const tab = TABS.some(t => t.id === searchParams.get('tab')) ? searchParams.get('tab') : 'rentabilite';
+    const setTab = (id) => setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', id);
+        return next;
+    }, { replace: true });
 
     // Formulaire de saisie manuelle — sert aussi à modifier un pointage existant
     const [showForm, setShowForm] = useState(false);
@@ -355,209 +376,210 @@ const TimeTracking = () => {
 
             <TimeClockWidget onSaved={fetchAll} />
 
+            <SegmentedControl options={TABS} value={tab} onChange={setTab} />
+
             {/* ── Rentabilité par chantier ── */}
-            <section>
-                <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-5 h-5 text-blue-600" />
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">Rentabilité par chantier</h2>
-                </div>
-                {worksites.length === 0 ? (
-                    <EmptyState
-                        icon={Hammer}
-                        title="Aucun chantier en cours"
-                        description="Dès qu'un devis est accepté, il apparaît ici avec ses heures prévues vs pointées."
-                    />
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {worksites.map(w => (
-                            <WorksiteCard key={w.quote.id} worksite={w} hourlyRate={hourlyRate} />
-                        ))}
-                    </div>
-                )}
-                {hourlyRate === 0 && worksites.length > 0 && (
-                    <DismissibleHelp storageKey="timetracking_hourly_rate_tip">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 pr-8">
-                            💡 Renseignez votre taux horaire dans <Link to="/app/settings?tab=application" className="underline">Réglages › Application</Link> (Tarifs, zones de déplacement et IA)
-                            pour valoriser les dépassements en euros.
-                        </p>
-                    </DismissibleHelp>
-                )}
-            </section>
-
-            {/* ── Feuille d'heures ── */}
-            <section>
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">Feuille d'heures</h2>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => shiftWeek(-1)}
-                            className="tap-target p-2.5 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-                            aria-label="Semaine précédente"
-                        >
-                            <ChevronLeft className="w-5 h-5" />
-                        </button>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 tabular-nums">
-                            {formatDayDate(days[0])} – {formatDayDate(weekEnd)}
-                        </span>
-                        <button
-                            onClick={() => shiftWeek(1)}
-                            className="tap-target p-2.5 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-                            aria-label="Semaine suivante"
-                        >
-                            <ChevronRight className="w-5 h-5" />
-                        </button>
-                        <button
-                            onClick={handleExport}
-                            disabled={entries.length === 0}
-                            className="tap-target flex items-center gap-1.5 text-sm font-medium px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40"
-                        >
-                            <Download className="w-4 h-4" /> CSV
-                        </button>
-                    </div>
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl divide-y divide-gray-100 dark:divide-gray-700">
-                    {days.map((day, i) => {
-                        const dayEntries = entriesByDay[day];
-                        const dayTotal = dayEntries.reduce((acc, e) => acc + (Number(e.hours_spent) || 0), 0);
-                        return (
-                            <div key={day} className="px-5 py-3">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                        {DAY_LABELS[i]} <span className="text-gray-400 font-normal">{formatDayDate(day)}</span>
-                                    </p>
-                                    <p className={`text-sm font-bold tabular-nums ${dayTotal > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}>
-                                        {formatHours(dayTotal)}
-                                    </p>
-                                </div>
-                                {dayEntries.length > 0 && (
-                                    <ul className="mt-2 space-y-1.5">
-                                        {dayEntries.map(e => (
-                                            <li
-                                                key={e.id}
-                                                className={`flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 rounded-lg ${
-                                                    editingId === e.id ? 'bg-blue-50 dark:bg-blue-900/30 -mx-2 px-2 py-1' : ''
-                                                }`}
-                                            >
-                                                <span className="font-medium tabular-nums w-14 flex-shrink-0">{formatHours(Number(e.hours_spent) || 0)}</span>
-                                                <span className="truncate flex-1">
-                                                    {e.quote_id != null
-                                                        ? (quoteLabels[e.quote_id] || `Devis #${e.quote_id}`)
-                                                        : 'Sans chantier'}
-                                                    {e.notes ? <span className="text-gray-400"> · {e.notes}</span> : null}
-                                                </span>
-                                                <button
-                                                    onClick={() => openEditForm(e)}
-                                                    className="w-11 h-11 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0"
-                                                    aria-label="Modifier ce pointage"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(e)}
-                                                    disabled={deletingId === e.id}
-                                                    className="w-11 h-11 flex items-center justify-center rounded-lg text-red-400 dark:text-red-400/80 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
-                                                    aria-label="Supprimer ce pointage"
-                                                >
-                                                    {deletingId === e.id
-                                                        ? <Loader2 className="w-5 h-5 animate-spin" />
-                                                        : <Trash2 className="w-5 h-5" />}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
-                        );
-                    })}
-                    <div className="px-5 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-900/40 rounded-b-2xl">
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">Total semaine</p>
-                        <p className="text-sm font-extrabold text-gray-900 dark:text-white tabular-nums">{formatHours(weekTotal)}</p>
-                    </div>
-                </div>
-
-                {/* Saisie manuelle / modification d'un pointage */}
-                {showForm ? (
-                    <form ref={formRef} onSubmit={handleSubmitEntry} className="mt-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        <p className="sm:col-span-2 lg:col-span-4 text-sm font-bold text-gray-900 dark:text-white">
-                            {editingId ? 'Modifier le pointage' : 'Ajouter des heures'}
-                        </p>
-                        <div>
-                            <label htmlFor="tt-date" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Date</label>
-                            <input
-                                id="tt-date" type="date" required value={formDate}
-                                onChange={(e) => setFormDate(e.target.value)}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="tt-hours" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Heures</label>
-                            <input
-                                id="tt-hours" type="text" inputMode="decimal" required placeholder="Ex : 3,5 ou 3h30"
-                                value={formHours} onChange={(e) => setFormHours(e.target.value)}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
-                            />
-                        </div>
-                        <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap gap-2 -mt-1" role="group" aria-label="Durées rapides">
-                            {QUICK_HOURS.map(q => (
-                                <button
-                                    key={q.value} type="button" onClick={() => setFormHours(q.value)}
-                                    className={`tap-target min-h-[44px] px-4 rounded-full border text-sm font-medium ${
-                                        formHours === q.value
-                                            ? 'bg-blue-600 border-blue-600 text-white'
-                                            : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                    }`}
-                                >
-                                    {q.label}
-                                </button>
+            {tab === 'rentabilite' && (
+                <section>
+                    {worksites.length === 0 ? (
+                        <EmptyState
+                            icon={Hammer}
+                            title="Aucun chantier en cours"
+                            description="Dès qu'un devis est accepté, il apparaît ici avec ses heures prévues vs pointées."
+                        />
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {worksites.map(w => (
+                                <WorksiteCard key={w.quote.id} worksite={w} hourlyRate={hourlyRate} />
                             ))}
                         </div>
-                        <div>
-                            <label htmlFor="tt-quote" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Chantier</label>
-                            <select
-                                id="tt-quote" value={formQuoteId}
-                                onChange={(e) => setFormQuoteId(e.target.value)}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
+                    )}
+                    {hourlyRate === 0 && worksites.length > 0 && (
+                        <DismissibleHelp storageKey="timetracking_hourly_rate_tip">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 pr-8">
+                                💡 Renseignez votre taux horaire dans <Link to="/app/settings?tab=application" className="underline">Réglages › Application</Link> (Tarifs, zones de déplacement et IA)
+                                pour valoriser les dépassements en euros.
+                            </p>
+                        </DismissibleHelp>
+                    )}
+                </section>
+            )}
+
+            {/* ── Feuille d'heures ── */}
+            {tab === 'feuille' && (
+                <section>
+                    <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => shiftWeek(-1)}
+                                className="tap-target p-2.5 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                aria-label="Semaine précédente"
                             >
-                                <option value="">Sans chantier</option>
-                                {quoteOptions.map(o => (
-                                    <option key={o.id} value={o.id}>{o.label}</option>
+                                <ChevronLeft className="w-5 h-5" />
+                            </button>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 tabular-nums">
+                                {formatDayDate(days[0])} – {formatDayDate(weekEnd)}
+                            </span>
+                            <button
+                                onClick={() => shiftWeek(1)}
+                                className="tap-target p-2.5 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                aria-label="Semaine suivante"
+                            >
+                                <ChevronRight className="w-5 h-5" />
+                            </button>
+                            <button
+                                onClick={handleExport}
+                                disabled={entries.length === 0}
+                                className="tap-target flex items-center gap-1.5 text-sm font-medium px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40"
+                            >
+                                <Download className="w-4 h-4" /> CSV
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl divide-y divide-gray-100 dark:divide-gray-700">
+                        {days.map((day, i) => {
+                            const dayEntries = entriesByDay[day];
+                            const dayTotal = dayEntries.reduce((acc, e) => acc + (Number(e.hours_spent) || 0), 0);
+                            return (
+                                <div key={day} className="px-5 py-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                            {DAY_LABELS[i]} <span className="text-gray-400 font-normal">{formatDayDate(day)}</span>
+                                        </p>
+                                        <p className={`text-sm font-bold tabular-nums ${dayTotal > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}>
+                                            {formatHours(dayTotal)}
+                                        </p>
+                                    </div>
+                                    {dayEntries.length > 0 && (
+                                        <ul className="mt-2 space-y-1.5">
+                                            {dayEntries.map(e => (
+                                                <li
+                                                    key={e.id}
+                                                    className={`flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 rounded-lg ${
+                                                        editingId === e.id ? 'bg-blue-50 dark:bg-blue-900/30 -mx-2 px-2 py-1' : ''
+                                                    }`}
+                                                >
+                                                    <span className="font-medium tabular-nums w-14 flex-shrink-0">{formatHours(Number(e.hours_spent) || 0)}</span>
+                                                    <span className="truncate flex-1">
+                                                        {e.quote_id != null
+                                                            ? (quoteLabels[e.quote_id] || `Devis #${e.quote_id}`)
+                                                            : 'Sans chantier'}
+                                                        {e.notes ? <span className="text-gray-400"> · {e.notes}</span> : null}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => openEditForm(e)}
+                                                        className="w-11 h-11 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex-shrink-0"
+                                                        aria-label="Modifier ce pointage"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(e)}
+                                                        disabled={deletingId === e.id}
+                                                        className="w-11 h-11 flex items-center justify-center rounded-lg text-red-400 dark:text-red-400/80 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
+                                                        aria-label="Supprimer ce pointage"
+                                                    >
+                                                        {deletingId === e.id
+                                                            ? <Loader2 className="w-5 h-5 animate-spin" />
+                                                            : <Trash2 className="w-5 h-5" />}
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            );
+                        })}
+                        <div className="px-5 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-900/40 rounded-b-2xl">
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">Total semaine</p>
+                            <p className="text-sm font-extrabold text-gray-900 dark:text-white tabular-nums">{formatHours(weekTotal)}</p>
+                        </div>
+                    </div>
+
+                    {/* Saisie manuelle / modification d'un pointage */}
+                    {showForm ? (
+                        <form ref={formRef} onSubmit={handleSubmitEntry} className="mt-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <p className="sm:col-span-2 lg:col-span-4 text-sm font-bold text-gray-900 dark:text-white">
+                                {editingId ? 'Modifier le pointage' : 'Ajouter des heures'}
+                            </p>
+                            <div>
+                                <label htmlFor="tt-date" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Date</label>
+                                <input
+                                    id="tt-date" type="date" required value={formDate}
+                                    onChange={(e) => setFormDate(e.target.value)}
+                                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="tt-hours" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Heures</label>
+                                <input
+                                    id="tt-hours" type="text" inputMode="decimal" required placeholder="Ex : 3,5 ou 3h30"
+                                    value={formHours} onChange={(e) => setFormHours(e.target.value)}
+                                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
+                                />
+                            </div>
+                            <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap gap-2 -mt-1" role="group" aria-label="Durées rapides">
+                                {QUICK_HOURS.map(q => (
+                                    <button
+                                        key={q.value} type="button" onClick={() => setFormHours(q.value)}
+                                        className={`tap-target min-h-[44px] px-4 rounded-full border text-sm font-medium ${
+                                            formHours === q.value
+                                                ? 'bg-blue-600 border-blue-600 text-white'
+                                                : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                        }`}
+                                    >
+                                        {q.label}
+                                    </button>
                                 ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label htmlFor="tt-note" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Note (optionnel)</label>
-                            <input
-                                id="tt-note" type="text" placeholder="Ex : pose faïence"
-                                value={formNote} onChange={(e) => setFormNote(e.target.value)}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
-                            />
-                        </div>
-                        <div className="sm:col-span-2 lg:col-span-4 flex gap-2 sm:justify-end">
-                            <button
-                                type="button" onClick={closeForm}
-                                className="flex-1 sm:flex-none min-h-[48px] px-4 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700"
-                            >
-                                Annuler
-                            </button>
-                            <button
-                                type="submit" disabled={submitting}
-                                className="flex-1 sm:flex-none min-h-[48px] justify-center flex items-center gap-2 bg-blue-600 text-white text-sm font-bold px-5 rounded-xl hover:bg-blue-700 disabled:opacity-60"
-                            >
-                                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                                {editingId ? 'Enregistrer' : 'Ajouter'}
-                            </button>
-                        </div>
-                    </form>
-                ) : (
-                    <button
-                        onClick={openAddForm}
-                        className="mt-4 w-full sm:w-auto min-h-[48px] justify-center flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 border border-blue-200 dark:border-blue-900 rounded-xl px-4"
-                    >
-                        <Plus className="w-4 h-4" /> Ajouter des heures manuellement
-                    </button>
-                )}
-            </section>
+                            </div>
+                            <div>
+                                <label htmlFor="tt-quote" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Chantier</label>
+                                <select
+                                    id="tt-quote" value={formQuoteId}
+                                    onChange={(e) => setFormQuoteId(e.target.value)}
+                                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
+                                >
+                                    <option value="">Sans chantier</option>
+                                    {quoteOptions.map(o => (
+                                        <option key={o.id} value={o.id}>{o.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label htmlFor="tt-note" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Note (optionnel)</label>
+                                <input
+                                    id="tt-note" type="text" placeholder="Ex : pose faïence"
+                                    value={formNote} onChange={(e) => setFormNote(e.target.value)}
+                                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
+                                />
+                            </div>
+                            <div className="sm:col-span-2 lg:col-span-4 flex gap-2 sm:justify-end">
+                                <button
+                                    type="button" onClick={closeForm}
+                                    className="flex-1 sm:flex-none min-h-[48px] px-4 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    type="submit" disabled={submitting}
+                                    className="flex-1 sm:flex-none min-h-[48px] justify-center flex items-center gap-2 bg-blue-600 text-white text-sm font-bold px-5 rounded-xl hover:bg-blue-700 disabled:opacity-60"
+                                >
+                                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    {editingId ? 'Enregistrer' : 'Ajouter'}
+                                </button>
+                            </div>
+                        </form>
+                    ) : (
+                        <button
+                            onClick={openAddForm}
+                            className="mt-4 w-full sm:w-auto min-h-[48px] justify-center flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 border border-blue-200 dark:border-blue-900 rounded-xl px-4"
+                        >
+                            <Plus className="w-4 h-4" /> Ajouter des heures manuellement
+                        </button>
+                    )}
+                </section>
+            )}
         </div>
     );
 };

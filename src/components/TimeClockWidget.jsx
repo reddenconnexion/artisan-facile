@@ -223,7 +223,7 @@ const TimeClockWidget = ({ compact = false, onSaved }) => {
             {!compact && worksites.length === 0 && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
                     Aucun devis accepté en cours — les heures seront pointées sans chantier.
-                    Vous pourrez les retrouver dans votre <Link to="/app/heures" className="underline">feuille d'heures</Link>.
+                    Vous pourrez les retrouver dans votre <Link to="/app/heures?tab=feuille" className="underline">feuille d'heures</Link>.
                 </p>
             )}
         </div>
