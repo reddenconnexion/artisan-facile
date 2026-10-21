@@ -789,7 +789,28 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
             // elles rejoignent son dossier photo en « avant travaux », sans
             // second téléversement — la même image, une entrée de plus.
             if (clientId) {
-                const fresh = uploaded.filter(p => !linkedPhotoPathsRef.current.has(p.path));
+                let fresh = uploaded.filter(p => !linkedPhotoPathsRef.current.has(p.path));
+                // La mémoire de ce qui est déjà versé ne survit pas à une
+                // reprise (autre appareil, onglet rouvert) : sans ce contrôle
+                // en base, toute la visite repartait en double dans le dossier.
+                if (fresh.length) {
+                    const { data: linked, error: linkedErr } = await supabase
+                        .from('project_photos')
+                        .select('photo_url')
+                        .eq('user_id', user.id)
+                        .eq('client_id', clientId)
+                        .in('photo_url', fresh.map(p => p.url));
+                    if (linkedErr) {
+                        // Dans le doute on ne verse rien : la sauvegarde
+                        // suivante réessaiera, la visite elle-même part.
+                        console.error('Dossier photo du client illisible :', linkedErr);
+                        fresh = [];
+                    } else {
+                        const linkedUrls = new Set((linked || []).map(r => r.photo_url));
+                        fresh.filter(p => linkedUrls.has(p.url)).forEach(p => linkedPhotoPathsRef.current.add(p.path));
+                        fresh = fresh.filter(p => !linkedUrls.has(p.url));
+                    }
+                }
                 if (fresh.length) {
                     const zonesByPhotoId = photoZones(capture);
                     const zoneByPhotoPath = Object.fromEntries(
