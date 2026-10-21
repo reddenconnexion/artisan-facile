@@ -9,6 +9,8 @@ import { LEGACY_TRADE_KEY_MAP } from './trades';
 //                     [{key, label, fields: [{key, label, type, …}]}]
 //                     type = 'chips' (options, multi) | 'text' | 'number'
 // - zonePresets     : noms de pièces proposés en un tap
+// - dictationTopics : postes dictés hors pièce (contexte, tableau…) — ils
+//                     rattachent une dictée sans créer de pièce au relevé
 // - zoneCounters    : compteurs par pièce [{key, label, short}] — steppers de
 //                     la trame et gros boutons du mode express (`short`)
 // - zoneExtraFields : champs texte par pièce [{key, label, placeholder}]
@@ -54,6 +56,7 @@ export const SURVEY_TEMPLATES = {
             },
         ],
         zonePresets: ['Cuisine', 'Séjour', 'Chambre', 'Salle de bain', 'WC', 'Couloir', 'Entrée', 'Garage', 'Extérieur'],
+        dictationTopics: ['Général'],
         zoneCounters: [],
         zoneExtraFields: [
             { key: 'divers', label: 'À relever dans cette pièce', placeholder: 'Constats, mesures, travaux à prévoir…' },
@@ -128,6 +131,7 @@ export const SURVEY_TEMPLATES = {
             },
         ],
         zonePresets: ['Cuisine', 'Séjour', 'Chambre', 'Salle de bain', 'WC', 'Couloir', 'Entrée', 'Bureau', 'Buanderie', 'Garage', 'Combles', 'Extérieur'],
+        dictationTopics: ['Général', 'Tableau électrique'],
         zoneCounters: [
             { key: 'prises', label: 'Prises 2P+T', short: 'Prise' },
             { key: 'interrupteurs', label: 'Interrupteurs / va-et-vient', short: 'Inter' },

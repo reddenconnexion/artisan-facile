@@ -5,13 +5,18 @@
 /**
  * Notes vocales transcrites, dans l'ordre de la visite, avec la pièce où le
  * micro s'est ouvert. Les notes sans texte (pas encore transcrites, ou
- * muettes) sont omises.
- * @param {{id: string, zone?: string}[]} voiceNotes
+ * muettes) sont omises. Une dictée (l'artisan décrit lui-même une pièce)
+ * garde `kind: 'dictation'` : elle fait foi face à la conversation.
+ * @param {{id: string, zone?: string, kind?: string}[]} voiceNotes
  * @param {Record<string, string>} transcripts - { [idNote]: texte }
- * @returns {{zone: string, text: string}[]}
+ * @returns {{zone: string, text: string, kind?: 'dictation'}[]}
  */
 export const zonedTranscripts = (voiceNotes = [], transcripts = {}) => (voiceNotes || [])
-    .map((n) => ({ zone: n?.zone || '', text: String(transcripts?.[n?.id] ?? '').trim() }))
+    .map((n) => ({
+        zone: n?.zone || '',
+        text: String(transcripts?.[n?.id] ?? '').trim(),
+        ...(n?.kind === 'dictation' ? { kind: 'dictation' } : {}),
+    }))
     .filter((n) => n.text);
 
 /**
@@ -55,8 +60,8 @@ export const untranscribedLine = (notes = []) => {
         + (details.length ? ` — ${details.join(' ; ')}` : '');
 };
 
-/** « [Cuisine] texte » — forme texte d'une note rattachée à sa pièce. */
-export const zonedLine = ({ zone, text }) => `${zone ? `[${zone}] ` : ''}${text}`;
+/** « [Cuisine] texte » — forme texte d'une note rattachée à sa pièce (« Dictée : » pour une dictée). */
+export const zonedLine = ({ zone, text, kind }) => `${zone ? `[${zone}] ` : ''}${kind === 'dictation' ? 'Dictée : ' : ''}${text}`;
 
 /** Ne garde que les constats des photos encore présentes dans la visite. */
 export const keepPhotoNotes = (notesById = {}, photos = []) => {

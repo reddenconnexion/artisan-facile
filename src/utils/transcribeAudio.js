@@ -59,6 +59,7 @@ const isRetryable = ({ status, network }) => Boolean(network) || status === unde
  * @param {object} [options]
  * @param {number} [options.retries=1] - tentatives supplémentaires sur échec transitoire
  * @param {string} [options.memoId] - id `voice_memos` déjà persisté, pour que le serveur y reporte le statut
+ * @param {'dictation'} [options.kind] - dictée de l'artisan : le serveur adapte sa consigne
  * @param {(body: object) => Promise<{data: any, error: any}>} [options.invoke]
  * @param {(ms: number) => Promise<void>} [options.wait]
  * @returns {Promise<{ transcript: string, empty: boolean }>}
@@ -66,6 +67,7 @@ const isRetryable = ({ status, network }) => Boolean(network) || status === unde
 export const transcribeBlob = async (blob, mimeType, {
     retries = 1,
     memoId,
+    kind,
     invoke = (body) => supabase.functions.invoke('voice-transcribe', { body }),
     wait = (ms) => new Promise((r) => setTimeout(r, ms)),
 } = {}) => {
@@ -85,7 +87,7 @@ export const transcribeBlob = async (blob, mimeType, {
         if (attempt > 0) await wait(1500 * attempt);
         let result;
         try {
-            result = await invoke({ audioBase64, mimeType, ...(memoId ? { memoId } : {}) });
+            result = await invoke({ audioBase64, mimeType, ...(memoId ? { memoId } : {}), ...(kind ? { kind } : {}) });
         } catch (err) {
             result = { data: null, error: err };
         }

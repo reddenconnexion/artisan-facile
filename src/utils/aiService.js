@@ -511,10 +511,27 @@ const visitNotesBlock = (notes) => (Array.isArray(notes) ? notes : [])
     .filter(Boolean)
     .join('\n');
 
+const isDictation = (note) => Boolean(note && typeof note === 'object' && note.kind === 'dictation');
+
+/**
+ * Notes vocales en deux blocs : les dictées de l'artisan, qui font foi, puis
+ * la conversation enregistrée en continu, à trier.
+ */
+const voiceBlocks = (notes, conversationHeader) => {
+    const list = Array.isArray(notes) ? notes : [];
+    const dictations = visitNotesBlock(list.filter(isDictation));
+    const conversation = visitNotesBlock(list.filter((n) => !isDictation(n)));
+    return [
+        dictations && `DICTÉES DE L'ARTISAN (pièce par pièce, elles font foi) :\n${dictations}`,
+        conversation && `${conversationHeader}\n${conversation}`,
+    ].filter(Boolean);
+};
+
 const SURVEY_EXTRACTION_RULES = `Tu remplis la fiche de relevé d'une visite avant devis, à la place de l'artisan électricien qui parlait avec son client. Lis la visite comme lui : un collègue de métier qui sait ce qui sert au chiffrage.
 
 TU REÇOIS :
-- la conversation retranscrite (reconnaissance vocale : fautes, mots mal compris, bavardage, deux personnes qui parlent). Entre crochets, la pièce où l'artisan se trouvait quand il parlait ;
+- ses DICTÉES, quand il en a fait : l'artisan décrit lui-même, au calme, une pièce ou un poste (entre crochets). [Général] = le bien, la demande du client, les accès, le délai ; [Tableau électrique] = tableau, comptage, alimentation, terre. Ce sont les sources les plus fiables : chaque quantité et chaque choix dictés se reportent. Une dictée [Général] ou [Tableau électrique] ne crée pas de pièce ;
+- éventuellement la conversation retranscrite (reconnaissance vocale : fautes, mots mal compris, bavardage, deux personnes qui parlent). Entre crochets, la pièce où l'artisan se trouvait quand il parlait. Elle complète les dictées ; en cas de désaccord, la dictée l'emporte ;
 - éventuellement ses notes tapées et les constats lus sur ses photos (entre crochets, la pièce de la photo).
 
 COMMENT LIRE LA CONVERSATION :
@@ -547,7 +564,7 @@ COMMENT REMPLIR :
  * reformulant vers les options de la trame — mais interdit toujours d'inventer
  * une quantité : un champ vide vaut mieux qu'un chiffre faux.
  *
- * @param {Array<string|{zone: string, text: string}>} voiceTranscripts - notes, avec leur pièce si connue
+ * @param {Array<string|{zone: string, text: string, kind?: string}>} voiceTranscripts - notes, avec leur pièce si connue ; `kind: 'dictation'` pour une dictée
  * @param {Array<string|{zone: string, text: string}>} photoAnalyses - constats lus sur les photos
  * @param {object} template - trame du métier (getSurveyTemplate)
  * @param {string} [textNotes]
@@ -557,8 +574,7 @@ COMMENT REMPLIR :
  */
 export const extractSurveyFromVisit = async (voiceTranscripts = [], photoAnalyses = [], template, textNotes = '', options = {}) => {
     const parts = [];
-    const notes = visitNotesBlock(voiceTranscripts);
-    if (notes) parts.push('CONVERSATION DE LA VISITE (retranscrite, peut contenir du bavardage) :\n' + notes);
+    parts.push(...voiceBlocks(voiceTranscripts, 'CONVERSATION DE LA VISITE (retranscrite, peut contenir du bavardage) :'));
     if (String(textNotes ?? '').trim()) parts.push('NOTES TAPÉES PAR L\'ARTISAN :\n' + String(textNotes).trim());
     const photos = (Array.isArray(photoAnalyses) ? photoAnalyses : [])
         .map((p, i) => {
@@ -591,9 +607,10 @@ export const extractSurveyFromVisit = async (voiceTranscripts = [], photoAnalyse
 const DEVIS_BRIEF_PROMPT = `Tu prépares, pour un artisan électricien, le résumé de sa visite avant devis. Ce résumé sera collé tel quel dans l'outil qui rédige ses devis : il doit contenir tout ce qui sert à chiffrer, et rien d'autre. Écris-le comme un collègue électricien qui aurait fait la visite avec lui.
 
 SOURCES :
-1. Le RELEVÉ STRUCTURÉ, relu par l'artisan : il fait foi pour les quantités et les choix. Mais il a pu être pré-rempli automatiquement : quand la conversation le contredit clairement (une réparation comptée comme un point à créer, un nombre qui n'est jamais dit), suis la conversation et signale l'écart dans POINTS À CONFIRMER.
-2. La conversation retranscrite (fautes de reconnaissance vocale, bavardage, deux personnes qui parlent) : entre crochets, la pièce où elle a été dite.
-3. Les notes tapées et les constats lus sur les photos.
+1. Les DICTÉES de l'artisan (entre crochets, la pièce ou le poste : [Général], [Tableau électrique]…) : il y décrit lui-même ce qu'il a vu et ce qu'il faut faire. Elles font foi, au même titre que le relevé.
+2. Le RELEVÉ STRUCTURÉ, relu par l'artisan : il fait foi pour les quantités et les choix. Mais il a pu être pré-rempli automatiquement : quand une dictée ou la conversation le contredit clairement (une réparation comptée comme un point à créer, un nombre qui n'est jamais dit), suis la dictée ou la conversation et signale l'écart dans POINTS À CONFIRMER.
+3. La conversation retranscrite, quand il y en a une (fautes de reconnaissance vocale, bavardage, deux personnes qui parlent) : entre crochets, la pièce où elle a été dite. Elle complète, la dictée l'emporte.
+4. Les notes tapées et les constats lus sur les photos.
 
 RÈGLES :
 - N'invente RIEN : aucune quantité, longueur, calibre ou marque qui ne soit dit, relevé ou visible.
@@ -643,7 +660,7 @@ POINTS À CONFIRMER AVANT CHIFFRAGE
  *
  * @param {object} input
  * @param {string} [input.surveyText] - relevé structuré (buildSurveyText)
- * @param {Array<string|{zone: string, text: string}>} [input.transcripts]
+ * @param {Array<string|{zone: string, text: string, kind?: string}>} [input.transcripts]
  * @param {Array<string|{zone: string, text: string}>} [input.photoAnalyses]
  * @param {string} [input.textNotes]
  * @param {string[]} [input.missing] - points essentiels non relevés
@@ -661,8 +678,7 @@ export const summarizeVisitForQuote = async ({
     ].filter(Boolean).join('\n');
     if (entete) parts.push(entete);
     if (String(surveyText).trim()) parts.push('RELEVÉ STRUCTURÉ :\n' + String(surveyText).trim());
-    const notes = visitNotesBlock(transcripts);
-    if (notes) parts.push('CONVERSATION DE LA VISITE :\n' + notes);
+    parts.push(...voiceBlocks(transcripts, 'CONVERSATION DE LA VISITE :'));
     if (String(textNotes ?? '').trim()) parts.push('NOTES TAPÉES :\n' + String(textNotes).trim());
     const photos = visitNotesBlock(photoAnalyses);
     if (photos) parts.push('CONSTATS SUR LES PHOTOS :\n' + photos);

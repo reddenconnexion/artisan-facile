@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import {
     Mic, Square, Camera, Flag, Undo2, Plus, MapPin, Check, Clock,
-    Sparkles, Radio, AlertTriangle, Loader2, CloudUpload, RefreshCw,
+    Sparkles, Radio, AlertTriangle, Loader2, CloudUpload, RefreshCw, Trash2, MessagesSquare,
 } from 'lucide-react';
 import { formatDuration } from '../utils/siteVisitConfig';
 import { zoneCounters } from '../utils/visitCapture';
 
-// Mode express : l'écran de visite pendant que le client parle.
-// Principe : le micro tourne du début à la fin, l'artisan n'a rien à piloter.
-// Les pastilles (pièce, compteurs, photo, point à voir) sont un bonus pour ce
-// qui ne se dit pas à voix haute — jamais un passage obligé.
+// Mode express : l'écran de visite sur le terrain. Deux façons d'enregistrer :
+// - dictée (par défaut) : l'artisan choisit la pièce ou le poste, dicte ce
+//   qu'il y a à faire, s'arrête ; le texte s'affiche aussitôt pour vérifier.
+//   Courtes et sans bavardage, les dictées se transcrivent bien et font foi ;
+// - conversation entière : le micro tourne du début à la fin pendant que le
+//   client parle, à trier ensuite.
+// Les pastilles (pièce, compteurs, photo, point à voir) complètent ce qui ne
+// se dit pas à voix haute — jamais un passage obligé.
 // Composants présentationnels : la logique vit dans VisiteTechniqueMode et
 // utils/visitCapture.js.
 
@@ -25,7 +29,7 @@ const entryLabel = (entry, template) => {
             const name = counter?.short || counter?.label || entry.counterKey;
             return `${entry.delta > 0 ? '+' : ''}${entry.delta} ${name.toLowerCase()}`;
         }
-        case 'voice': return `Enregistrement — ${formatDuration(Math.round(entry.duration || 0))}`;
+        case 'voice': return `${entry.kind === 'dictation' ? 'Dictée' : 'Enregistrement'} — ${formatDuration(Math.round(entry.duration || 0))}`;
         case 'photo': return 'Photo';
         case 'flag': return 'Point à voir';
         default: return '';
@@ -42,6 +46,30 @@ const ENTRY_STYLES = {
 
 const clock = (at) => new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
+/** Choix de la façon d'enregistrer, tant que le micro est coupé. */
+const CaptureStyleSwitch = ({ value, onChange }) => (
+    <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 rounded-2xl" role="radiogroup" aria-label="Façon d'enregistrer">
+        {[
+            { key: 'dictation', label: 'Dictée par pièce', Icon: Mic },
+            { key: 'continuous', label: 'Conversation entière', Icon: MessagesSquare },
+        ].map(({ key, label, Icon }) => (
+            <button
+                key={key}
+                type="button"
+                role="radio"
+                aria-checked={value === key}
+                onClick={() => onChange?.(key)}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                    value === key ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500'
+                }`}
+            >
+                <Icon className="w-3.5 h-3.5" />
+                {label}
+            </button>
+        ))}
+    </div>
+);
+
 /** Corps de l'écran express : état d'enregistrement, pièces, fil de la visite. */
 const VisiteExpressMode = ({
     template, survey, capture, onZoneChange,
@@ -49,16 +77,21 @@ const VisiteExpressMode = ({
     level = 0, isSilent = false, micId = '', micLabel = '', micInputs = [], onPickMic,
     photos = [], onRetryPhotos, onOpenPhoto,
     voiceNotes = [], transcripts = {}, voiceStatus = {}, onRetryTranscriptions,
+    captureStyle = 'continuous', onCaptureStyleChange, dictationTopics = [], onDeleteVoice,
 }) => {
     const [customOpen, setCustomOpen] = useState(false);
     const [customName, setCustomName] = useState('');
+    const dictating = captureStyle === 'dictation';
 
-    // Pastilles : les pièces déjà relevées d'abord, puis les propositions du métier.
-    const known = (survey.zones || []).map((z) => (z.name || '').trim()).filter(Boolean);
+    // Pastilles : en dictée, les postes hors pièce (général, tableau) d'abord ;
+    // puis les pièces déjà relevées et les propositions du métier.
+    const topics = dictating ? dictationTopics : [];
+    const isTopic = (name) => topics.some((t) => t.toLowerCase() === String(name ?? '').toLowerCase());
+    const known = (survey.zones || []).map((z) => (z.name || '').trim()).filter((n) => n && !isTopic(n));
     const presets = (template.zonePresets || []).filter(
         (p) => !known.some((k) => k.toLowerCase() === p.toLowerCase())
     );
-    const chips = [...known, ...presets];
+    const chips = [...topics, ...known, ...presets];
 
     const pick = (name) => { buzz(); onZoneChange(name); };
 
@@ -82,8 +115,37 @@ const VisiteExpressMode = ({
 
     return (
         <div className="p-3 space-y-3">
+            {!isRecording && <CaptureStyleSwitch value={captureStyle} onChange={onCaptureStyleChange} />}
+
             {/* État de l'enregistrement */}
-            {isRecording ? (
+            {dictating ? (
+                isRecording ? (
+                    <div className="px-4 py-3 bg-red-500 text-white rounded-2xl space-y-1.5">
+                        <div className="flex items-center gap-3">
+                            <span className="relative flex h-3 w-3 flex-shrink-0">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-70" />
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
+                            </span>
+                            <p className="flex-1 min-w-0 font-bold leading-tight truncate">
+                                Dictée — {capture.zone || 'pièce non précisée'}
+                            </p>
+                            <span className="font-mono font-bold tabular-nums text-lg flex-shrink-0">
+                                {formatDuration(elapsed)}
+                            </span>
+                        </div>
+                        <p className="text-xs text-red-100">
+                            Dites : l'existant · ce qu'il faut faire · combien · qui fournit · les contraintes.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-2xl">
+                        <Mic className="w-4 h-4 flex-shrink-0 text-gray-400" />
+                        <p className="flex-1 text-sm font-semibold">
+                            {capture.zone ? `Prêt à dicter : ${capture.zone}` : 'Choisissez la pièce ou le poste, puis « Dicter »'}
+                        </p>
+                    </div>
+                )
+            ) : isRecording ? (
                 <div className="flex items-center gap-3 px-4 py-3 bg-red-500 text-white rounded-2xl">
                     <span className="relative flex h-3 w-3 flex-shrink-0">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-70" />
@@ -152,7 +214,7 @@ const VisiteExpressMode = ({
             {/* Pièce en cours */}
             <div className="flex items-center gap-2 px-3 py-2.5 bg-violet-600 text-white rounded-2xl">
                 <MapPin className="w-4 h-4 flex-shrink-0" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-violet-200">Je suis dans</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-violet-200">{dictating ? 'Pièce / poste' : 'Je suis dans'}</span>
                 <span className="flex-1 text-right font-bold truncate">
                     {capture.zone || 'aucune pièce'}
                 </span>
@@ -168,7 +230,9 @@ const VisiteExpressMode = ({
                         className={`px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
                             (capture.zone || '').toLowerCase() === name.toLowerCase()
                                 ? 'bg-violet-600 text-white'
-                                : 'bg-white border border-gray-200 text-gray-700 active:scale-95'
+                                : isTopic(name)
+                                    ? 'bg-amber-50 border border-amber-200 text-amber-800 active:scale-95'
+                                    : 'bg-white border border-gray-200 text-gray-700 active:scale-95'
                         }`}
                     >
                         {name}
@@ -310,7 +374,15 @@ const VisiteExpressMode = ({
             )}
 
             {/* Le fil de la visite */}
-            {entries.length === 0 ? (
+            {entries.length === 0 && dictating ? (
+                <div className="p-4 bg-white border border-gray-100 rounded-2xl text-sm text-gray-500 space-y-1.5">
+                    <p className="font-semibold text-gray-700">Comment ça marche</p>
+                    <p>1. Faites le tour avec le client : le micro ne tourne que pendant vos dictées.</p>
+                    <p>2. Pour chaque pièce, touchez son nom puis « Dicter » : l'existant, ce qu'il faut faire, les quantités, qui fournit. Arrêtez quand c'est dit.</p>
+                    {topics.length > 0 && <p>3. « {topics.join(' », « ')} » : la demande du client, l'accès, le délai, le tableau et l'alimentation.</p>}
+                    <p>{topics.length > 0 ? 4 : 3}. Le texte s'affiche sous chaque dictée : relisez, supprimez et redictez si c'est faux.</p>
+                </div>
+            ) : entries.length === 0 ? (
                 <div className="p-4 bg-white border border-gray-100 rounded-2xl text-sm text-gray-500 space-y-1.5">
                     <p className="font-semibold text-gray-700">Comment ça marche</p>
                     <p>1. Démarrez la visite : le micro tourne jusqu'au bout.</p>
@@ -324,7 +396,8 @@ const VisiteExpressMode = ({
             ) : (
                 <div className="bg-white border border-gray-100 rounded-2xl divide-y divide-gray-50 overflow-hidden">
                     {entries.map((entry) => (
-                        <div key={entry.id} className="flex items-center gap-2.5 px-3 py-2">
+                        <div key={entry.id} className="px-3 py-2">
+                        <div className="flex items-center gap-2.5">
                             <span className="text-xs text-gray-400 tabular-nums flex items-center gap-1 flex-shrink-0">
                                 <Clock className="w-3 h-3" />
                                 {clock(entry.at)}
@@ -344,6 +417,25 @@ const VisiteExpressMode = ({
                             {entry.type !== 'zone' && (
                                 <span className="text-xs text-gray-400 truncate ml-auto">{entry.zone || '—'}</span>
                             )}
+                            {entry.type === 'voice' && entry.kind === 'dictation' && onDeleteVoice && (
+                                <button
+                                    type="button"
+                                    onClick={() => onDeleteVoice(entry.mediaId)}
+                                    className="p-1 -m-1 text-gray-300 hover:text-red-500 flex-shrink-0"
+                                    aria-label="Supprimer cette dictée"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
+                        {/* Le texte d'une dictée, pour la vérifier sur place. */}
+                        {entry.type === 'voice' && entry.kind === 'dictation' && (
+                            String(transcripts[entry.mediaId] ?? '').trim() ? (
+                                <p className="mt-1 text-sm text-gray-700 leading-snug">{transcripts[entry.mediaId]}</p>
+                            ) : transcripts[entry.mediaId] !== undefined ? (
+                                <p className="mt-1 text-xs text-orange-600">Rien d'audible — redictez.</p>
+                            ) : null
+                        )}
                         </div>
                     ))}
                 </div>
@@ -363,6 +455,8 @@ export const ExpressActionPad = ({
     isRecording,
     isSupported,
     hasCaptured,
+    captureStyle = 'continuous',
+    isTopic = false,
     onStart,
     onStop,
     onCount,
@@ -375,9 +469,11 @@ export const ExpressActionPad = ({
 }) => {
     const photoInputRef = React.useRef(null);
     const counts = zoneCounters(survey, capture.zone);
-    const counters = template.zoneCounters || [];
+    // Un poste dicté (général, tableau) n'a pas de compteurs de pièce.
+    const counters = isTopic ? [] : (template.zoneCounters || []);
+    const dictating = captureStyle === 'dictation';
 
-    if (!isRecording && !hasCaptured) {
+    if (!dictating && !isRecording && !hasCaptured) {
         return (
             <div className="space-y-2">
                 <button
@@ -458,7 +554,40 @@ export const ExpressActionPad = ({
                 </button>
             </div>
 
-            {isRecording ? (
+            {dictating ? (
+                isRecording ? (
+                    <button
+                        type="button"
+                        onClick={() => { buzz(30); onStop(); }}
+                        className="w-full py-4 rounded-2xl bg-gray-900 hover:bg-black text-white font-bold flex items-center justify-center gap-3 transition-colors active:scale-[0.98]"
+                    >
+                        <Square className="w-5 h-5" />
+                        Fin de la dictée
+                    </button>
+                ) : (
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => { buzz(30); onStart(); }}
+                            disabled={!isSupported}
+                            className="flex-1 min-w-0 py-4 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-bold flex items-center justify-center gap-2 transition-colors active:scale-[0.98] disabled:opacity-50"
+                        >
+                            <Mic className="w-5 h-5 flex-shrink-0" />
+                            <span className="truncate">Dicter{capture.zone ? ` — ${capture.zone}` : ''}</span>
+                        </button>
+                        {hasCaptured && (
+                            <button
+                                type="button"
+                                onClick={onFinish}
+                                className="px-4 py-4 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-bold flex items-center justify-center gap-2 transition-colors active:scale-[0.98]"
+                            >
+                                <Sparkles className="w-5 h-5" />
+                                Terminer
+                            </button>
+                        )}
+                    </div>
+                )
+            ) : isRecording ? (
                 <button
                     type="button"
                     onClick={() => { buzz(30); onStop(); }}

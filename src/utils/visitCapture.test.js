@@ -14,6 +14,7 @@ import {
     captureSegments,
     buildTimelineLines,
     captureFlags,
+    removeVoice,
 } from './visitCapture';
 import { createEmptySurvey } from './surveyText';
 import { SURVEY_TEMPLATES } from '../constants/surveyTemplates';
@@ -172,5 +173,29 @@ describe('déroulé de la visite', () => {
 
     it('liste les points signalés', () => {
         expect(captureFlags(walk())).toHaveLength(1);
+    });
+});
+
+describe('dictées', () => {
+    const ELEC_TEMPLATE = SURVEY_TEMPLATES.electricien;
+
+    it('marque la dictée dans le fil et le compte rendu', () => {
+        let c = addZoneChange(createCapture(), 'Cuisine', 1000);
+        c = addVoice(c, { mediaId: 'd1', duration: 20, at: 2000, kind: 'dictation' });
+        c = addVoice(c, { mediaId: 's1', duration: 60, at: 3000 });
+        expect(c.entries[1]).toMatchObject({ type: 'voice', mediaId: 'd1', kind: 'dictation', zone: 'Cuisine' });
+        expect(c.entries[2].kind).toBeUndefined();
+        const lines = buildTimelineLines(c, { template: ELEC_TEMPLATE, transcripts: { d1: '3 prises plan de travail', s1: 'bonjour' } });
+        expect(lines).toContain('- Dictée : « 3 prises plan de travail »');
+        expect(lines).toContain('- Note vocale : « bonjour »');
+    });
+
+    it('retire une dictée refaite sans toucher au reste du fil', () => {
+        let c = addZoneChange(createCapture(), 'Cuisine', 1000);
+        c = addVoice(c, { mediaId: 'd1', duration: 20, at: 2000, kind: 'dictation' });
+        c = addPhoto(c, { mediaId: 'p1', at: 3000 });
+        const next = removeVoice(c, 'd1');
+        expect(next.entries.map((e) => e.type)).toEqual(['zone', 'photo']);
+        expect(next.zone).toBe('Cuisine');
     });
 });

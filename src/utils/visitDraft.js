@@ -125,6 +125,7 @@ export const draftVoiceNotes = (voiceNotes = []) => voiceNotes
         zone: n.zone || '',
         duration: n.duration || 0,
         mimeType: n.mimeType || '',
+        ...(n.kind === 'dictation' ? { kind: 'dictation' } : {}),
     }));
 
 /**
@@ -141,6 +142,7 @@ export const restoreDraftVoiceNotes = (list = []) => (Array.isArray(list) ? list
         zone: n.zone || '',
         duration: n.duration || 0,
         mimeType: n.mimeType || 'audio/webm',
+        ...(n.kind === 'dictation' ? { kind: 'dictation' } : {}),
         blob: null,
         restored: true,
     }));
