@@ -16,6 +16,11 @@ import {
     HOURS_PER_DAY,
     chantierHours,
     chantierRootId,
+    normalizeWorkBlock,
+    workBlockLabel,
+    hoursByWorkBlock,
+    hoursGapPercent,
+    setClockWorkBlock,
 } from './timeTracking';
 
 describe('estimatedHoursFromItems', () => {
@@ -245,5 +250,55 @@ describe('chantierHours — devis initial + avenants comptés ensemble', () => {
         expect(h.estimated).toBe(15);
         expect(h.spent).toBe(3);
         expect(h.amendmentCount).toBe(2);
+    });
+});
+
+describe('blocs de travaux', () => {
+    beforeEach(() => localStorage.clear());
+
+    it('normalise les clés de bloc', () => {
+        expect(normalizeWorkBlock('tableau')).toBe('tableau');
+        expect(normalizeWorkBlock('inconnu')).toBeNull();
+        expect(normalizeWorkBlock('')).toBeNull();
+        expect(normalizeWorkBlock(null)).toBeNull();
+        expect(workBlockLabel('hors_pose')).toBe('Hors pose');
+        expect(workBlockLabel(null)).toBe('Non précisé');
+    });
+
+    it('répartit les heures par bloc, dans l\'ordre des blocs, non précisé en dernier', () => {
+        const res = hoursByWorkBlock([
+            { hours_spent: 2, work_block: null },
+            { hours_spent: 3, work_block: 'tableau', reconstructed: true },
+            { hours_spent: '1.5', work_block: 'cables' },
+            { hours_spent: 1, work_block: 'tableau' },
+            { hours_spent: 0, work_block: 'imprevus' },
+            { hours_spent: 1, work_block: 'bizarre' },
+        ]);
+        expect(res.blocks).toEqual([
+            { id: 'cables', label: 'Câbles & cheminements', hours: 1.5 },
+            { id: 'tableau', label: 'Tableau', hours: 4 },
+            { id: null, label: 'Non précisé', hours: 3 },
+        ]);
+        expect(res.total).toBe(8.5);
+        expect(res.reconstructedHours).toBe(3);
+    });
+
+    it('tolère une liste vide ou absente', () => {
+        expect(hoursByWorkBlock(undefined)).toEqual({ blocks: [], total: 0, reconstructedHours: 0 });
+    });
+
+    it('calcule l\'écart pointé / chiffré en %', () => {
+        expect(hoursGapPercent(20, 23)).toBe(15);
+        expect(hoursGapPercent(20, 18)).toBe(-10);
+        expect(hoursGapPercent(0, 5)).toBeNull();
+    });
+
+    it('mémorise le bloc du pointage en cours', () => {
+        expect(setClockWorkBlock('tableau')).toBeNull();
+        startClock({ quoteId: 7, quoteLabel: 'Chantier' });
+        expect(getRunningClock().workBlock).toBeNull();
+        expect(setClockWorkBlock('tableau').workBlock).toBe('tableau');
+        expect(getRunningClock().workBlock).toBe('tableau');
+        expect(setClockWorkBlock('n_importe_quoi').workBlock).toBeNull();
     });
 });

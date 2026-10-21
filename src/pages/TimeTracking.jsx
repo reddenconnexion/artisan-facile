@@ -14,6 +14,7 @@ import { exportToCSV } from '../utils/csvExport';
 import {
     chantierHours, chantierRootId, formatHours, hoursToInput, laborProfitability,
     parseHoursInput, startOfWeek, weekDays, toDateString,
+    WORK_BLOCKS, normalizeWorkBlock, workBlockLabel, hoursByWorkBlock, hoursGapPercent,
 } from '../utils/timeTracking';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { formatCurrencyRounded, formatDate } from '../utils/format';
@@ -36,10 +37,40 @@ const STATUS_STYLES = {
     unknown: { bar: 'bg-gray-300 dark:bg-gray-600', text: 'text-gray-500 dark:text-gray-400', Icon: HelpCircle },
 };
 
+// Répartition des heures pointées d'un chantier par bloc de travaux. Rien
+// n'est affiché tant qu'aucun pointage n'est découpé : un seul « Non précisé »
+// n'apprend rien.
+const WorkBlockBreakdown = ({ entries }) => {
+    const { blocks, total, reconstructedHours } = hoursByWorkBlock(entries);
+    if (total <= 0 || blocks.every(b => b.id === null)) return null;
+    return (
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Par bloc de travaux</p>
+            <ul className="space-y-1">
+                {blocks.map(b => (
+                    <li key={b.id ?? 'none'} className="flex items-center gap-2 text-xs">
+                        <span className={`flex-1 truncate ${b.id ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {b.label}
+                        </span>
+                        <span className="tabular-nums font-medium text-gray-900 dark:text-white">{formatHours(b.hours)}</span>
+                        <span className="tabular-nums w-9 text-right text-gray-400">{Math.round((b.hours / total) * 100)}%</span>
+                    </li>
+                ))}
+            </ul>
+            {reconstructedHours > 0 && (
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">
+                    dont {formatHours(reconstructedHours)} reconstituées de mémoire
+                </p>
+            )}
+        </div>
+    );
+};
+
 const WorksiteCard = ({ worksite, hourlyRate }) => {
-    const { estimated, spent, quote, totalHt, amendmentCount } = worksite;
+    const { estimated, spent, quote, totalHt, amendmentCount, entries } = worksite;
     const { progress, overrunHours, overrunCost, status } = laborProfitability(estimated, spent, hourlyRate);
     const { bar, text, Icon } = STATUS_STYLES[status];
+    const gap = spent > 0 ? hoursGapPercent(estimated, spent) : null;
     // Le client en titre : c'est par lui qu'on reconnaît un chantier. L'intitulé
     // du devis passe en dessous.
     const heading = quote.client_name || quote.title || `Devis #${quote.id}`;
@@ -70,6 +101,11 @@ const WorksiteCard = ({ worksite, hourlyRate }) => {
                 </span>
                 <span className="text-gray-500 dark:text-gray-400">
                     {estimated > 0 ? `${formatHours(estimated)} prévues` : 'pas d\'heures au devis'}
+                    {gap !== null && (
+                        <span className={`ml-1.5 font-semibold tabular-nums ${gap > 0 ? text : 'text-emerald-700 dark:text-emerald-400'}`}>
+                            ({gap > 0 ? '+' : ''}{gap} %)
+                        </span>
+                    )}
                 </span>
             </div>
 
@@ -96,6 +132,8 @@ const WorksiteCard = ({ worksite, hourlyRate }) => {
                     Ajoutez des lignes en heures (unité « h ») à ce devis pour suivre la rentabilité.
                 </p>
             )}
+
+            <WorkBlockBreakdown entries={entries} />
         </div>
     );
 };
@@ -142,6 +180,8 @@ const TimeTracking = () => {
     const [formHours, setFormHours] = useState('');
     const [formQuoteId, setFormQuoteId] = useState('');
     const [formNote, setFormNote] = useState('');
+    const [formBlock, setFormBlock] = useState('');
+    const [formReconstructed, setFormReconstructed] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     const days = useMemo(() => weekDays(weekStart), [weekStart]);
@@ -152,7 +192,7 @@ const TimeTracking = () => {
         try {
             const [entriesRes, quotesRes, trackingRes, profileRes] = await Promise.all([
                 supabase.from('task_tracking')
-                    .select('id, quote_id, hours_spent, date, notes, created_at')
+                    .select('id, quote_id, hours_spent, date, notes, work_block, reconstructed, created_at')
                     .gte('date', days[0])
                     .lte('date', weekEnd)
                     .order('date', { ascending: true })
@@ -163,7 +203,7 @@ const TimeTracking = () => {
                     .neq('type', 'invoice')
                     .order('created_at', { ascending: false })
                     .limit(50),
-                supabase.from('task_tracking').select('quote_id, hours_spent'),
+                supabase.from('task_tracking').select('quote_id, hours_spent, work_block, reconstructed'),
                 supabase.from('profiles')
                     .select('ai_preferences')
                     .eq('id', user.id)
@@ -172,11 +212,14 @@ const TimeTracking = () => {
 
             setEntries(entriesRes.data || []);
 
-            // Heures cumulées par devis (toutes dates confondues)
+            // Heures cumulées par devis (toutes dates confondues), et pointages
+            // par devis pour la répartition par bloc de travaux.
             const spentByQuote = {};
+            const trackingByQuote = {};
             for (const t of trackingRes.data || []) {
                 if (t.quote_id == null) continue;
                 spentByQuote[t.quote_id] = (spentByQuote[t.quote_id] || 0) + (Number(t.hours_spent) || 0);
+                (trackingByQuote[t.quote_id] ||= []).push(t);
             }
 
             // Un avenant signé et son devis initial forment UN chantier : heures
@@ -199,7 +242,10 @@ const TimeTracking = () => {
             const active = rootIds
                 .map(id => roots.get(id))
                 .filter(Boolean)
-                .map(q => ({ quote: q, ...byRoot.get(Number(q.id)) }))
+                .map(q => {
+                    const hours = byRoot.get(Number(q.id));
+                    return { quote: q, ...hours, entries: hours.docIds.flatMap(id => trackingByQuote[id] || []) };
+                })
                 .filter(w => w.quote.work_stage !== 'completed' || w.spent > 0)
                 // Chantiers avec activité d'abord, pour que la page soit utile dès l'arrivée
                 .sort((a, b) => b.spent - a.spent);
@@ -261,6 +307,8 @@ const TimeTracking = () => {
         setEditingId(null);
         setFormHours('');
         setFormNote('');
+        setFormBlock('');
+        setFormReconstructed(false);
     };
 
     const openAddForm = () => {
@@ -271,6 +319,8 @@ const TimeTracking = () => {
         const lastWithQuote = [...entries].reverse().find(e => e.quote_id != null);
         setFormQuoteId(lastWithQuote ? String(lastWithQuote.quote_id) : '');
         setFormNote('');
+        setFormBlock('');
+        setFormReconstructed(false);
         setShowForm(true);
     };
 
@@ -280,6 +330,8 @@ const TimeTracking = () => {
         setFormHours(hoursToInput(entry.hours_spent));
         setFormQuoteId(entry.quote_id != null ? String(entry.quote_id) : '');
         setFormNote(entry.notes || '');
+        setFormBlock(normalizeWorkBlock(entry.work_block) || '');
+        setFormReconstructed(!!entry.reconstructed);
         setShowForm(true);
     };
 
@@ -297,6 +349,8 @@ const TimeTracking = () => {
                 hours_spent: hours,
                 date: formDate,
                 notes: formNote.trim() || null,
+                work_block: normalizeWorkBlock(formBlock),
+                reconstructed: formReconstructed,
             };
             const { error } = editingId
                 ? await supabase.from('task_tracking').update(payload).eq('id', editingId)
@@ -357,6 +411,8 @@ const TimeTracking = () => {
                 { key: 'date', label: 'Date' },
                 { key: (e) => (e.quote_id != null && quoteLabels[e.quote_id]) || (e.quote_id != null ? `Devis #${e.quote_id}` : 'Sans chantier'), label: 'Chantier' },
                 { key: 'hours_spent', label: 'Heures', format: (v) => String(v ?? '').replace('.', ',') },
+                { key: (e) => workBlockLabel(e.work_block), label: 'Bloc de travaux' },
+                { key: (e) => (e.reconstructed ? 'oui' : ''), label: 'Reconstitué' },
                 { key: 'notes', label: 'Notes' },
             ],
             'feuille_heures'
@@ -465,6 +521,12 @@ const TimeTracking = () => {
                                                         {e.quote_id != null
                                                             ? (quoteLabels[e.quote_id] || `Devis #${e.quote_id}`)
                                                             : 'Sans chantier'}
+                                                        {e.work_block && (
+                                                            <span className="text-gray-500 dark:text-gray-400"> · {workBlockLabel(e.work_block)}</span>
+                                                        )}
+                                                        {e.reconstructed && (
+                                                            <span className="text-gray-400 italic"> (reconstitué)</span>
+                                                        )}
                                                         {e.notes ? <span className="text-gray-400"> · {e.notes}</span> : null}
                                                     </span>
                                                     <button
@@ -547,6 +609,19 @@ const TimeTracking = () => {
                                 </select>
                             </div>
                             <div>
+                                <label htmlFor="tt-block" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Bloc de travaux</label>
+                                <select
+                                    id="tt-block" value={formBlock}
+                                    onChange={(e) => setFormBlock(e.target.value)}
+                                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
+                                >
+                                    <option value="">Non précisé</option>
+                                    {WORK_BLOCKS.map(b => (
+                                        <option key={b.id} value={b.id}>{b.hint ? `${b.label} (${b.hint})` : b.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
                                 <label htmlFor="tt-note" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Note (optionnel)</label>
                                 <input
                                     id="tt-note" type="text" placeholder="Ex : pose faïence"
@@ -554,6 +629,19 @@ const TimeTracking = () => {
                                     className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
                                 />
                             </div>
+                            <label className="sm:col-span-2 lg:col-span-4 flex items-start gap-3 min-h-[44px] text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                                <input
+                                    type="checkbox" checked={formReconstructed}
+                                    onChange={(e) => setFormReconstructed(e.target.checked)}
+                                    className="mt-0.5 w-5 h-5 rounded border-gray-300 dark:border-gray-600 flex-shrink-0"
+                                />
+                                <span>
+                                    Reconstitué de mémoire
+                                    <span className="block text-xs text-gray-500 dark:text-gray-400">
+                                        Découpage refait après coup, pas relevé sur le moment : il reste signalé pour ne pas le confondre avec du réel.
+                                    </span>
+                                </span>
+                            </label>
                             <div className="sm:col-span-2 lg:col-span-4 flex gap-2 sm:justify-end">
                                 <button
                                     type="button" onClick={closeForm}

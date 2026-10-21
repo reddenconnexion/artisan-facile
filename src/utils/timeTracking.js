@@ -120,13 +120,29 @@ export const getRunningClock = () => {
 
 /** Démarre un pointage (écrase un éventuel pointage précédent). */
 export const startClock = ({ quoteId = null, quoteLabel = '' } = {}) => {
-    const clock = { startedAt: new Date().toISOString(), quoteId, quoteLabel };
+    const clock = { startedAt: new Date().toISOString(), quoteId, quoteLabel, workBlock: null };
     try {
         localStorage.setItem(CLOCK_STORAGE_KEY, JSON.stringify(clock));
     } catch {
         // localStorage plein ou indisponible : le chrono vivra en mémoire.
     }
     return clock;
+};
+
+/**
+ * Change le bloc de travaux du pointage en cours (tout le pointage lui sera
+ * imputé à l'arrêt). Retourne le pointage mis à jour, ou null s'il n'y en a pas.
+ */
+export const setClockWorkBlock = (workBlock) => {
+    const clock = getRunningClock();
+    if (!clock) return null;
+    const next = { ...clock, workBlock: normalizeWorkBlock(workBlock) };
+    try {
+        localStorage.setItem(CLOCK_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+        // Ignore : le bloc restera celui affiché tant que la page est ouverte.
+    }
+    return next;
 };
 
 /** Arrête le pointage en cours et le retourne (ou null s'il n'y en avait pas). */
@@ -138,6 +154,68 @@ export const stopClock = () => {
         // Ignore : au pire la clé restera et sera écrasée au prochain départ.
     }
     return clock;
+};
+
+// ── Blocs de travaux ─────────────────────────────────────────────────────────
+
+/**
+ * Découpage des heures pointées par nature de travaux. Un total par chantier
+ * dit seulement si l'ensemble a été sous- ou sur-estimé ; ces blocs disent où,
+ * et deviennent au fil des chantiers un barème de temps réels pour chiffrer.
+ * Les clés sont stockées dans `task_tracking.work_block`.
+ */
+export const WORK_BLOCKS = [
+    { id: 'cables', label: 'Câbles & cheminements', hint: 'tirage, goulottes, gaines, saignées' },
+    { id: 'tableau', label: 'Tableau', hint: 'pose, câblage, repérage, essais' },
+    { id: 'appareillage', label: 'Appareillage & luminaires', hint: 'pose, raccordement' },
+    { id: 'imprevus', label: 'Imprévus & reprises', hint: '' },
+    { id: 'hors_pose', label: 'Hors pose', hint: 'achats comptoir, mesures, échanges client' },
+];
+
+const WORK_BLOCK_IDS = WORK_BLOCKS.map(b => b.id);
+
+/** Clé de bloc valide, ou null (pointage non découpé). */
+export const normalizeWorkBlock = (value) =>
+    (WORK_BLOCK_IDS.includes(value) ? value : null);
+
+/** Libellé d'un bloc, ou « Non précisé ». */
+export const workBlockLabel = (value) =>
+    WORK_BLOCKS.find(b => b.id === value)?.label || 'Non précisé';
+
+/**
+ * Répartit des pointages par bloc de travaux.
+ * @param {Array<{hours_spent:number, work_block?:string, reconstructed?:boolean}>} entries
+ * @returns {{ blocks: Array<{id:string|null, label:string, hours:number}>, total:number, reconstructedHours:number }}
+ *   `blocks` suit l'ordre de WORK_BLOCKS (non précisé en dernier) et ne
+ *   contient que les blocs ayant des heures.
+ */
+export const hoursByWorkBlock = (entries) => {
+    const sums = new Map();
+    let total = 0;
+    let reconstructedHours = 0;
+    for (const e of Array.isArray(entries) ? entries : []) {
+        const hours = Number(e?.hours_spent) || 0;
+        if (hours <= 0) continue;
+        const key = normalizeWorkBlock(e.work_block);
+        sums.set(key, (sums.get(key) || 0) + hours);
+        total += hours;
+        if (e.reconstructed) reconstructedHours += hours;
+    }
+    const blocks = [...WORK_BLOCK_IDS, null]
+        .filter(id => sums.has(id))
+        .map(id => ({ id, label: workBlockLabel(id), hours: sums.get(id) }));
+    return { blocks, total, reconstructedHours };
+};
+
+/**
+ * Écart entre heures pointées et heures chiffrées, en % des heures chiffrées :
+ * +15 = 15 % de temps en plus que prévu au devis. null sans heures au devis.
+ */
+export const hoursGapPercent = (estimatedHours, spentHours) => {
+    const est = Number(estimatedHours) || 0;
+    if (est <= 0) return null;
+    const spent = Number(spentHours) || 0;
+    return Math.round(((spent - est) / est) * 100);
 };
 
 // ── Rentabilité chantier ─────────────────────────────────────────────────────
