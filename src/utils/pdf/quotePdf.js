@@ -500,6 +500,11 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
         },
         margin: { left: 14, right: 14 },
         tableWidth: 'auto',
+        // Une ligne ne se coupe pas entre deux pages : coupée, sa fin passait
+        // en haut de la page suivante sans quantité ni montant, et se lisait
+        // comme une ligne à part non chiffrée. Elle passe entière à la page
+        // suivante (seule une ligne plus haute qu'une page reste coupée).
+        rowPageBreak: 'avoid',
     };
     // Bandeau de section (lettré) au-dessus des libellés de colonnes, dans la
     // même couleur que la ligne de libellés
