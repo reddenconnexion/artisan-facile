@@ -16,7 +16,8 @@ import { useConfirm } from '../context/ConfirmContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { useBurstCamera } from '../hooks/useBurstCamera';
 import { normalizeQuarterTurn, rotationPreviewStyle } from '../utils/imageRotation';
-import { rotateSavedPhoto } from '../utils/rotateSavedPhoto';
+import { rotateSavedPhoto, rotationErrorMessage } from '../utils/rotateSavedPhoto';
+import { removePhotoFileIfUnused } from '../utils/photoFileCleanup';
 
 // Ordre et libellés des colonnes de classement des photos de chantier.
 // Sert à déplacer une photo d'une colonne à l'autre (Avant → Pendant → Après).
@@ -692,7 +693,7 @@ const ProjectPhotos = ({ clientId }) => {
             toast.success('Photo redressée', { id: toastId });
         } catch (error) {
             console.error('Error rotating photo:', error);
-            toast.error(error?.message?.startsWith('Espace de stockage plein') ? error.message : 'Impossible de pivoter la photo', { id: toastId });
+            toast.error(rotationErrorMessage(error), { id: toastId, duration: 8000 });
         } finally {
             setSavingRotation(false);
         }
@@ -711,12 +712,9 @@ const ProjectPhotos = ({ clientId }) => {
 
             if (dbError) throw dbError;
 
-            // 2. Delete from Storage (Optional but good practice)
-            // Extract path from URL
-            const path = photoUrl.split('/project-photos/')[1];
-            if (path) {
-                await supabase.storage.from('project-photos').remove([path]);
-            }
+            // 2. Le fichier, seulement si aucune autre entrée ni aucun rapport
+            // ne l'affiche encore (voir photoFileCleanup).
+            await removePhotoFileIfUnused({ userId: user?.id, url: photoUrl });
 
             setPhotos(prev => prev.filter(p => p.id !== photoId));
 

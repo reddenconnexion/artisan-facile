@@ -5,7 +5,7 @@ import { compressImageFile } from '../../utils/mediaConverters';
 import { assertWithinQuota } from '../../utils/storageQuota';
 import { supabase } from '../../utils/supabase';
 import { useBurstCamera } from '../../hooks/useBurstCamera';
-import { rotateSavedPhoto } from '../../utils/rotateSavedPhoto';
+import { rotateSavedPhoto, rotationErrorMessage } from '../../utils/rotateSavedPhoto';
 import { blockIfOffline } from './reportFormUtils';
 
 /**
@@ -157,7 +157,7 @@ export const useReportPhotos = ({
             toast.success('Photo redressée', { id: toastId });
             return true;
         } catch (err) {
-            toast.error(err?.message?.startsWith('Espace de stockage plein') ? err.message : 'Impossible de pivoter la photo', { id: toastId });
+            toast.error(rotationErrorMessage(err), { id: toastId, duration: 8000 });
             return false;
         }
     };

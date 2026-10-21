@@ -14,9 +14,16 @@
 import { supabase } from './supabase';
 import { assertWithinQuota } from './storageQuota';
 import { rotateImageBlob, normalizeQuarterTurn } from './imageRotation';
-import { PHOTO_BUCKET, fetchStoredPhoto, storagePathFromUrl } from './storagePhoto';
+import { PHOTO_BUCKET, PHOTO_MISSING, fetchStoredPhoto, storagePathFromUrl } from './storagePhoto';
 
 const BUCKET = PHOTO_BUCKET;
+
+/** Message à afficher quand la rotation échoue. */
+export const rotationErrorMessage = (err) => {
+    if (err?.code === PHOTO_MISSING) return err.message;
+    if (err?.message?.startsWith('Espace de stockage plein')) return err.message;
+    return 'Impossible de pivoter la photo';
+};
 
 /** Emplacement de la version tournée : même dossier que l'original. */
 export const rotatedPhotoPath = (originalPath, userId, id) => {

@@ -18,7 +18,7 @@ import {
 } from '../utils/affaireSite';
 import { Card } from './ui';
 import PhotoLightbox from './PhotoLightbox';
-import { rotateSavedPhoto } from '../utils/rotateSavedPhoto';
+import { rotateSavedPhoto, rotationErrorMessage } from '../utils/rotateSavedPhoto';
 import QuickPhotoCapture from './QuickPhotoCapture';
 
 const PHOTO_PREVIEW = 8;
@@ -205,7 +205,7 @@ const AffaireTerrain = ({ quote, linkedDocs = [] }) => {
             toast.success('Photo redressée', { id: toastId });
             return true;
         } catch (err) {
-            toast.error(err?.message?.startsWith('Espace de stockage plein') ? err.message : 'Impossible de pivoter la photo', { id: toastId });
+            toast.error(rotationErrorMessage(err), { id: toastId, duration: 8000 });
             return false;
         }
     };
