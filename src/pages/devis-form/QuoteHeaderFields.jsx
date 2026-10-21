@@ -5,6 +5,7 @@ import { Input, Field } from '../../components/ui';
 import QuoteStatusField from './QuoteStatusField';
 import { PAYMENT_METHODS } from '../../constants/paymentMethods';
 import { autoGrow } from './quoteHelpers';
+import { CHANTIER_TYPES } from '../../utils/timeTracking';
 
 /**
  * En-tête du devis : client, titre, objet des travaux, dates, statut,
@@ -141,6 +142,28 @@ const QuoteHeaderFields = ({
                     </Field>
                 )}
             </div>
+            {/* Type de chantier : donnée interne (coefficients correcteurs des
+                heures), jamais affichée au client — modifiable même verrouillé.
+                Un avenant hérite du type de son devis initial. */}
+            {formData.type === 'quote' && (
+                <Field
+                    label="Type de chantier"
+                    htmlFor="devis-chantier-type"
+                    hint="Usage interne, invisible pour le client : sert à calculer vos coefficients d'heures par type de chantier."
+                >
+                    <select
+                        id="devis-chantier-type"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ios focus:border-ios dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                        value={formData.chantier_type || ''}
+                        onChange={(e) => setFormData({ ...formData, chantier_type: e.target.value })}
+                    >
+                        <option value="">Non classé</option>
+                        {CHANTIER_TYPES.map(t => (
+                            <option key={t.id} value={t.id}>{t.label}</option>
+                        ))}
+                    </select>
+                </Field>
+            )}
             <QuoteStatusField
                 followUpSteps={followUpSteps}
                 formData={formData}

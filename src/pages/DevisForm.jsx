@@ -45,6 +45,7 @@ import QuoteSupplyListModal from '../components/QuoteSupplyListModal';
 import QuoteSupplierListModal from '../components/QuoteSupplierListModal';
 import QuoteCsvPasteModal from '../components/QuoteCsvPasteModal';
 import { computeQuoteTotals } from '../utils/quoteTotals';
+import { normalizeChantierType } from '../utils/timeTracking';
 import DepositNextStepCard from '../components/DepositNextStepCard';
 import AffaireLink from './devis-form/AffaireLink';
 import { format } from 'date-fns';
@@ -1126,6 +1127,7 @@ const DevisForm = () => {
                 notes: formData.notes,
                 status: formData.status,
                 urgency: formData.urgency || 'normal',
+                chantier_type: normalizeChantierType(formData.chantier_type),
                 type: formData.type,
                 client_display_mode: formData.client_display_mode || 'detailed',
                 original_pdf_url: formData.original_pdf_url,
