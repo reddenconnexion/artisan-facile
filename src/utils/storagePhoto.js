@@ -25,6 +25,34 @@ export const storagePathFromUrl = (url) => {
     }
 };
 
+export const PHOTO_MISSING = 'PHOTO_MISSING';
+
+/**
+ * Erreur levée quand le fichier n'existe plus dans le bucket. La vignette
+ * peut pourtant encore s'afficher, servie par le cache de l'appli : sans un
+ * message à part, l'artisan réessaie sans comprendre.
+ */
+export const photoMissingError = () => Object.assign(
+    new Error("Le fichier de cette photo n'existe plus sur le serveur (supprimé). Elle reste peut-être visible depuis le cache de l'appareil : enregistrez-la puis ajoutez-la de nouveau."),
+    { code: PHOTO_MISSING },
+);
+
+/**
+ * Le téléchargement a-t-il échoué parce que l'objet n'existe pas ? Le
+ * stockage répond 400 avec `statusCode: "404"` dans le corps.
+ */
+export const isMissingObjectError = async (error) => {
+    const res = error?.originalError;
+    if (res?.status === 404) return true;
+    if (res?.status !== 400 || typeof res.json !== 'function') return false;
+    try {
+        const body = await res.json();
+        return String(body?.statusCode) === '404' || body?.error === 'not_found';
+    } catch {
+        return false;
+    }
+};
+
 /**
  * Octets d'une photo : téléchargement par l'API du stockage quand l'URL est
  * celle du bucket (réservé au propriétaire), sinon — ou en cas de refus — un
@@ -34,14 +62,24 @@ export const storagePathFromUrl = (url) => {
  */
 export const fetchStoredPhoto = async (url) => {
     const path = storagePathFromUrl(url);
+    let missing = false;
     if (path) {
         // Import différé : les générateurs de PDF importent ce module, et le
         // client Supabase exige ses variables d'environnement dès son chargement.
         const { supabase } = await import('./supabase');
         const { data, error } = await supabase.storage.from(PHOTO_BUCKET).download(path);
         if (!error && data) return data;
+        missing = await isMissingObjectError(error);
     }
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Photo inaccessible');
+    // Même pour un fichier disparu, on tente l'URL publique : une copie encore
+    // en cache dans le navigateur suffit à sauver la photo.
+    let res;
+    try {
+        res = await fetch(url);
+    } catch (err) {
+        if (missing) throw photoMissingError();
+        throw err;
+    }
+    if (!res.ok) throw missing ? photoMissingError() : new Error('Photo inaccessible');
     return res.blob();
 };

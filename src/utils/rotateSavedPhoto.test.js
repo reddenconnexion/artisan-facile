@@ -30,3 +30,13 @@ describe('replacePhotoInList', () => {
         expect(replacePhotoInList(null, 'a', { url: 'c', path: 'pc' })).toBeNull();
     });
 });
+
+const { rotationErrorMessage } = await import('./rotateSavedPhoto');
+
+describe('rotationErrorMessage', () => {
+    it('explique un fichier disparu ou un quota plein, reste générique sinon', () => {
+        expect(rotationErrorMessage({ code: 'PHOTO_MISSING', message: 'disparu' })).toBe('disparu');
+        expect(rotationErrorMessage(new Error('Espace de stockage plein (1 Go / 1 Go).'))).toMatch(/^Espace de stockage plein/);
+        expect(rotationErrorMessage(new Error('Failed to fetch'))).toBe('Impossible de pivoter la photo');
+    });
+});
