@@ -120,13 +120,29 @@ export const getRunningClock = () => {
 
 /** Démarre un pointage (écrase un éventuel pointage précédent). */
 export const startClock = ({ quoteId = null, quoteLabel = '' } = {}) => {
-    const clock = { startedAt: new Date().toISOString(), quoteId, quoteLabel };
+    const clock = { startedAt: new Date().toISOString(), quoteId, quoteLabel, workBlock: null };
     try {
         localStorage.setItem(CLOCK_STORAGE_KEY, JSON.stringify(clock));
     } catch {
         // localStorage plein ou indisponible : le chrono vivra en mémoire.
     }
     return clock;
+};
+
+/**
+ * Change le bloc de travaux du pointage en cours (tout le pointage lui sera
+ * imputé à l'arrêt). Retourne le pointage mis à jour, ou null s'il n'y en a pas.
+ */
+export const setClockWorkBlock = (workBlock) => {
+    const clock = getRunningClock();
+    if (!clock) return null;
+    const next = { ...clock, workBlock: normalizeWorkBlock(workBlock) };
+    try {
+        localStorage.setItem(CLOCK_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+        // Ignore : le bloc restera celui affiché tant que la page est ouverte.
+    }
+    return next;
 };
 
 /** Arrête le pointage en cours et le retourne (ou null s'il n'y en avait pas). */
@@ -138,6 +154,127 @@ export const stopClock = () => {
         // Ignore : au pire la clé restera et sera écrasée au prochain départ.
     }
     return clock;
+};
+
+// ── Blocs de travaux ─────────────────────────────────────────────────────────
+
+/**
+ * Découpage des heures pointées par nature de travaux. Un total par chantier
+ * dit seulement si l'ensemble a été sous- ou sur-estimé ; ces blocs disent où,
+ * et deviennent au fil des chantiers un barème de temps réels pour chiffrer.
+ * Les clés sont stockées dans `task_tracking.work_block`.
+ */
+export const WORK_BLOCKS = [
+    { id: 'cables', label: 'Câbles & cheminements', hint: 'tirage, goulottes, gaines, saignées' },
+    { id: 'tableau', label: 'Tableau', hint: 'pose, câblage, repérage, essais' },
+    { id: 'appareillage', label: 'Appareillage & luminaires', hint: 'pose, raccordement' },
+    { id: 'imprevus', label: 'Imprévus & reprises', hint: '' },
+    { id: 'hors_pose', label: 'Hors pose', hint: 'achats comptoir, mesures, échanges client' },
+];
+
+const WORK_BLOCK_IDS = WORK_BLOCKS.map(b => b.id);
+
+/** Clé de bloc valide, ou null (pointage non découpé). */
+export const normalizeWorkBlock = (value) =>
+    (WORK_BLOCK_IDS.includes(value) ? value : null);
+
+/** Libellé d'un bloc, ou « Non précisé ». */
+export const workBlockLabel = (value) =>
+    WORK_BLOCKS.find(b => b.id === value)?.label || 'Non précisé';
+
+/**
+ * Répartit des pointages par bloc de travaux.
+ * @param {Array<{hours_spent:number, work_block?:string, reconstructed?:boolean}>} entries
+ * @returns {{ blocks: Array<{id:string|null, label:string, hours:number}>, total:number, reconstructedHours:number }}
+ *   `blocks` suit l'ordre de WORK_BLOCKS (non précisé en dernier) et ne
+ *   contient que les blocs ayant des heures.
+ */
+export const hoursByWorkBlock = (entries) => {
+    const sums = new Map();
+    let total = 0;
+    let reconstructedHours = 0;
+    for (const e of Array.isArray(entries) ? entries : []) {
+        const hours = Number(e?.hours_spent) || 0;
+        if (hours <= 0) continue;
+        const key = normalizeWorkBlock(e.work_block);
+        sums.set(key, (sums.get(key) || 0) + hours);
+        total += hours;
+        if (e.reconstructed) reconstructedHours += hours;
+    }
+    const blocks = [...WORK_BLOCK_IDS, null]
+        .filter(id => sums.has(id))
+        .map(id => ({ id, label: workBlockLabel(id), hours: sums.get(id) }));
+    return { blocks, total, reconstructedHours };
+};
+
+/**
+ * Écart entre heures pointées et heures chiffrées, en % des heures chiffrées :
+ * +15 = 15 % de temps en plus que prévu au devis. null sans heures au devis.
+ */
+export const hoursGapPercent = (estimatedHours, spentHours) => {
+    const est = Number(estimatedHours) || 0;
+    if (est <= 0) return null;
+    const spent = Number(spentHours) || 0;
+    return Math.round(((spent - est) / est) * 100);
+};
+
+// ── Types de chantier et coefficients correcteurs ────────────────────────────
+
+/** Types de chantier (colonne `quotes.chantier_type` du devis initial). */
+export const CHANTIER_TYPES = [
+    { id: 'neuf', label: 'Neuf' },
+    { id: 'renovation_partielle', label: 'Rénovation partielle' },
+    { id: 'renovation_complete', label: 'Rénovation complète' },
+    { id: 'depannage', label: 'Dépannage' },
+];
+
+const CHANTIER_TYPE_IDS = CHANTIER_TYPES.map(t => t.id);
+
+/** Clé de type valide, ou null (chantier non classé). */
+export const normalizeChantierType = (value) =>
+    (CHANTIER_TYPE_IDS.includes(value) ? value : null);
+
+/** Nombre de chantiers terminés à partir duquel un coefficient est jugé solide. */
+export const MIN_CHANTIERS_FOR_COEFFICIENT = 4;
+
+/**
+ * Coefficient correcteur par type de chantier : heures pointées ÷ heures
+ * chiffrées, cumulées sur les chantiers TERMINÉS du type (un chantier en cours
+ * n'a pas encore toutes ses heures). Les cumuls pondèrent naturellement par
+ * la taille : un gros chantier pèse plus qu'un petit dépannage.
+ * Un chantier sans heures au devis ou sans pointage n'apprend rien : ignoré.
+ *
+ * @param {Array<{chantierType?:string, completed:boolean, estimated:number, spent:number}>} chantiers
+ * @returns {Array<{id:string, label:string, count:number, estimated:number, spent:number, coefficient:number, reliable:boolean}>}
+ *   dans l'ordre de CHANTIER_TYPES, uniquement les types ayant au moins un chantier exploitable.
+ */
+export const correctionCoefficients = (chantiers) => {
+    const sums = new Map();
+    for (const c of Array.isArray(chantiers) ? chantiers : []) {
+        const type = normalizeChantierType(c?.chantierType);
+        const estimated = Number(c?.estimated) || 0;
+        const spent = Number(c?.spent) || 0;
+        if (!type || !c.completed || estimated <= 0 || spent <= 0) continue;
+        const sum = sums.get(type) || { count: 0, estimated: 0, spent: 0 };
+        sum.count += 1;
+        sum.estimated += estimated;
+        sum.spent += spent;
+        sums.set(type, sum);
+    }
+    return CHANTIER_TYPES
+        .filter(t => sums.has(t.id))
+        .map(t => {
+            const { count, estimated, spent } = sums.get(t.id);
+            return {
+                id: t.id,
+                label: t.label,
+                count,
+                estimated,
+                spent,
+                coefficient: Math.round((spent / estimated) * 100) / 100,
+                reliable: count >= MIN_CHANTIERS_FOR_COEFFICIENT,
+            };
+        });
 };
 
 // ── Rentabilité chantier ─────────────────────────────────────────────────────

@@ -14,11 +14,22 @@ import { exportToCSV } from '../utils/csvExport';
 import {
     chantierHours, chantierRootId, formatHours, hoursToInput, laborProfitability,
     parseHoursInput, startOfWeek, weekDays, toDateString,
+    WORK_BLOCKS, normalizeWorkBlock, workBlockLabel, hoursByWorkBlock, hoursGapPercent,
+    CHANTIER_TYPES, normalizeChantierType, correctionCoefficients, MIN_CHANTIERS_FOR_COEFFICIENT,
 } from '../utils/timeTracking';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { formatCurrencyRounded, formatDate } from '../utils/format';
 
-const QUOTE_FIELDS = 'id, title, client_name, total_ht, items, work_stage, type, status, parent_quote_id, amendment_details';
+const QUOTE_FIELDS = 'id, title, client_name, total_ht, items, work_stage, type, status, parent_quote_id, amendment_details, chantier_type';
+
+// Statuts d'un devis signé : ses chantiers comptent pour les coefficients.
+const SIGNED_STATUSES = ['accepted', 'billed', 'paid'];
+
+// Un chantier compte pour les coefficients une fois terminé : avant, toutes
+// ses heures ne sont pas encore pointées.
+const isChantierDone = (q) => q.work_stage === 'completed' || q.status === 'paid';
+
+const formatCoefficient = (c) => `×${c.toFixed(2).replace('.', ',')}`;
 
 const docLabel = (q) => [q.title, q.client_name].filter(Boolean).join(' — ') || `Devis #${q.id}`;
 
@@ -36,10 +47,78 @@ const STATUS_STYLES = {
     unknown: { bar: 'bg-gray-300 dark:bg-gray-600', text: 'text-gray-500 dark:text-gray-400', Icon: HelpCircle },
 };
 
-const WorksiteCard = ({ worksite, hourlyRate }) => {
-    const { estimated, spent, quote, totalHt, amendmentCount } = worksite;
+// Répartition des heures pointées d'un chantier par bloc de travaux. Rien
+// n'est affiché tant qu'aucun pointage n'est découpé : un seul « Non précisé »
+// n'apprend rien.
+const WorkBlockBreakdown = ({ entries }) => {
+    const { blocks, total, reconstructedHours } = hoursByWorkBlock(entries);
+    if (total <= 0 || blocks.every(b => b.id === null)) return null;
+    return (
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Par bloc de travaux</p>
+            <ul className="space-y-1">
+                {blocks.map(b => (
+                    <li key={b.id ?? 'none'} className="flex items-center gap-2 text-xs">
+                        <span className={`flex-1 truncate ${b.id ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500 italic'}`}>
+                            {b.label}
+                        </span>
+                        <span className="tabular-nums font-medium text-gray-900 dark:text-white">{formatHours(b.hours)}</span>
+                        <span className="tabular-nums w-9 text-right text-gray-400">{Math.round((b.hours / total) * 100)}%</span>
+                    </li>
+                ))}
+            </ul>
+            {reconstructedHours > 0 && (
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">
+                    dont {formatHours(reconstructedHours)} reconstituées de mémoire
+                </p>
+            )}
+        </div>
+    );
+};
+
+// Coefficients correcteurs par type de chantier : heures pointées ÷ heures
+// chiffrées sur les chantiers terminés du type.
+const CorrectionCoefficients = ({ coefficients }) => (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 mb-4">
+        <p className="font-bold text-gray-900 dark:text-white">Coefficients correcteurs par type de chantier</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-3">
+            Heures pointées ÷ heures chiffrées sur vos chantiers terminés. Multipliez vos heures de devis par ce coefficient pour chiffrer au plus juste.
+        </p>
+        {coefficients.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+                Indiquez le type de chaque chantier sur sa carte ci-dessous : les coefficients apparaissent dès qu'un chantier classé, avec des heures au devis et des heures pointées, est terminé.
+            </p>
+        ) : (
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                {coefficients.map(c => {
+                    const tone = c.coefficient > 1.05
+                        ? 'text-red-700 dark:text-red-400'
+                        : c.coefficient < 0.95 ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900 dark:text-white';
+                    return (
+                        <li key={c.id} className="py-2 flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">{c.label}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {c.count} chantier{c.count > 1 ? 's' : ''} terminé{c.count > 1 ? 's' : ''} · {formatHours(c.spent)} pointées / {formatHours(c.estimated)} chiffrées
+                                    {!c.reliable && <> · à confirmer (moins de {MIN_CHANTIERS_FOR_COEFFICIENT} chantiers)</>}
+                                </p>
+                            </div>
+                            <span className={`text-lg font-extrabold tabular-nums ${c.reliable ? tone : 'text-gray-400 dark:text-gray-500'}`}>
+                                {formatCoefficient(c.coefficient)}
+                            </span>
+                        </li>
+                    );
+                })}
+            </ul>
+        )}
+    </div>
+);
+
+const WorksiteCard = ({ worksite, hourlyRate, onTypeChange }) => {
+    const { estimated, spent, quote, totalHt, amendmentCount, entries } = worksite;
     const { progress, overrunHours, overrunCost, status } = laborProfitability(estimated, spent, hourlyRate);
     const { bar, text, Icon } = STATUS_STYLES[status];
+    const gap = spent > 0 ? hoursGapPercent(estimated, spent) : null;
     // Le client en titre : c'est par lui qu'on reconnaît un chantier. L'intitulé
     // du devis passe en dessous.
     const heading = quote.client_name || quote.title || `Devis #${quote.id}`;
@@ -70,6 +149,11 @@ const WorksiteCard = ({ worksite, hourlyRate }) => {
                 </span>
                 <span className="text-gray-500 dark:text-gray-400">
                     {estimated > 0 ? `${formatHours(estimated)} prévues` : 'pas d\'heures au devis'}
+                    {gap !== null && (
+                        <span className={`ml-1.5 font-semibold tabular-nums ${gap > 0 ? text : 'text-emerald-700 dark:text-emerald-400'}`}>
+                            ({gap > 0 ? '+' : ''}{gap} %)
+                        </span>
+                    )}
                 </span>
             </div>
 
@@ -96,6 +180,23 @@ const WorksiteCard = ({ worksite, hourlyRate }) => {
                     Ajoutez des lignes en heures (unité « h ») à ce devis pour suivre la rentabilité.
                 </p>
             )}
+
+            <WorkBlockBreakdown entries={entries} />
+
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                <label htmlFor={`tt-type-${quote.id}`} className="sr-only">Type de chantier</label>
+                <select
+                    id={`tt-type-${quote.id}`}
+                    value={normalizeChantierType(quote.chantier_type) || ''}
+                    onChange={(e) => onTypeChange(quote.id, e.target.value)}
+                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-900 dark:text-white"
+                >
+                    <option value="">Type de chantier : non classé</option>
+                    {CHANTIER_TYPES.map(t => (
+                        <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                </select>
+            </div>
         </div>
     );
 };
@@ -121,6 +222,7 @@ const TimeTracking = () => {
     const [worksites, setWorksites] = useState([]);   // devis acceptés + heures cumulées
     const [docLabels, setDocLabels] = useState({}); // id devis/avenant → libellé
     const [hourlyRate, setHourlyRate] = useState(0);
+    const [coefficients, setCoefficients] = useState([]);
     const [weekStart, setWeekStart] = useState(() => startOfWeek());
     const [deletingId, setDeletingId] = useState(null);
     const { invalidateTimeTracking } = useInvalidateCache();
@@ -142,6 +244,8 @@ const TimeTracking = () => {
     const [formHours, setFormHours] = useState('');
     const [formQuoteId, setFormQuoteId] = useState('');
     const [formNote, setFormNote] = useState('');
+    const [formBlock, setFormBlock] = useState('');
+    const [formReconstructed, setFormReconstructed] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     const days = useMemo(() => weekDays(weekStart), [weekStart]);
@@ -150,9 +254,9 @@ const TimeTracking = () => {
     const fetchAll = useCallback(async () => {
         if (!user) return;
         try {
-            const [entriesRes, quotesRes, trackingRes, profileRes] = await Promise.all([
+            const [entriesRes, quotesRes, trackingRes, profileRes, typedRes] = await Promise.all([
                 supabase.from('task_tracking')
-                    .select('id, quote_id, hours_spent, date, notes, created_at')
+                    .select('id, quote_id, hours_spent, date, notes, work_block, reconstructed, created_at')
                     .gte('date', days[0])
                     .lte('date', weekEnd)
                     .order('date', { ascending: true })
@@ -163,20 +267,30 @@ const TimeTracking = () => {
                     .neq('type', 'invoice')
                     .order('created_at', { ascending: false })
                     .limit(50),
-                supabase.from('task_tracking').select('quote_id, hours_spent'),
+                supabase.from('task_tracking').select('quote_id, hours_spent, work_block, reconstructed'),
                 supabase.from('profiles')
                     .select('ai_preferences')
                     .eq('id', user.id)
                     .maybeSingle(),
+                // Chantiers classés par type, tous signés (même facturés ou
+                // payés, hors de la liste ci-dessous) : base des coefficients.
+                supabase.from('quotes')
+                    .select(QUOTE_FIELDS)
+                    .not('chantier_type', 'is', null)
+                    .in('status', SIGNED_STATUSES)
+                    .neq('type', 'invoice'),
             ]);
 
             setEntries(entriesRes.data || []);
 
-            // Heures cumulées par devis (toutes dates confondues)
+            // Heures cumulées par devis (toutes dates confondues), et pointages
+            // par devis pour la répartition par bloc de travaux.
             const spentByQuote = {};
+            const trackingByQuote = {};
             for (const t of trackingRes.data || []) {
                 if (t.quote_id == null) continue;
                 spentByQuote[t.quote_id] = (spentByQuote[t.quote_id] || 0) + (Number(t.hours_spent) || 0);
+                (trackingByQuote[t.quote_id] ||= []).push(t);
             }
 
             // Un avenant signé et son devis initial forment UN chantier : heures
@@ -199,11 +313,31 @@ const TimeTracking = () => {
             const active = rootIds
                 .map(id => roots.get(id))
                 .filter(Boolean)
-                .map(q => ({ quote: q, ...byRoot.get(Number(q.id)) }))
+                .map(q => {
+                    const hours = byRoot.get(Number(q.id));
+                    return { quote: q, ...hours, entries: hours.docIds.flatMap(id => trackingByQuote[id] || []) };
+                })
                 .filter(w => w.quote.work_stage !== 'completed' || w.spent > 0)
                 // Chantiers avec activité d'abord, pour que la page soit utile dès l'arrivée
                 .sort((a, b) => b.spent - a.spent);
             setWorksites(active);
+
+            // Coefficients : heures prévues et pointées de chaque chantier classé,
+            // avenants compris (comptés avec leur devis initial).
+            const typedRoots = (typedRes.data || []).filter(q => chantierRootId(q) === q.id);
+            let typedDocs = typedRoots;
+            if (typedRoots.length > 0) {
+                const { data: typedAmendments } = await supabase.from('quotes')
+                    .select(QUOTE_FIELDS)
+                    .in('parent_quote_id', typedRoots.map(q => q.id));
+                typedDocs = [...typedRoots, ...(typedAmendments || [])];
+            }
+            const typedHours = chantierHours(typedDocs, spentByQuote);
+            setCoefficients(correctionCoefficients(typedRoots.map(q => ({
+                chantierType: q.chantier_type,
+                completed: isChantierDone(q),
+                ...typedHours.get(Number(q.id)),
+            }))));
 
             const rate = parseFloat(profileRes.data?.ai_preferences?.ai_hourly_rate);
             setHourlyRate(Number.isFinite(rate) && rate > 0 ? rate : 0);
@@ -261,6 +395,8 @@ const TimeTracking = () => {
         setEditingId(null);
         setFormHours('');
         setFormNote('');
+        setFormBlock('');
+        setFormReconstructed(false);
     };
 
     const openAddForm = () => {
@@ -271,6 +407,8 @@ const TimeTracking = () => {
         const lastWithQuote = [...entries].reverse().find(e => e.quote_id != null);
         setFormQuoteId(lastWithQuote ? String(lastWithQuote.quote_id) : '');
         setFormNote('');
+        setFormBlock('');
+        setFormReconstructed(false);
         setShowForm(true);
     };
 
@@ -280,6 +418,8 @@ const TimeTracking = () => {
         setFormHours(hoursToInput(entry.hours_spent));
         setFormQuoteId(entry.quote_id != null ? String(entry.quote_id) : '');
         setFormNote(entry.notes || '');
+        setFormBlock(normalizeWorkBlock(entry.work_block) || '');
+        setFormReconstructed(!!entry.reconstructed);
         setShowForm(true);
     };
 
@@ -297,6 +437,8 @@ const TimeTracking = () => {
                 hours_spent: hours,
                 date: formDate,
                 notes: formNote.trim() || null,
+                work_block: normalizeWorkBlock(formBlock),
+                reconstructed: formReconstructed,
             };
             const { error } = editingId
                 ? await supabase.from('task_tracking').update(payload).eq('id', editingId)
@@ -350,6 +492,25 @@ const TimeTracking = () => {
         }
     };
 
+    // Type de chantier : enregistré sur le devis initial, affiché tout de suite,
+    // puis rechargement pour recalculer les coefficients.
+    const handleTypeChange = async (quoteId, value) => {
+        const chantierType = normalizeChantierType(value);
+        const setType = (type) => setWorksites(prev => prev.map(w => (
+            w.quote.id === quoteId ? { ...w, quote: { ...w.quote, chantier_type: type } } : w
+        )));
+        const previous = worksites.find(w => w.quote.id === quoteId)?.quote.chantier_type ?? null;
+        setType(chantierType);
+        const { error } = await supabase.from('quotes').update({ chantier_type: chantierType }).eq('id', quoteId);
+        if (error) {
+            console.error('Erreur type de chantier:', error);
+            setType(previous);
+            toast.error('Impossible d\'enregistrer le type de chantier.');
+            return;
+        }
+        fetchAll();
+    };
+
     const handleExport = () => {
         exportToCSV(
             entries,
@@ -357,6 +518,8 @@ const TimeTracking = () => {
                 { key: 'date', label: 'Date' },
                 { key: (e) => (e.quote_id != null && quoteLabels[e.quote_id]) || (e.quote_id != null ? `Devis #${e.quote_id}` : 'Sans chantier'), label: 'Chantier' },
                 { key: 'hours_spent', label: 'Heures', format: (v) => String(v ?? '').replace('.', ',') },
+                { key: (e) => workBlockLabel(e.work_block), label: 'Bloc de travaux' },
+                { key: (e) => (e.reconstructed ? 'oui' : ''), label: 'Reconstitué' },
                 { key: 'notes', label: 'Notes' },
             ],
             'feuille_heures'
@@ -381,6 +544,7 @@ const TimeTracking = () => {
             {/* ── Rentabilité par chantier ── */}
             {tab === 'rentabilite' && (
                 <section>
+                    <CorrectionCoefficients coefficients={coefficients} />
                     {worksites.length === 0 ? (
                         <EmptyState
                             icon={Hammer}
@@ -390,7 +554,7 @@ const TimeTracking = () => {
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                             {worksites.map(w => (
-                                <WorksiteCard key={w.quote.id} worksite={w} hourlyRate={hourlyRate} />
+                                <WorksiteCard key={w.quote.id} worksite={w} hourlyRate={hourlyRate} onTypeChange={handleTypeChange} />
                             ))}
                         </div>
                     )}
@@ -465,6 +629,12 @@ const TimeTracking = () => {
                                                         {e.quote_id != null
                                                             ? (quoteLabels[e.quote_id] || `Devis #${e.quote_id}`)
                                                             : 'Sans chantier'}
+                                                        {e.work_block && (
+                                                            <span className="text-gray-500 dark:text-gray-400"> · {workBlockLabel(e.work_block)}</span>
+                                                        )}
+                                                        {e.reconstructed && (
+                                                            <span className="text-gray-400 italic"> (reconstitué)</span>
+                                                        )}
                                                         {e.notes ? <span className="text-gray-400"> · {e.notes}</span> : null}
                                                     </span>
                                                     <button
@@ -547,6 +717,19 @@ const TimeTracking = () => {
                                 </select>
                             </div>
                             <div>
+                                <label htmlFor="tt-block" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Bloc de travaux</label>
+                                <select
+                                    id="tt-block" value={formBlock}
+                                    onChange={(e) => setFormBlock(e.target.value)}
+                                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
+                                >
+                                    <option value="">Non précisé</option>
+                                    {WORK_BLOCKS.map(b => (
+                                        <option key={b.id} value={b.id}>{b.hint ? `${b.label} (${b.hint})` : b.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
                                 <label htmlFor="tt-note" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Note (optionnel)</label>
                                 <input
                                     id="tt-note" type="text" placeholder="Ex : pose faïence"
@@ -554,6 +737,19 @@ const TimeTracking = () => {
                                     className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 text-base text-gray-900 dark:text-white"
                                 />
                             </div>
+                            <label className="sm:col-span-2 lg:col-span-4 flex items-start gap-3 min-h-[44px] text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                                <input
+                                    type="checkbox" checked={formReconstructed}
+                                    onChange={(e) => setFormReconstructed(e.target.checked)}
+                                    className="mt-0.5 w-5 h-5 rounded border-gray-300 dark:border-gray-600 flex-shrink-0"
+                                />
+                                <span>
+                                    Reconstitué de mémoire
+                                    <span className="block text-xs text-gray-500 dark:text-gray-400">
+                                        Découpage refait après coup, pas relevé sur le moment : il reste signalé pour ne pas le confondre avec du réel.
+                                    </span>
+                                </span>
+                            </label>
                             <div className="sm:col-span-2 lg:col-span-4 flex gap-2 sm:justify-end">
                                 <button
                                     type="button" onClick={closeForm}

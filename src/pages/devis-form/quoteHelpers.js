@@ -33,6 +33,7 @@ export const createInitialFormData = () => ({
     notes: '',
     status: 'draft',
     urgency: 'normal', // 'normal' | 'urgent' | 'critique' — pour prioriser la préparation/planification une fois accepté
+    chantier_type: '', // type de chantier (coefficients correcteurs d'heures), '' = non classé
     type: 'quote', // 'quote' or 'invoice'
     client_display_mode: 'detailed', // 'detailed' | 'grouped' (présentation PDF/lien public)
     include_tva: true,
@@ -73,6 +74,7 @@ export const quoteRowToFormData = (data) => ({
     content_en: data.content_en || null,
     status: data.status || 'draft',
     urgency: data.urgency || 'normal',
+    chantier_type: data.chantier_type || '',
     type: data.type || 'quote',
     client_display_mode: data.client_display_mode || 'detailed',
     include_tva: typeof data.include_tva === 'boolean'

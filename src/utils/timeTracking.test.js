@@ -16,6 +16,14 @@ import {
     HOURS_PER_DAY,
     chantierHours,
     chantierRootId,
+    normalizeWorkBlock,
+    workBlockLabel,
+    hoursByWorkBlock,
+    hoursGapPercent,
+    setClockWorkBlock,
+    correctionCoefficients,
+    normalizeChantierType,
+    MIN_CHANTIERS_FOR_COEFFICIENT,
 } from './timeTracking';
 
 describe('estimatedHoursFromItems', () => {
@@ -245,5 +253,90 @@ describe('chantierHours — devis initial + avenants comptés ensemble', () => {
         expect(h.estimated).toBe(15);
         expect(h.spent).toBe(3);
         expect(h.amendmentCount).toBe(2);
+    });
+});
+
+describe('blocs de travaux', () => {
+    beforeEach(() => localStorage.clear());
+
+    it('normalise les clés de bloc', () => {
+        expect(normalizeWorkBlock('tableau')).toBe('tableau');
+        expect(normalizeWorkBlock('inconnu')).toBeNull();
+        expect(normalizeWorkBlock('')).toBeNull();
+        expect(normalizeWorkBlock(null)).toBeNull();
+        expect(workBlockLabel('hors_pose')).toBe('Hors pose');
+        expect(workBlockLabel(null)).toBe('Non précisé');
+    });
+
+    it('répartit les heures par bloc, dans l\'ordre des blocs, non précisé en dernier', () => {
+        const res = hoursByWorkBlock([
+            { hours_spent: 2, work_block: null },
+            { hours_spent: 3, work_block: 'tableau', reconstructed: true },
+            { hours_spent: '1.5', work_block: 'cables' },
+            { hours_spent: 1, work_block: 'tableau' },
+            { hours_spent: 0, work_block: 'imprevus' },
+            { hours_spent: 1, work_block: 'bizarre' },
+        ]);
+        expect(res.blocks).toEqual([
+            { id: 'cables', label: 'Câbles & cheminements', hours: 1.5 },
+            { id: 'tableau', label: 'Tableau', hours: 4 },
+            { id: null, label: 'Non précisé', hours: 3 },
+        ]);
+        expect(res.total).toBe(8.5);
+        expect(res.reconstructedHours).toBe(3);
+    });
+
+    it('tolère une liste vide ou absente', () => {
+        expect(hoursByWorkBlock(undefined)).toEqual({ blocks: [], total: 0, reconstructedHours: 0 });
+    });
+
+    it('calcule l\'écart pointé / chiffré en %', () => {
+        expect(hoursGapPercent(20, 23)).toBe(15);
+        expect(hoursGapPercent(20, 18)).toBe(-10);
+        expect(hoursGapPercent(0, 5)).toBeNull();
+    });
+
+    it('mémorise le bloc du pointage en cours', () => {
+        expect(setClockWorkBlock('tableau')).toBeNull();
+        startClock({ quoteId: 7, quoteLabel: 'Chantier' });
+        expect(getRunningClock().workBlock).toBeNull();
+        expect(setClockWorkBlock('tableau').workBlock).toBe('tableau');
+        expect(getRunningClock().workBlock).toBe('tableau');
+        expect(setClockWorkBlock('n_importe_quoi').workBlock).toBeNull();
+    });
+});
+
+describe('correctionCoefficients — par type de chantier', () => {
+    it('cumule heures pointées / chiffrées des chantiers terminés par type', () => {
+        const res = correctionCoefficients([
+            { chantierType: 'renovation_complete', completed: true, estimated: 20, spent: 24 },
+            { chantierType: 'renovation_complete', completed: true, estimated: 40, spent: 45 },
+            { chantierType: 'neuf', completed: true, estimated: 30, spent: 27 },
+            // ignorés : en cours, non classé, type inconnu, sans heures au devis, sans pointage
+            { chantierType: 'neuf', completed: false, estimated: 10, spent: 30 },
+            { chantierType: null, completed: true, estimated: 10, spent: 30 },
+            { chantierType: 'piscine', completed: true, estimated: 10, spent: 30 },
+            { chantierType: 'depannage', completed: true, estimated: 0, spent: 3 },
+            { chantierType: 'depannage', completed: true, estimated: 2, spent: 0 },
+        ]);
+        expect(res).toEqual([
+            { id: 'neuf', label: 'Neuf', count: 1, estimated: 30, spent: 27, coefficient: 0.9, reliable: false },
+            { id: 'renovation_complete', label: 'Rénovation complète', count: 2, estimated: 60, spent: 69, coefficient: 1.15, reliable: false },
+        ]);
+    });
+
+    it('juge le coefficient solide à partir de 4 chantiers', () => {
+        const four = Array.from({ length: MIN_CHANTIERS_FOR_COEFFICIENT }, () => (
+            { chantierType: 'depannage', completed: true, estimated: 2, spent: 2.5 }
+        ));
+        const [dep] = correctionCoefficients(four);
+        expect(dep.coefficient).toBe(1.25);
+        expect(dep.reliable).toBe(true);
+    });
+
+    it('tolère une liste absente', () => {
+        expect(correctionCoefficients(undefined)).toEqual([]);
+        expect(normalizeChantierType('neuf')).toBe('neuf');
+        expect(normalizeChantierType('')).toBeNull();
     });
 });

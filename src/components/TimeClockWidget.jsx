@@ -4,8 +4,8 @@ import { Play, Square, Loader2, Timer, ChevronDown, CalendarClock } from 'lucide
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import {
-    getRunningClock, startClock, stopClock,
-    elapsedSeconds, secondsToHours, formatHours,
+    getRunningClock, startClock, stopClock, setClockWorkBlock,
+    elapsedSeconds, secondsToHours, formatHours, normalizeWorkBlock, WORK_BLOCKS,
 } from '../utils/timeTracking';
 import { pickCurrentEvent, worksiteForEvent, eventLabel } from '../utils/currentAppointment';
 import { useInvalidateCache } from '../hooks/useDataCache';
@@ -137,6 +137,7 @@ const TimeClockWidget = ({ compact = false, onSaved }) => {
                 hours_spent: hours,
                 date: new Date().toISOString().split('T')[0],
                 notes: `Pointage ${range}`,
+                work_block: normalizeWorkBlock(clock.workBlock),
             });
             if (error) throw error;
             invalidateTimeTracking();
@@ -169,6 +170,22 @@ const TimeClockWidget = ({ compact = false, onSaved }) => {
                     {clock.quoteLabel && (
                         <p className="text-emerald-100 text-sm truncate">{clock.quoteLabel}</p>
                     )}
+                    {/* Bloc de travaux : tout le pointage lui est imputé à l'arrêt. */}
+                    <div className="relative mt-2 max-w-xs">
+                        <select
+                            value={clock.workBlock || ''}
+                            onChange={(e) => setClock(setClockWorkBlock(e.target.value)
+                                || { ...clock, workBlock: normalizeWorkBlock(e.target.value) })}
+                            className="w-full appearance-none bg-emerald-700/60 border border-emerald-400/50 rounded-lg pl-3 pr-8 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white"
+                            aria-label="Bloc de travaux du pointage"
+                        >
+                            <option value="" className="text-gray-900">Bloc de travaux : non précisé</option>
+                            {WORK_BLOCKS.map(b => (
+                                <option key={b.id} value={b.id} className="text-gray-900">{b.label}</option>
+                            ))}
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-emerald-100 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                 </div>
                 <button
                     onClick={handleStop}
