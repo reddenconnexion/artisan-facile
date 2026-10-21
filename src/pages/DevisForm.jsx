@@ -1082,6 +1082,8 @@ const DevisForm = () => {
     }, [total, isEditing]);
 
 
+    // Renvoie true si le devis est bien enregistré en base : l'envoi au client
+    // s'appuie dessus pour ne jamais partir sur une version non enregistrée.
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -1089,13 +1091,13 @@ const DevisForm = () => {
         if (!formData.client_id) {
             toast.error('Veuillez sélectionner un client');
             setLoading(false);
-            return;
+            return false;
         }
 
         if (isOffline()) {
             keepOfflineDraft();
             setLoading(false);
-            return;
+            return false;
         }
 
         try {
@@ -1345,7 +1347,7 @@ const DevisForm = () => {
                 });
                 setShowComparisonModal(true);
                 // Ne pas naviguer : la modale prend le relais
-                return;
+                return true;
             }
 
             // Demande d'avis Google dès la fin du chantier : on la déclenche
@@ -1365,7 +1367,7 @@ const DevisForm = () => {
                     setReviewNavigateOnClose(true);
                     setShowReviewRequestModal(true);
                     // Don't navigate, let user see the modal
-                    return;
+                    return true;
                 }
             }
             // On reste sur le devis après l'enregistrement : il faut pouvoir
@@ -1373,14 +1375,16 @@ const DevisForm = () => {
             if (!isEditing && savedQuoteId) {
                 navigate(`/app/devis/${savedQuoteId}`, { replace: true });
             }
+            return true;
         } catch (error) {
             pendingSendRef.current = null;
             console.error('Error saving quote:', error);
             if (isNetworkError(error)) {
                 keepOfflineDraft();
-                return;
+                return false;
             }
             toast.error('Erreur lors de la sauvegarde : ' + (error.message || error.details || error.hint || 'Erreur inconnue'));
+            return false;
         } finally {
             setLoading(false);
         }
@@ -1705,7 +1709,8 @@ const DevisForm = () => {
         if (!isEditing || !dataLoaded || !formData.updated_at || !pendingSendRef.current) return;
         const lang = pendingSendRef.current;
         pendingSendRef.current = null;
-        handleSendQuoteEmail(lang);
+        // Il vient d'être enregistré : inutile de le ré-enregistrer avant l'envoi.
+        handleSendQuoteEmail(lang, { alreadySaved: true });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isEditing, dataLoaded, formData.updated_at]);
 

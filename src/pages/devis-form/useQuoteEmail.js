@@ -102,7 +102,7 @@ export const useQuoteEmail = ({
         });
     };
 
-    const handleSendQuoteEmail = async (lang = 'fr') => {
+    const handleSendQuoteEmail = async (lang = 'fr', { alreadySaved = false } = {}) => {
         if (isOffline()) {
             persistDraftNow();
             toast.error("Pas de réseau : l'envoi au client nécessite une connexion. Le devis reste enregistré sur ce téléphone.");
@@ -119,6 +119,18 @@ export const useQuoteEmail = ({
             pendingSendRef.current = lang;
             await handleSubmit({ preventDefault: () => {} });
             return;
+        }
+
+        // Devis déjà enregistré : on enregistre d'abord ce qui est à l'écran.
+        // Le mail, le PDF joint et la version archivée partent de l'écran,
+        // mais le lien « Signer mon devis » relit la base. Sans cet
+        // enregistrement, des modifications non enregistrées partaient dans
+        // le PDF et pas dans le lien : le devis n° 281 a été envoyé avec
+        // 4 options (725,61 €) alors que le lien affichait l'ancienne version,
+        // sans options et à 870,42 €. Si l'enregistrement échoue, rien ne part.
+        if (!alreadySaved) {
+            const saved = await handleSubmit({ preventDefault: () => {} });
+            if (!saved) return;
         }
 
         // L'envoi remet le lien en service (token_revoked: false, cf. plus bas) :
