@@ -50,6 +50,7 @@ import QuickActions from '../components/QuickActions';
 import TodayPanel from '../components/TodayPanel';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import FinancialHealthCard from '../components/FinancialHealthCard';
+import AppValueCard from '../components/AppValueCard';
 import CopilotChat from '../components/CopilotChat';
 import { buildDashboardCopilotFacts } from '../utils/copilotContext';
 import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
@@ -1068,6 +1069,7 @@ const Dashboard = () => {
         quick_actions: () => isVisible('quick_actions') ? <QuickActions /> : null,
         actionable: () => isVisible('actionable') ? <ActionableDashboard user={user} /> : null,
         financial_health: () => isVisible('financial_health') ? <FinancialHealthCard quotes={allQuotes} /> : null,
+        app_value: () => isVisible('app_value') ? <AppValueCard quotes={allQuotes} /> : null,
         cash_flow_forecast: () => isVisible('cash_flow_forecast') ? <CashFlowForecast allQuotes={allQuotes} navigate={navigate} /> : null,
         recent_documents: () => {
             if (!isVisible('recent_documents') || allQuotes.length === 0) return null;
