@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, LogOut, Menu, X, Save, Box, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Sun, Moon, ShoppingCart, PanelLeftClose, PanelLeftOpen, Timer, Kanban, Truck } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, LogOut, Menu, X, Save, Box, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Sun, Moon, ShoppingCart, PanelLeftClose, PanelLeftOpen, Timer, Kanban, Truck, TrendingUp } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import QuickCreateMenu from '../components/QuickCreateMenu';
 import SearchPalette from '../components/SearchPalette';
@@ -226,6 +226,7 @@ const Layout = () => {
           { name: 'Tous les devis', href: '/app/devis', icon: FileText },
           { name: 'Factures reçues', href: '/app/received-invoices', icon: Inbox },
           { name: 'Comptabilité', href: '/app/accounting', icon: Calculator },
+          { name: 'Rentabilité', href: '/app/rentabilite', icon: TrendingUp },
         ],
       },
       ...(showInter && activiteChildren.length > 0 ? [{

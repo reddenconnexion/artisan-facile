@@ -7,6 +7,7 @@
 // URL appelée : .../functions/v1/track-email-open?t=<tracking_token>
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { clientIp, enforceRateLimit } from '../_shared/rate-limit.ts';
 
 // PNG 1x1 transparent (43 octets) — généré une fois et inliné.
 const TRANSPARENT_PNG = Uint8Array.from([
@@ -26,7 +27,8 @@ const pixelHeaders = {
     'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
     'Pragma': 'no-cache',
     'Expires': '0',
-    'Access-Control-Allow-Origin': '*',
+    // Image chargée via <img> : aucun CORS nécessaire.
+    'X-Content-Type-Options': 'nosniff',
 };
 
 function pixelResponse() {
@@ -70,6 +72,11 @@ Deno.serve(async (req) => {
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) {
             return pixelResponse();
         }
+
+        // Anti-abus : au-delà de 60 hits / 5 min par IP, on renvoie le pixel
+        // sans écrire en base (le mail s'affiche toujours).
+        const rl = await enforceRateLimit('track-email-open', clientIp(req), 60, 300);
+        if (!rl.allowed) return pixelResponse();
 
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',

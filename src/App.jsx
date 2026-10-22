@@ -192,6 +192,7 @@ const PriceLibrary = lazyWithRetry(() => import('./pages/PriceLibrary'));
 const Profile = lazyWithRetry(() => import('./pages/Profile'));
 const Inventory = lazyWithRetry(() => import('./pages/Inventory'));
 const Accounting = lazyWithRetry(() => import('./pages/Accounting'));
+const Rentabilite = lazyWithRetry(() => import('./pages/Rentabilite'));
 const InterventionReports = lazyWithRetry(() => import('./pages/InterventionReports'));
 const InterventionReportForm = lazyWithRetry(() => import('./pages/InterventionReportForm'));
 const ReceivedInvoices = lazyWithRetry(() => import('./pages/ReceivedInvoices'));
@@ -284,6 +285,7 @@ function App() {
                 <Route path="settings" element={<Profile />} />
                 <Route path="settings/activity" element={<Navigate to="/app/settings?tab=modules" replace />} />
                 <Route path="accounting" element={<Accounting />} />
+                <Route path="rentabilite" element={<Rentabilite />} />
                 <Route path="received-invoices" element={<ReceivedInvoices />} />
                 <Route path="interventions" element={<InterventionReports />} />
                 <Route path="interventions/:id" element={<InterventionReportForm />} />
