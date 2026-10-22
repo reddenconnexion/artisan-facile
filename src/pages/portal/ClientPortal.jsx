@@ -213,6 +213,8 @@ const ClientPortal = () => {
             }
 
             setData(portalData);
+            // Comptage d'usage : un échec ne doit jamais gêner le client
+            supabase.rpc('record_portal_view', { p_token: token }).then(() => {}, () => {});
         } catch (err) {
             setError(err.message);
         } finally {
