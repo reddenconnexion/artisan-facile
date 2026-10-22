@@ -187,7 +187,7 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
                     </h3>
                     <button
                         onClick={handleClose}
-                        className="text-gray-500 dark:text-gray-400 hover:text-gray-700"
+                        className="tap-target flex items-center justify-center p-2 -m-2 text-gray-500 dark:text-gray-400 hover:text-gray-700"
                         aria-label="Fermer la modal"
                     >
                         <X className="w-6 h-6" />
@@ -236,17 +236,20 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
                                     required
                                     autoFocus
                                     autoComplete="email"
-                                    className="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    inputMode="email"
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    className="w-full pl-9 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
                             {emailError && (
-                                <p className="mt-1.5 text-xs text-red-600">{emailError}</p>
+                                <p className="mt-1.5 text-sm text-red-600">{emailError}</p>
                             )}
                         </div>
                         <button
                             type="submit"
                             disabled={loadingOtp}
-                            className="mt-2 flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 rounded-lg transition-colors font-medium"
+                            className="mt-2 min-h-[48px] flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 rounded-lg transition-colors font-medium"
                         >
                             {loadingOtp
                                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Envoi en cours…</>
@@ -282,16 +285,16 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
                                     required
                                     autoFocus
                                     autoComplete="one-time-code"
-                                    className="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full pl-9 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg text-2xl text-center font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
                             {otpError && (
-                                <p className="mt-1.5 text-xs text-red-600">{otpError}</p>
+                                <p className="mt-1.5 text-sm text-red-600">{otpError}</p>
                             )}
                         </div>
                         <button
                             type="submit"
-                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors font-medium"
+                            className="min-h-[48px] flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors font-medium"
                         >
                             <ArrowRight className="w-4 h-4" />
                             Valider le code
@@ -300,7 +303,7 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
                             type="button"
                             onClick={handleResendOtp}
                             disabled={loadingOtp}
-                            className="flex items-center justify-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 disabled:opacity-50 transition-colors"
+                            className="tap-target flex items-center justify-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 disabled:opacity-50 transition-colors"
                         >
                             <RefreshCw className="w-3.5 h-3.5" />
                             {loadingOtp ? 'Renvoi en cours…' : 'Renvoyer le code'}
@@ -322,17 +325,26 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
                                 onChange={(e) => { setBonPourAccord(e.target.value); setBonPourAccordError(''); }}
                                 placeholder="Bon pour accord"
                                 autoComplete="off"
-                                className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${bonPourAccordError ? 'border-red-400 bg-red-50 dark:bg-red-900/20' : 'border-gray-300 dark:border-gray-700'}`}
+                                className={`w-full px-3 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500 ${bonPourAccordError ? 'border-red-400 bg-red-50 dark:bg-red-900/20' : 'border-gray-300 dark:border-gray-700'}`}
                             />
                             {bonPourAccordError
-                                ? <p className="mt-1 text-xs text-red-600">{bonPourAccordError}</p>
-                                : <p className="mt-1 text-xs text-gray-400">Écrivez exactement : Bon pour accord</p>
+                                ? <p className="mt-1 text-sm text-red-600">{bonPourAccordError}</p>
+                                : <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Écrivez exactement : Bon pour accord</p>
                             }
+                            {!bonPourAccord.trim() && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setBonPourAccord('Bon pour accord'); setBonPourAccordError(''); }}
+                                    className="mt-2 min-h-[44px] px-4 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+                                >
+                                    Écrire « Bon pour accord »
+                                </button>
+                            )}
                         </div>
                         <div className="flex-1 p-4 bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
                             <div
                                 ref={canvasContainerRef}
-                                className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 w-full h-56 relative"
+                                className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 w-full h-[40dvh] min-h-[200px] max-h-[320px] relative"
                                 style={{ touchAction: 'none' }}
                             >
                                 {canvasSize.width > 0 && (
@@ -351,17 +363,17 @@ const SignatureModal = ({ isOpen, onClose, onSave, onRequestOtp, requiresOtp }) 
                                 </div>
                             </div>
                         </div>
-                        <div className="p-4 border-t dark:border-gray-700 flex justify-between gap-4">
+                        <div className="p-4 border-t dark:border-gray-700 flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
                             <button
                                 onClick={clear}
-                                className="flex items-center px-4 py-2 text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                className="min-h-[48px] justify-center flex items-center px-4 py-2 text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                             >
                                 <Trash2 className="w-4 h-4 mr-2" />
                                 Effacer
                             </button>
                             <button
                                 onClick={save}
-                                className="flex items-center px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors font-medium"
+                                className="min-h-[48px] justify-center flex items-center px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors font-medium"
                             >
                                 <Check className="w-4 h-4 mr-2" />
                                 Valider la signature
