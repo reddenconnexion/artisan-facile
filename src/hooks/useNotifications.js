@@ -70,7 +70,7 @@ export function useNotifications() {
                 id: `msg_${m.id}`,
                 type: 'message',
                 title: `Message de ${m.sender_name || 'un client'}`,
-                description: m.content.length > 80 ? `${m.content.slice(0, 77)}…` : m.content,
+                description: m.content.length > 120 ? `${m.content.slice(0, 117)}…` : m.content,
                 timestamp: m.created_at,
                 href: '/app/portal-messages',
                 unread: !m.read_at,

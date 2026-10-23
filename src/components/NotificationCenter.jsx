@@ -28,8 +28,13 @@ const NotificationCenter = () => {
         const onDown = (e) => {
             if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false);
         };
+        const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
         document.addEventListener('mousedown', onDown);
-        return () => document.removeEventListener('mousedown', onDown);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onDown);
+            document.removeEventListener('keydown', onKey);
+        };
     }, [open]);
 
     const handleMarkAllRead = async () => {
@@ -46,8 +51,22 @@ const NotificationCenter = () => {
         }
     };
 
-    const handleSelect = (item) => {
+    const handleSelect = async (item) => {
         setOpen(false);
+        if (item.unread && user) {
+            if (item.id.startsWith('msg_')) {
+                await supabase
+                    .from('portal_messages')
+                    .update({ read_at: new Date().toISOString() })
+                    .eq('id', item.id.slice(4))
+                    .eq('user_id', user.id);
+                queryClient.invalidateQueries({ queryKey: ['portalMessagesCount', user.id] });
+            } else {
+                // Les signatures/paiements se suivent par date de dernière lecture.
+                markNotificationsRead();
+            }
+            queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
+        }
         navigate(item.href);
     };
 
@@ -86,16 +105,17 @@ const NotificationCenter = () => {
                             {unreadCount > 0 && (
                                 <button
                                     onClick={handleMarkAllRead}
-                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                    className="min-h-[44px] px-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
                                 >
                                     Tout marquer lu
                                 </button>
                             )}
                             <button
                                 onClick={() => setOpen(false)}
-                                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+                                aria-label="Fermer"
+                                className="w-11 h-11 -mr-2 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
                             >
-                                <X className="w-3.5 h-3.5" />
+                                <X className="w-5 h-5" />
                             </button>
                         </div>
                     </div>
@@ -121,15 +141,15 @@ const NotificationCenter = () => {
                                             <Icon className={`w-4 h-4 ${color}`} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className={`text-sm truncate ${item.unread ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                                            <p className={`text-sm line-clamp-2 ${item.unread ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
                                                 {item.title}
                                             </p>
                                             {item.description && (
-                                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mt-0.5">
                                                     {item.description}
                                                 </p>
                                             )}
-                                            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
+                                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                                                 {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true, locale: fr })}
                                             </p>
                                         </div>
