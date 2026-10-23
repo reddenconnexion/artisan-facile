@@ -10,7 +10,9 @@ import { useAuth } from '../context/AuthContext';
 import QuickPhotoCapture from './QuickPhotoCapture';
 import TimeClockWidget from './TimeClockWidget';
 import TerrainVoiceButton from './TerrainVoiceButton';
+import QuickClientModal from './QuickClientModal';
 import { pickCurrentEvent } from '../utils/currentAppointment';
+import { normalizeSearch } from '../utils/format';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -59,33 +61,23 @@ const TodayPanel = () => {
     const [recentClients, setRecentClients] = useState([]);
     const [pickPhotoClient, setPickPhotoClient] = useState(false);
     const [photoClientQuery, setPhotoClientQuery] = useState('');
-    const [searchedClients, setSearchedClients] = useState(null);
+    const [creatingClient, setCreatingClient] = useState(false);
 
+    // Les 300 clients les plus récents sont chargés une fois ; le filtre se fait
+    // en local, sans accents ni majuscules (« elodie » trouve « Élodie »).
     useEffect(() => {
         if (!user || !pickPhotoClient || recentClients.length > 0) return;
         supabase.from('clients')
             .select('id, name')
             .order('created_at', { ascending: false })
-            .limit(15)
+            .limit(300)
             .then(({ data }) => setRecentClients(data || []));
     }, [user, pickPhotoClient, recentClients.length]);
 
-    // Les 15 clients récents suffisent d'habitude ; au-delà, recherche en base.
-    const photoQuery = photoClientQuery.trim();
-    useEffect(() => {
-        if (!user || photoQuery.length < 2) return;
-        const q = photoQuery;
-        const t = setTimeout(() => {
-            supabase.from('clients')
-                .select('id, name')
-                .ilike('name', `%${q.replace(/[%_,]/g, ' ')}%`)
-                .order('name')
-                .limit(20)
-                .then(({ data }) => setSearchedClients(data || []));
-        }, 250);
-        return () => clearTimeout(t);
-    }, [user, photoQuery]);
-    const photoClients = photoQuery.length >= 2 && searchedClients ? searchedClients : recentClients;
+    const photoQuery = normalizeSearch(photoClientQuery).trim();
+    const photoClients = photoQuery
+        ? recentClients.filter(c => normalizeSearch(c.name).includes(photoQuery))
+        : recentClients.slice(0, 15);
 
     const startQuickPhoto = () => {
         if (currentEvent?.client_id) {
@@ -214,7 +206,15 @@ const TodayPanel = () => {
                         </div>
                         <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
                             {photoClients.length === 0 ? (
-                                <p className="text-center text-sm text-gray-400 py-6">Aucun client trouvé</p>
+                                <div className="py-4 space-y-3">
+                                    <p className="text-center text-sm text-gray-500 dark:text-gray-400">Aucun client trouvé</p>
+                                    <button
+                                        onClick={() => setCreatingClient(true)}
+                                        className="w-full min-h-[3.5rem] px-4 rounded-2xl bg-blue-600 text-white text-base font-semibold active:scale-[0.98]"
+                                    >
+                                        {photoClientQuery.trim() ? `Créer le client « ${photoClientQuery.trim()} »` : 'Créer un client'}
+                                    </button>
+                                </div>
                             ) : photoClients.map(c => (
                                 <button
                                     key={c.id}
@@ -231,6 +231,19 @@ const TodayPanel = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {creatingClient && (
+                <QuickClientModal
+                    initialName={photoClientQuery.trim()}
+                    onClose={() => setCreatingClient(false)}
+                    onCreated={(c) => {
+                        setCreatingClient(false);
+                        setPickPhotoClient(false);
+                        setRecentClients([]);
+                        setPhotoEvent({ client_id: c.id, client_name: c.name, title: 'Photos terrain' });
+                    }}
+                />
             )}
 
             {photoEvent && (
