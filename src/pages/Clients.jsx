@@ -76,6 +76,7 @@ const Clients = () => {
             normalizeSearch(client.name).includes(term) ||
             normalizeSearch(client.email).includes(term) ||
             normalizeSearch(client.address).includes(term) ||
+            normalizeSearch(client.city).includes(term) ||
             (client.phone && (
                 client.phone.includes(term) ||
                 (termDigits.length > 0 && client.phone.replace(/\D/g, '').includes(termDigits))
@@ -167,10 +168,11 @@ const Clients = () => {
                             </div>
 
                             <div className="md:col-span-4 hidden md:block">
-                                {client.address && (
+                                {(client.city || client.address) && (
                                     <div className="flex items-center text-gray-600 dark:text-gray-400 dark:text-gray-300">
                                         <MapPin className="w-3 h-3 mr-2 text-gray-400" />
-                                        <span className="text-xs truncate">{client.address}</span>
+                                        {/* La ville suffit pour repérer un client ; l'adresse complète reste sur la fiche */}
+                                        <span className="text-xs truncate">{client.city || client.address}</span>
                                     </div>
                                 )}
                             </div>
