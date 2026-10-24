@@ -469,3 +469,102 @@ export const monthlyNetIncomeSeries = ({
     }
     return series;
 };
+
+/**
+ * Revenu net d'une plage de jours (semaine ou mois des statistiques du tableau
+ * de bord), au jour le jour : mêmes règles que `monthlyNetIncomeSeries`.
+ *
+ * Les charges pro de la période sont réparties sur ses jours ÉCOULÉS d'activité
+ * (ni avant le premier encaissement, ni après aujourd'hui) : la somme des
+ * points du graphique retombe sur le total, sans « pertes » sur des jours à
+ * venir. Une plage entièrement future ou antérieure à l'activité vaut 0.
+ *
+ * @param {object} p  Mêmes réglages que monthlyNetIncomeSeries, plus :
+ * @param {Date} p.start                  Premier jour de la plage.
+ * @param {number} p.days                 Nombre de jours de la plage.
+ * @param {number} [p.proChargesForPeriod] Charges pro fixes de la plage.
+ * @returns {{ total: number, points: number[] }} un point par jour.
+ */
+export const rangeNetIncome = ({
+    docs,
+    start,
+    days,
+    costByQuote,
+    materialMarginRate,
+    proChargesForPeriod = 0,
+    activityType = 'services',
+    status = 'micro_entreprise',
+    hasAcre = false,
+    acreEndMonth = null,
+    taxMethod = 'versement_liberatoire',
+    tmi,
+    now = new Date(),
+}) => {
+    const all = Array.isArray(docs) ? docs : [];
+    const paidQuoteIds = paidQuoteIdSet(all);
+    const dayStart = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const first = dayStart(start);
+    const buckets = Array.from({ length: days }, () => ({ caServices: 0, caMateriel: 0, entries: [] }));
+    let firstPaid = null;
+
+    all.forEach((doc) => {
+        if (!isCountedPaidDoc(doc, paidQuoteIds)) return;
+        const d = paidDate(doc);
+        if (isNaN(d.getTime())) return;
+        if (!firstPaid || d < firstPaid) firstPaid = d;
+        const idx = Math.round((dayStart(d) - first) / 86400000);
+        if (idx < 0 || idx >= days) return;
+        const { serviceAmount, materialAmount } = splitServiceMaterial(doc);
+        const b = buckets[idx];
+        b.caServices += serviceAmount;
+        b.caMateriel += materialAmount;
+        b.entries.push({ id: doc.id, parentId: doc.parent_id ?? null, materialAmount });
+    });
+
+    const dateAt = (i) => new Date(first.getFullYear(), first.getMonth(), first.getDate() + i);
+    const today = dayStart(now);
+    const activityStart = firstPaid ? dayStart(firstPaid) : null;
+    const isActive = (i) => !!activityStart && dateAt(i) >= activityStart && dateAt(i) <= today;
+    const activeDays = buckets.filter((_, i) => isActive(i)).length;
+    if (activeDays === 0) return { total: 0, points: new Array(days).fill(0) };
+    const proPerDay = proChargesForPeriod / activeDays;
+
+    const settle = ({ caServices, caMateriel, entries }, monthKey, pro) => {
+        const monthAcre = acreEndMonth ? monthKey <= acreEndMonth : hasAcre;
+        return periodNetIncome({
+            entries,
+            costByQuote,
+            caServices,
+            caMateriel,
+            materialMarginRate,
+            urssafCharges: estimateUrssafCharges({ caServices, caMateriel, activityType, hasAcre: monthAcre, status }) || 0,
+            proChargesForPeriod: pro,
+            incomeTax: estimateIncomeTax({ caServices, caMateriel, activityType, method: taxMethod, tmi }),
+        });
+    };
+    const monthKeyOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+    const points = buckets.map((b, i) => (isActive(i) || b.entries.length
+        ? settle(b, monthKeyOf(dateAt(i)), isActive(i) ? proPerDay : 0).revenuNet
+        : 0));
+
+    // Total sur l'ensemble de la plage : la marge matériel réelle d'un même
+    // chantier n'y est imputée qu'une fois (cf. periodNetIncome).
+    const pooled = buckets.reduce((acc, b) => ({
+        caServices: acc.caServices + b.caServices,
+        caMateriel: acc.caMateriel + b.caMateriel,
+        entries: acc.entries.concat(b.entries),
+    }), { caServices: 0, caMateriel: 0, entries: [] });
+    const urssafSum = buckets.reduce((sum, b, i) => sum + (settle(b, monthKeyOf(dateAt(i)), 0).urssafCharges), 0);
+    const real = periodNetIncome({
+        entries: pooled.entries,
+        costByQuote,
+        caServices: pooled.caServices,
+        caMateriel: pooled.caMateriel,
+        materialMarginRate,
+        urssafCharges: urssafSum,
+        proChargesForPeriod,
+        incomeTax: estimateIncomeTax({ caServices: pooled.caServices, caMateriel: pooled.caMateriel, activityType, method: taxMethod, tmi }),
+    });
+    return { total: real.revenuNet, points };
+};

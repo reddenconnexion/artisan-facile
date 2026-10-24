@@ -29,13 +29,13 @@ const useCountUp = (target, duration = 900) => {
 };
 import { Plus, TrendingUp, TrendingDown, Minus, Users, FileCheck, FileText, PenTool, BarChart3, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Mic, CheckCircle2, XCircle, Clock, Sparkles, ChevronRight as ChevronRightIcon, HelpCircle, Calendar, Settings2, Target, Pencil, X, Wallet, Navigation } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { formatDistanceToNow, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, format, getWeek, isSameMonth, addYears, subYears, isToday, isTomorrow } from 'date-fns';
+import { formatDistanceToNow, getDaysInMonth, getDate, getDay, addMonths, subMonths, addWeeks, subWeeks, startOfMonth, startOfWeek, format, getWeek, isSameMonth, addYears, subYears, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { useDashboardData, useNextEvent, useUserProfile, useProcurementCostByQuote } from '../hooks/useDataCache';
-import { paidQuoteIdSet, isDuplicatePaidChild, isCountedPaidDoc, splitServiceMaterial, periodNetIncome, paidDate } from '../utils/chantierMargin';
+import { paidQuoteIdSet, isDuplicatePaidChild, isCountedPaidDoc, splitServiceMaterial, periodNetIncome, paidDate, rangeNetIncome, monthlyNetIncomeSeries } from '../utils/chantierMargin';
 import { summarizeCharges } from '../utils/accountingAdvisor';
 import { reopenedAfterExpiryAt } from '../utils/quoteReopen';
 import { estimateIncomeTax, estimateUrssafCharges, DEFAULT_MATERIAL_MARGIN_RATE, DEFAULT_TMI } from '../utils/netIncome';
@@ -819,15 +819,54 @@ const calculateStats = (allQuotes, referenceDate, materialMarginRate = DEFAULT_M
     }
 };
 
+// Revenu net (après URSSAF, charges pro et impôt) de la carte des
+// statistiques, au format de calculateStats : même calcul que la Comptabilité
+// et l'indicateur « Revenu net » du mois. Les points de chaque graphique
+// s'additionnent pour redonner le total de la période.
+const calculateNetStats = (allQuotes, referenceDate, netSettings) => {
+    const { proChargesAnnual = 0, ...settings } = netSettings || {};
+    const docs = allQuotes || [];
+    const monthNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    const metric = (value, points, names, fallbackMax) => ({
+        value,
+        max: Math.abs(value) * 1.2 || fallbackMax,
+        chart: points.map((v, i) => ({ name: names[i], value: v })),
+        details: [],
+    });
+    const yearMetric = (year) => {
+        const points = new Array(12).fill(0);
+        monthlyNetIncomeSeries({ docs, year, proChargesMonthly: proChargesAnnual / 12, ...settings })
+            .forEach(m => { points[m.month] = m.revenuNet; });
+        return metric(points.reduce((a, b) => a + b, 0), points, monthNames, 10000);
+    };
+
+    const week = rangeNetIncome({ docs, start: startOfWeek(referenceDate, { weekStartsOn: 1 }), days: 7, proChargesForPeriod: proChargesAnnual / 52, ...settings });
+    const daysInMonth = getDaysInMonth(referenceDate);
+    const month = rangeNetIncome({ docs, start: startOfMonth(referenceDate), days: daysInMonth, proChargesForPeriod: proChargesAnnual / 12, ...settings });
+
+    return {
+        week: metric(week.total, week.points, weekDays, 1000),
+        month: metric(month.total, month.points, Array.from({ length: daysInMonth }, (_, i) => `${i + 1}`), 5000),
+        year: yearMetric(referenceDate.getFullYear()),
+        lastYear: yearMetric(referenceDate.getFullYear() - 1),
+    };
+};
+
 // --- Reusable Smart Card with Individual Navigation ---
-const RichStatCard = ({ title, tooltip, allQuotes, type, icon: Icon, colorClass, colorHex, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, staticSubText, onValueClick, cardIndex = 0, materialMarginRate = DEFAULT_MATERIAL_MARGIN_RATE }) => {
+const RichStatCard = ({ title, tooltip, allQuotes, type, icon: Icon, colorClass, colorHex, formatValue = (v) => `${v.toFixed(0)}`, chartFormatter, staticSubText, onValueClick, cardIndex = 0, materialMarginRate = DEFAULT_MATERIAL_MARGIN_RATE, netSettings }) => {
     const [localDate, setLocalDate] = useState(new Date());
     const [period, setPeriod] = useState('month');
     const [showChart, setShowChart] = useState(false);
     const [showTooltip, setShowTooltip] = useState(false);
 
     // Calculate stats specifically for this card's localDate
-    const stats = useMemo(() => calculateStats(allQuotes, localDate, materialMarginRate), [allQuotes, localDate, materialMarginRate]);
+    const stats = useMemo(
+        () => (type === 'revenuNet'
+            ? { revenuNet: calculateNetStats(allQuotes, localDate, netSettings) }
+            : calculateStats(allQuotes, localDate, materialMarginRate)),
+        [type, allQuotes, localDate, materialMarginRate, netSettings]
+    );
     const currentData = stats[type]?.[period]; // Data for current period
     const displayValue = type === 'conversion' ? stats.conversion?.[period]?.value : currentData?.value;
 
@@ -1021,6 +1060,34 @@ const Dashboard = () => {
     const { data: nextEvent } = useNextEvent();
     const { data: dashProfile } = useUserProfile();
     const materialMarginRate = dashProfile?.ai_preferences?.material_margin_rate ?? DEFAULT_MATERIAL_MARGIN_RATE;
+    // Réglages du revenu net (partagés avec la Comptabilité) pour la carte
+    // « Revenu net » des statistiques.
+    const { data: dashCharges } = useQuery({
+        queryKey: ['business-charges', user?.id],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('business_charges')
+                .select('amount, periodicity, category');
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: !!user,
+        staleTime: 60 * 1000,
+    });
+    const dashCostByQuote = useProcurementCostByQuote();
+    const dashPrefs = dashProfile?.ai_preferences;
+    const netIsMicro = (dashPrefs?.artisan_status || 'micro_entreprise') === 'micro_entreprise';
+    const netSettings = useMemo(() => ({
+        costByQuote: dashCostByQuote,
+        materialMarginRate,
+        proChargesAnnual: summarizeCharges(dashCharges || []).annualTotal,
+        activityType: dashPrefs?.activity_type || 'services',
+        status: dashPrefs?.artisan_status || 'micro_entreprise',
+        hasAcre: dashPrefs?.has_acre === true,
+        acreEndMonth: dashPrefs?.acre_end_month || null,
+        taxMethod: dashPrefs?.income_tax_method || 'versement_liberatoire',
+        tmi: dashPrefs?.income_tax_tmi ?? DEFAULT_TMI,
+    }), [dashCostByQuote, materialMarginRate, dashCharges, dashPrefs]);
     const skillLevel = user?.user_metadata?.activity_settings?.skill_level ?? 'debutant';
     const showAdvancedStats = skillLevel !== 'debutant';
 
@@ -1169,6 +1236,22 @@ const Dashboard = () => {
                                 formatValue={(v) => `${v.toFixed(0)} €`}
                                 onValueClick={(p, items, d) => setDetailsView({ period: p, items, date: d, title: 'CA' })}
                             />
+                            {netIsMicro && (
+                                <RichStatCard
+                                    cardIndex={1}
+                                    title="Revenu net"
+                                    tooltip="Ce qui te reste vraiment : marge chantier − cotisations URSSAF − charges pro − impôt estimé. Même calcul que dans Comptabilité."
+                                    allQuotes={allQuotes}
+                                    type="revenuNet"
+                                    netSettings={netSettings}
+                                    staticSubText="Après URSSAF, charges et impôt"
+                                    icon={Wallet}
+                                    colorClass="bg-teal-600"
+                                    colorHex="#0D9488"
+                                    formatValue={(v) => `${v.toFixed(0)} €`}
+                                    onValueClick={() => navigate('/app/accounting')}
+                                />
+                            )}
                             <RichStatCard
                                 cardIndex={1}
                                 title="Marge chantier"

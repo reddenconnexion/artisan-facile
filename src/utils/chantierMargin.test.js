@@ -9,6 +9,7 @@ import {
     periodNetIncome,
     paidDate,
     monthlyNetIncomeSeries,
+    rangeNetIncome,
 } from './chantierMargin';
 import { procurementCostByQuote, spentHoursByQuote } from './realizedMargin';
 
@@ -227,5 +228,33 @@ describe('monthlyNetIncomeSeries', () => {
         const feb = monthlyNetIncomeSeries({ ...base, docs, year: 2026, status: 'sasu' }).find(m => m.key === '2026-02');
         expect(feb.urssafCharges).toBe(0);
         expect(feb.margeChantier).toBe(1000);
+    });
+});
+
+describe('rangeNetIncome', () => {
+    const now = new Date(2026, 9, 24, 15); // samedi 24 octobre 2026
+    const paid = (id, paidAt, total) => ({ id, status: 'paid', type: 'quote', paid_at: paidAt, total_ht: total });
+    const base = { costByQuote: new Map(), materialMarginRate: 0.25, taxMethod: 'versement_liberatoire', now };
+    const docs = [paid(1, '2025-09-10T10:00:00', 1000), paid(2, '2026-10-05T10:00:00', 2000)];
+
+    it('retombe sur le revenu net du mois (comme monthlyNetIncomeSeries)', () => {
+        const res = rangeNetIncome({ ...base, docs, start: new Date(2026, 9, 1), days: 31, proChargesForPeriod: 240 });
+        const october = monthlyNetIncomeSeries({ ...base, docs, year: 2026, proChargesMonthly: 240 }).find(m => m.key === '2026-10');
+        expect(res.total).toBeCloseTo(october.revenuNet, 6);
+        // Les points s'additionnent au total ; pas de charges sur les jours à venir.
+        expect(res.points.reduce((a, b) => a + b, 0)).toBeCloseTo(res.total, 6);
+        expect(res.points.slice(24).every(v => v === 0)).toBe(true);
+        expect(res.points[0]).toBeCloseTo(-10, 6); // 240 € répartis sur 24 jours écoulés
+    });
+
+    it('vaut 0 avant le début d’activité ou dans le futur', () => {
+        expect(rangeNetIncome({ ...base, docs, start: new Date(2025, 7, 1), days: 31, proChargesForPeriod: 240 }).total).toBe(0);
+        expect(rangeNetIncome({ ...base, docs, start: new Date(2026, 10, 1), days: 30, proChargesForPeriod: 240 }).total).toBe(0);
+    });
+
+    it('commence à compter les charges au premier encaissement', () => {
+        const res = rangeNetIncome({ ...base, docs, start: new Date(2025, 8, 1), days: 30, proChargesForPeriod: 210 });
+        expect(res.points.slice(0, 9).every(v => v === 0)).toBe(true);
+        expect(res.points[29]).toBeCloseTo(-10, 6); // 210 € sur 21 jours (10 → 30 septembre)
     });
 });
