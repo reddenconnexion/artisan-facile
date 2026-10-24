@@ -10,7 +10,7 @@
 //   - Comptabilité et Tableau de bord : ventilation main d'œuvre / matériel
 //     des documents payés, puis revenu net de la période avec la marge
 //     matériel au réel quand les achats sont suivis → `splitServiceMaterial`,
-//     `isCountedPaidDoc`, `periodNetIncome`.
+//     `isCountedPaidDoc`, `periodNetIncome`, `monthlyNetIncomeSeries`.
 //
 // Le calcul de marge a déjà été source de deux bugs (repli parent sur les
 // avenants, coût parent multi-compté — voir docs/analyse-marge-avenants.md) :
@@ -25,7 +25,7 @@ import {
     isPartialScopeDoc,
     realizedNetAdjustment,
 } from './realizedMargin';
-import { computeNetIncome } from './netIncome';
+import { computeNetIncome, estimateUrssafCharges, estimateIncomeTax } from './netIncome';
 import { isAmendmentRow } from './amendmentIndex';
 
 const num = (v) => {
@@ -376,4 +376,96 @@ export const periodNetIncome = ({
         }),
         realCoveredCount: real.coveredCount,
     };
+};
+
+/**
+ * Revenu net mois par mois d'une année (courbe de la Comptabilité) : chaque
+ * mois passe par `periodNetIncome`, avec les mêmes règles que le bloc
+ * « Revenu net » de la période (CA encaissé à la date du paiement, URSSAF sur
+ * le CA total, charges pro mensualisées, impôt estimé).
+ *
+ * Seuls les mois réellement écoulés sont rendus : rien avant le premier
+ * encaissement (début d'activité) ni après le mois en cours, pour ne pas
+ * afficher de « pertes » fictives égales aux seules charges pro.
+ *
+ * ACRE : quand `acreEndMonth` ('YYYY-MM') est renseigné, le taux réduit
+ * s'applique jusqu'à ce mois inclus puis le taux normal ; sinon `hasAcre`
+ * vaut pour tous les mois.
+ *
+ * @param {object} p
+ * @param {Array} p.docs                 Devis/factures (tous statuts).
+ * @param {number} p.year                Année affichée.
+ * @param {Map} [p.costByQuote]          Résultat de procurementCostByQuote.
+ * @param {number} p.materialMarginRate  Marge forfaitaire sur le matériel.
+ * @param {number} [p.proChargesMonthly] Charges pro fixes ramenées au mois.
+ * @param {string} [p.activityType]
+ * @param {string} [p.status]            Statut juridique (URSSAF micro uniquement).
+ * @param {boolean} [p.hasAcre]
+ * @param {string|null} [p.acreEndMonth] Dernier mois sous ACRE, 'YYYY-MM'.
+ * @param {string} [p.taxMethod]
+ * @param {number} [p.tmi]
+ * @param {Date} [p.now]
+ * @returns {Array<object>} un élément par mois écoulé : { month (0-11), key,
+ *          hasAcre, ...détail de periodNetIncome }.
+ */
+export const monthlyNetIncomeSeries = ({
+    docs,
+    year,
+    costByQuote,
+    materialMarginRate,
+    proChargesMonthly = 0,
+    activityType = 'services',
+    status = 'micro_entreprise',
+    hasAcre = false,
+    acreEndMonth = null,
+    taxMethod = 'versement_liberatoire',
+    tmi,
+    now = new Date(),
+}) => {
+    const all = Array.isArray(docs) ? docs : [];
+    const paidQuoteIds = paidQuoteIdSet(all);
+    const buckets = Array.from({ length: 12 }, () => ({ caServices: 0, caMateriel: 0, entries: [] }));
+    let firstPaid = null;
+
+    all.forEach((doc) => {
+        if (!isCountedPaidDoc(doc, paidQuoteIds)) return;
+        const d = paidDate(doc);
+        if (isNaN(d.getTime())) return;
+        if (!firstPaid || d < firstPaid) firstPaid = d;
+        if (d.getFullYear() !== year) return;
+        const { serviceAmount, materialAmount } = splitServiceMaterial(doc);
+        const b = buckets[d.getMonth()];
+        b.caServices += serviceAmount;
+        b.caMateriel += materialAmount;
+        b.entries.push({ id: doc.id, parentId: doc.parent_id ?? null, materialAmount });
+    });
+
+    if (!firstPaid || year < firstPaid.getFullYear() || year > now.getFullYear()) return [];
+    const startMonth = year === firstPaid.getFullYear() ? firstPaid.getMonth() : 0;
+    const endMonth = year === now.getFullYear() ? now.getMonth() : 11;
+
+    const series = [];
+    for (let m = startMonth; m <= endMonth; m++) {
+        const { caServices, caMateriel, entries } = buckets[m];
+        const key = `${year}-${String(m + 1).padStart(2, '0')}`;
+        const monthAcre = acreEndMonth ? key <= acreEndMonth : hasAcre;
+        const urssafCharges = estimateUrssafCharges({ caServices, caMateriel, activityType, hasAcre: monthAcre, status }) || 0;
+        const incomeTax = estimateIncomeTax({ caServices, caMateriel, activityType, method: taxMethod, tmi });
+        series.push({
+            month: m,
+            key,
+            hasAcre: monthAcre,
+            ...periodNetIncome({
+                entries,
+                costByQuote,
+                caServices,
+                caMateriel,
+                materialMarginRate,
+                urssafCharges,
+                proChargesForPeriod: proChargesMonthly,
+                incomeTax,
+            }),
+        });
+    }
+    return series;
 };

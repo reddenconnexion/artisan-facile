@@ -8,6 +8,7 @@ import {
     splitServiceMaterial,
     periodNetIncome,
     paidDate,
+    monthlyNetIncomeSeries,
 } from './chantierMargin';
 import { procurementCostByQuote, spentHoursByQuote } from './realizedMargin';
 
@@ -168,5 +169,63 @@ describe('paidDate', () => {
     it("se replie sur la date du document sans paid_at", () => {
         expect(paidDate({ date: '2026-09-15', created_at: '2026-09-01T10:00:00Z' }).toISOString().slice(0, 10)).toBe('2026-09-15');
         expect(paidDate({ created_at: '2026-09-01T10:00:00Z' }).toISOString().slice(0, 10)).toBe('2026-09-01');
+    });
+});
+
+describe('monthlyNetIncomeSeries', () => {
+    const now = new Date(2026, 9, 24); // 24 octobre 2026
+    const paid = (id, paidAt, total) => ({ id, status: 'paid', type: 'quote', paid_at: paidAt, total_ht: total });
+    const base = { costByQuote: new Map(), materialMarginRate: 0.25, taxMethod: 'versement_liberatoire', now };
+
+    it("démarre au premier encaissement et s'arrête au mois en cours", () => {
+        const docs = [paid(1, '2025-09-10T10:00:00Z', 1000), paid(2, '2026-03-05T10:00:00Z', 2000)];
+        const y2025 = monthlyNetIncomeSeries({ ...base, docs, year: 2025 });
+        expect(y2025.map(m => m.key)).toEqual(['2025-09', '2025-10', '2025-11', '2025-12']);
+        const y2026 = monthlyNetIncomeSeries({ ...base, docs, year: 2026 });
+        expect(y2026).toHaveLength(10); // janvier → octobre
+        expect(monthlyNetIncomeSeries({ ...base, docs, year: 2024 })).toEqual([]);
+        expect(monthlyNetIncomeSeries({ ...base, docs, year: 2027 })).toEqual([]);
+        expect(monthlyNetIncomeSeries({ ...base, docs: [], year: 2026 })).toEqual([]);
+    });
+
+    it('calcule chaque mois comme le bloc revenu net (URSSAF, charges, impôt)', () => {
+        const docs = [paid(1, '2026-03-05T10:00:00Z', 2000)];
+        const series = monthlyNetIncomeSeries({ ...base, docs, year: 2026, proChargesMonthly: 100 });
+        const march = series.find(m => m.key === '2026-03');
+        // URSSAF services 21,2 % + CFP 0,3 % + CMA 0,48 % ; versement libératoire 1,7 %.
+        const urssaf = 2000 * (0.212 + 0.003 + 0.0048);
+        expect(march.urssafCharges).toBeCloseTo(urssaf, 6);
+        expect(march.incomeTax).toBeCloseTo(34, 6);
+        expect(march.revenuNet).toBeCloseTo(2000 - urssaf - 100 - 34, 6);
+        // Mois sans encaissement : seules les charges pro.
+        expect(series.find(m => m.key === '2026-04').revenuNet).toBe(-100);
+    });
+
+    it("applique l'ACRE jusqu'au mois de fin indiqué", () => {
+        const docs = [paid(1, '2026-06-05T10:00:00Z', 1000), paid(2, '2026-07-05T10:00:00Z', 1000)];
+        const series = monthlyNetIncomeSeries({ ...base, docs, year: 2026, acreEndMonth: '2026-06' });
+        const june = series.find(m => m.key === '2026-06');
+        const july = series.find(m => m.key === '2026-07');
+        expect(june.hasAcre).toBe(true);
+        expect(july.hasAcre).toBe(false);
+        expect(june.urssafCharges).toBeLessThan(july.urssafCharges);
+        // Sans date de fin, la case ACRE vaut pour tous les mois.
+        expect(monthlyNetIncomeSeries({ ...base, docs, year: 2026, hasAcre: true }).every(m => m.hasAcre)).toBe(true);
+    });
+
+    it('ne compte pas deux fois une facture enfant de devis payé', () => {
+        const docs = [
+            paid(1, '2026-02-05T10:00:00Z', 1000),
+            { id: 2, parent_id: 1, type: 'invoice', status: 'paid', paid_at: '2026-02-06T10:00:00Z', total_ht: 1000 },
+        ];
+        const feb = monthlyNetIncomeSeries({ ...base, docs, year: 2026 }).find(m => m.key === '2026-02');
+        expect(feb.caTotal).toBe(1000);
+    });
+
+    it("hors micro-entreprise, pas d'URSSAF estimée", () => {
+        const docs = [paid(1, '2026-02-05T10:00:00Z', 1000)];
+        const feb = monthlyNetIncomeSeries({ ...base, docs, year: 2026, status: 'sasu' }).find(m => m.key === '2026-02');
+        expect(feb.urssafCharges).toBe(0);
+        expect(feb.margeChantier).toBe(1000);
     });
 });

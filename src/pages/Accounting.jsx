@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile, useQuotes, useInvalidateCache, useProcurementCostByQuote } from '../hooks/useDataCache';
-import { paidQuoteIdSet, isCountedPaidDoc, splitServiceMaterial, periodNetIncome, paidDate } from '../utils/chantierMargin';
+import { paidQuoteIdSet, isCountedPaidDoc, splitServiceMaterial, periodNetIncome, paidDate, monthlyNetIncomeSeries } from '../utils/chantierMargin';
 import { computeMicroContributions, URSSAF_RATES } from '../utils/taxUtils';
 import { useTestMode } from '../context/TestModeContext';
 import { toast } from 'sonner';
@@ -10,6 +10,7 @@ import { Calculator, TrendingUp, Calendar, AlertCircle, CheckCircle, Info, Euro,
 import { Link, useSearchParams } from 'react-router-dom';
 import CopilotChat from '../components/CopilotChat';
 import AccountingAdvisor from '../components/AccountingAdvisor';
+import NetIncomeChart from '../components/NetIncomeChart';
 import { DismissibleHelp, EmptyState } from '../components/ui';
 import { supabase } from '../utils/supabase';
 import { summarizeCharges } from '../utils/accountingAdvisor';
@@ -112,6 +113,8 @@ const Accounting = () => {
   const [netTmi, setNetTmi] = useState(DEFAULT_TMI);
   const [netTaxOverride, setNetTaxOverride] = useState('');
   const [savingNetPrefs, setSavingNetPrefs] = useState(false);
+  // Dernier mois sous ACRE ('YYYY-MM') pour la courbe mois par mois.
+  const [acreEndMonth, setAcreEndMonth] = useState('');
 
   // Synchroniser les préférences de revenu net depuis le profil.
   useEffect(() => {
@@ -120,6 +123,7 @@ const Accounting = () => {
     if (p.material_margin_rate != null) setNetMarginRate(String(Math.round(p.material_margin_rate * 100)));
     if (p.income_tax_method) setNetTaxMethod(p.income_tax_method);
     if (p.income_tax_tmi != null) setNetTmi(p.income_tax_tmi);
+    setAcreEndMonth(p.acre_end_month || '');
   }, [profile]);
 
   // Charges professionnelles fixes (business_charges) pour la déduction du net.
@@ -320,6 +324,7 @@ const Accounting = () => {
         material_margin_rate: (parseFloat(netMarginRate) || 0) / 100,
         income_tax_method: netTaxMethod,
         income_tax_tmi: netTmi,
+        acre_end_month: acreEndMonth || null,
       };
       const { error } = await supabase.from('profiles').update({ ai_preferences: nextPrefs }).eq('id', user.id);
       if (error) throw error;
@@ -331,6 +336,38 @@ const Accounting = () => {
       setSavingNetPrefs(false);
     }
   };
+
+  // Le mois de fin d'ACRE s'enregistre dès qu'il change (pas de bouton dédié).
+  const handleAcreEndMonthChange = async (value) => {
+    setAcreEndMonth(value);
+    if (!user) return;
+    const prefs = profile?.ai_preferences || {};
+    const { error } = await supabase
+      .from('profiles')
+      .update({ ai_preferences: { ...prefs, acre_end_month: value || null } })
+      .eq('id', user.id);
+    if (error) {
+      toast.error('Enregistrement impossible', { description: error.message });
+      return;
+    }
+    invalidateProfile();
+  };
+
+  // Revenu net mois par mois de l'année sélectionnée (courbe), avec les
+  // réglages du bloc « Revenu net » (marge matériel, impôt, ACRE).
+  const monthlyNet = useMemo(() => monthlyNetIncomeSeries({
+    docs: filteredInvoices,
+    year: selectedYear,
+    costByQuote,
+    materialMarginRate: (parseFloat(netMarginRate) || 0) / 100,
+    proChargesMonthly: summarizeCharges(businessCharges || []).annualTotal / 12,
+    activityType,
+    status: artisanStatus,
+    hasAcre,
+    acreEndMonth: acreEndMonth || null,
+    taxMethod: netTaxMethod,
+    tmi: netTmi,
+  }), [filteredInvoices, selectedYear, costByQuote, netMarginRate, businessCharges, activityType, artisanStatus, hasAcre, acreEndMonth, netTaxMethod, netTmi]);
 
   // Calcul du CA Services annuel pour le plafond mixte (sans doublons)
   const yearlyRevenueServices = useMemo(() => {
@@ -1166,6 +1203,20 @@ const Accounting = () => {
               )}
             </div>
           </div>
+
+          {/* Revenu net mois par mois */}
+          <NetIncomeChart
+            series={monthlyNet}
+            year={selectedYear}
+            isMicro={artisanStatus === 'micro_entreprise'}
+            acreEndMonth={acreEndMonth}
+            onAcreEndMonthChange={handleAcreEndMonthChange}
+            onSelectMonth={(month) => {
+              if (month == null) return;
+              setSelectedPeriod('month');
+              setSelectedMonth(month);
+            }}
+          />
 
           {/* Suivi annuel */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
