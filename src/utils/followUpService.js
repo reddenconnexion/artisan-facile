@@ -518,7 +518,7 @@ export const getUnpaidInvoiceReminders = async (userId) => {
  * (obligatoire au livre de recettes).
  */
 export const markInvoicePaid = async (invoiceId, userId, paymentMethod = null) => {
-    const { error } = await supabase
+    const { data, error } = await supabase
         .from('quotes')
         .update({
             status: 'paid',
@@ -526,7 +526,34 @@ export const markInvoicePaid = async (invoiceId, userId, paymentMethod = null) =
             ...(paymentMethod ? { payment_method: paymentMethod } : {}),
         })
         .eq('id', invoiceId)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .select('parent_id');
+    if (error) throw error;
+    const parentId = data?.[0]?.parent_id;
+    if (parentId) {
+        // Le paiement est enregistré : un échec ici ne doit pas l'annoncer raté.
+        try {
+            await acceptQuoteOnPayment(parentId, userId);
+        } catch (err) {
+            console.warn('markInvoicePaid: devis parent non passé en accepté', err);
+        }
+    }
+};
+
+/**
+ * Un règlement reçu sur un document lié (acompte, situation…) vaut accord du
+ * client : le devis encore « Envoyé » passe en « Accepté », ce qui le sort des
+ * relances et le range avec les devis signés. Sans effet sur un devis déjà
+ * signé, refusé, facturé ou resté en brouillon.
+ */
+export const acceptQuoteOnPayment = async (quoteId, userId) => {
+    const { error } = await supabase
+        .from('quotes')
+        .update({ status: 'accepted' })
+        .eq('id', quoteId)
+        .eq('user_id', userId)
+        .eq('type', 'quote')
+        .eq('status', 'sent');
     if (error) throw error;
 };
 
