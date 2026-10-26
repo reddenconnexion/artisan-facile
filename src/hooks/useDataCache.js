@@ -100,6 +100,11 @@ export function useQuotes(filters = {}) {
         enabled: !!user,
         staleTime: 2 * 60 * 1000,
         gcTime: 15 * 60 * 1000,
+        // Le temps réel ne tourne que liste ouverte : un statut changé ailleurs
+        // (signature client, acompte encaissé depuis le suivi d'affaire, appli
+        // remise au premier plan) doit apparaître dès le retour sur la liste.
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: true,
     });
 }
 
