@@ -23,6 +23,8 @@ import {
     setClockWorkBlock,
     correctionCoefficients,
     normalizeChantierType,
+    chantierTypeOrDefault,
+    DEFAULT_CHANTIER_TYPE,
     MIN_CHANTIERS_FOR_COEFFICIENT,
 } from './timeTracking';
 
@@ -312,15 +314,16 @@ describe('correctionCoefficients — par type de chantier', () => {
             { chantierType: 'renovation_complete', completed: true, estimated: 20, spent: 24 },
             { chantierType: 'renovation_complete', completed: true, estimated: 40, spent: 45 },
             { chantierType: 'neuf', completed: true, estimated: 30, spent: 27 },
-            // ignorés : en cours, non classé, type inconnu, sans heures au devis, sans pointage
+            // non classé : compté en rénovation partielle (type par défaut)
+            { chantierType: null, completed: true, estimated: 10, spent: 12 },
+            // ignorés : en cours, sans heures au devis, sans pointage
             { chantierType: 'neuf', completed: false, estimated: 10, spent: 30 },
-            { chantierType: null, completed: true, estimated: 10, spent: 30 },
-            { chantierType: 'piscine', completed: true, estimated: 10, spent: 30 },
             { chantierType: 'depannage', completed: true, estimated: 0, spent: 3 },
             { chantierType: 'depannage', completed: true, estimated: 2, spent: 0 },
         ]);
         expect(res).toEqual([
             { id: 'neuf', label: 'Neuf', count: 1, estimated: 30, spent: 27, coefficient: 0.9, reliable: false },
+            { id: 'renovation_partielle', label: 'Rénovation partielle', count: 1, estimated: 10, spent: 12, coefficient: 1.2, reliable: false },
             { id: 'renovation_complete', label: 'Rénovation complète', count: 2, estimated: 60, spent: 69, coefficient: 1.15, reliable: false },
         ]);
     });
@@ -338,5 +341,12 @@ describe('correctionCoefficients — par type de chantier', () => {
         expect(correctionCoefficients(undefined)).toEqual([]);
         expect(normalizeChantierType('neuf')).toBe('neuf');
         expect(normalizeChantierType('')).toBeNull();
+    });
+
+    it('classe en rénovation partielle un chantier sans type', () => {
+        expect(DEFAULT_CHANTIER_TYPE).toBe('renovation_partielle');
+        expect(chantierTypeOrDefault(null)).toBe('renovation_partielle');
+        expect(chantierTypeOrDefault('')).toBe('renovation_partielle');
+        expect(chantierTypeOrDefault('depannage')).toBe('depannage');
     });
 });
