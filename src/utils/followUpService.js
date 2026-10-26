@@ -523,6 +523,8 @@ export const markInvoicePaid = async (invoiceId, userId, paymentMethod = null) =
         .update({
             status: 'paid',
             paid_at: new Date().toISOString(),
+            // Rend caduc un brouillon local du formulaire plus ancien.
+            updated_at: new Date().toISOString(),
             ...(paymentMethod ? { payment_method: paymentMethod } : {}),
         })
         .eq('id', invoiceId)
@@ -549,7 +551,7 @@ export const markInvoicePaid = async (invoiceId, userId, paymentMethod = null) =
 export const acceptQuoteOnPayment = async (quoteId, userId) => {
     const { error } = await supabase
         .from('quotes')
-        .update({ status: 'accepted' })
+        .update({ status: 'accepted', updated_at: new Date().toISOString() })
         .eq('id', quoteId)
         .eq('user_id', userId)
         .eq('type', 'quote')

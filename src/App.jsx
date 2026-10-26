@@ -1,5 +1,5 @@
-import { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Suspense, lazy, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, QueryCache } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -187,6 +187,19 @@ const ClientForm = lazyWithRetry(() => import('./pages/ClientForm'));
 const DevisList = lazyWithRetry(() => import('./pages/DevisList'));
 const DevisForm = lazyWithRetry(() => import('./pages/DevisForm'));
 const Affaire = lazyWithRetry(() => import('./pages/Affaire'));
+
+// Une seule route sert tous les devis : sans remontage, passer d'une facture
+// à « Nouveau devis » gardait la facture à l'écran (et l'enregistrait en
+// double). On repart d'un formulaire neuf à chaque changement de document,
+// sauf /new → /:id, quand le devis tout juste créé prend son URL.
+function DevisFormRoute() {
+  const { id } = useParams();
+  const [mount, setMount] = useState({ id, key: 0 });
+  if (mount.id !== id) {
+    setMount({ id, key: mount.id === 'new' ? mount.key : mount.key + 1 });
+  }
+  return <DevisForm key={mount.key} />;
+}
 const Agenda = lazyWithRetry(() => import('./pages/Agenda'));
 const PriceLibrary = lazyWithRetry(() => import('./pages/PriceLibrary'));
 const Profile = lazyWithRetry(() => import('./pages/Profile'));
@@ -274,7 +287,7 @@ function App() {
                 <Route path="chantiers" element={<WorksitePilot />} />
                 <Route path="crm" element={<Navigate to="/app/chantiers" replace />} />
                 <Route path="devis" element={<DevisList />} />
-                <Route path="devis/:id" element={<DevisForm />} />
+                <Route path="devis/:id" element={<DevisFormRoute />} />
                 <Route path="affaires/:id" element={<Affaire />} />
                 <Route path="library" element={<PriceLibrary />} />
                 <Route path="inventory" element={<Inventory />} />

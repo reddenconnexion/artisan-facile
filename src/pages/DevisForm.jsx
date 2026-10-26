@@ -602,6 +602,19 @@ const DevisForm = () => {
                                 localStorage.removeItem(draftKey);
                                 return prev;
                             }
+                            // Statut, règlement et numéros changent aussi hors du
+                            // formulaire (acompte encaissé depuis le suivi d'affaire,
+                            // signature du client…) : la base fait foi, sans quoi
+                            // un brouillon resté « Envoyé » annulerait le paiement.
+                            const dbOwned = {
+                                status: prev.status,
+                                paid_at: prev.paid_at,
+                                payment_method: prev.payment_method,
+                                invoice_number: prev.invoice_number,
+                                quote_number: prev.quote_number,
+                                parent_id: prev.parent_id,
+                                updated_at: prev.updated_at,
+                            };
                             // If the DB has deduction items (negative price) that the draft lacks,
                             // the draft was saved before the closing invoice deductions were added
                             // (stale draft from before the fix). Keep DB items to preserve deductions
@@ -611,17 +624,21 @@ const DevisForm = () => {
                                 const draftHasDeductions = (restoredDraft.items || []).some(i => i.price < 0);
                                 if (dbHasDeductions && !draftHasDeductions) {
                                     const { items: _staleItems, ...draftWithoutItems } = restoredDraft;
-                                    return { ...prev, ...draftWithoutItems };
+                                    return { ...prev, ...draftWithoutItems, ...dbOwned };
                                 }
                             }
-                            return { ...prev, ...restoredDraft };
+                            return { ...prev, ...restoredDraft, ...dbOwned };
                         });
                     }
                     setDataLoaded(true);
                 } else {
                     // New quote: restore draft immediately
                     const draft = getDraft(draftKey);
-                    if (draft) {
+                    // Un brouillon « nouveau » qui porte déjà un numéro vient d'un
+                    // document existant resté à l'écran : ne pas le recréer.
+                    if (draft && (draft.invoice_number || draft.quote_number)) {
+                        localStorage.removeItem(draftKey);
+                    } else if (draft) {
                         const { _draft_saved_at, ...restored } = draft;
                         setFormData(prev => ({ ...prev, ...restored }));
                     }
