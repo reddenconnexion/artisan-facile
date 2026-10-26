@@ -9,7 +9,8 @@ import { useConfirm } from '../context/ConfirmContext';
 import { supabase } from '../utils/supabase';
 import { formatAmount, formatDate } from '../utils/format';
 import { affaireJourney, affaireAmounts } from '../utils/affaireJourney';
-import { markInvoicePaid } from '../utils/followUpService';
+import { markInvoicePaid, acceptQuoteOnPayment } from '../utils/followUpService';
+import { useInvalidateCache } from '../hooks/useDataCache';
 import { Card, Button, LoadingState, EmptyState } from '../components/ui';
 import DevisProgress from '../components/DevisProgress';
 import DepositNextStepCard from '../components/DepositNextStepCard';
@@ -66,6 +67,7 @@ const Affaire = () => {
     const [notFound, setNotFound] = useState(false);
     const [busy, setBusy] = useState(false);
     const [askPaymentMethod, paymentPrompt] = usePaymentMethodPrompt();
+    const { invalidateQuotes } = useInvalidateCache();
 
     const load = useCallback(async () => {
         const quoteId = parseInt(id, 10);
@@ -90,6 +92,18 @@ const Affaire = () => {
                 .neq('status', 'cancelled')
                 .order('created_at', { ascending: true });
             if (linkedError) throw linkedError;
+            // Acompte déjà encaissé sur un devis resté « Envoyé » (paiement
+            // enregistré avant que le devis suive) : on le remet d'aplomb.
+            if (user && doc.type === 'quote' && doc.status === 'sent'
+                && (linked || []).some(d => d.type === 'invoice' && d.status === 'paid')) {
+                try {
+                    await acceptQuoteOnPayment(doc.id, user.id);
+                    doc.status = 'accepted';
+                    invalidateQuotes();
+                } catch (err) {
+                    console.warn('Affaire: devis non passé en accepté', err);
+                }
+            }
             setQuote(doc);
             setChildren(linked || []);
             setNotFound(false);
@@ -99,7 +113,7 @@ const Affaire = () => {
         } finally {
             setLoading(false);
         }
-    }, [id, navigate]);
+    }, [id, navigate, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => { setLoading(true); load(); }, [load]);
 
@@ -156,6 +170,7 @@ const Affaire = () => {
                 try {
                     await markInvoicePaid(action.docId, user.id, paymentMethod);
                     toast.success('Paiement enregistré');
+                    invalidateQuotes();
                     await load();
                 } catch (error) {
                     console.error('Error marking invoice paid:', error);
@@ -174,6 +189,7 @@ const Affaire = () => {
                         .eq('id', quote.id);
                     if (error) throw error;
                     toast.success(action.stage === 'completed' ? 'Chantier terminé' : 'Chantier démarré');
+                    invalidateQuotes();
                     await load();
                 } catch (error) {
                     console.error('Error updating work stage:', error);

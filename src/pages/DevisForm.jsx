@@ -12,7 +12,7 @@ import { generateDevisPDF } from '../utils/pdfGenerator';
 import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
 import { clientFacingItems } from '../utils/clientView';
 import { useConfirm } from '../context/ConfirmContext';
-import { recordFollowUp, getFollowUpSettings } from '../utils/followUpService';
+import { recordFollowUp, getFollowUpSettings, acceptQuoteOnPayment } from '../utils/followUpService';
 import SignatureModal from '../components/SignatureModal';
 import ReviewRequestModal from '../components/ReviewRequestModal';
 
@@ -1304,6 +1304,15 @@ const DevisForm = () => {
             } catch (libErr) {
                 console.error("Auto-add library error", libErr);
                 toast.error("Erreur sauvegarde bibliothèque : " + (libErr.message || libErr.details));
+            }
+
+            // Acompte / facture liée enregistré « Payé » : le devis parent est accepté.
+            if (formData.type === 'invoice' && formData.status === 'paid' && formData.parent_id) {
+                try {
+                    await acceptQuoteOnPayment(formData.parent_id, user.id);
+                } catch (err) {
+                    console.warn('Devis parent non passé en accepté', err);
+                }
             }
 
             toast.success(isEditing ? 'Devis modifié avec succès' : 'Devis créé avec succès');
