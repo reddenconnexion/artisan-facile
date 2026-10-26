@@ -15,7 +15,7 @@ import {
     chantierHours, chantierRootId, formatHours, hoursToInput, laborProfitability,
     parseHoursInput, startOfWeek, weekDays, toDateString,
     WORK_BLOCKS, normalizeWorkBlock, workBlockLabel, hoursByWorkBlock, hoursGapPercent,
-    CHANTIER_TYPES, normalizeChantierType, correctionCoefficients, MIN_CHANTIERS_FOR_COEFFICIENT,
+    CHANTIER_TYPES, normalizeChantierType, chantierTypeOrDefault, correctionCoefficients, MIN_CHANTIERS_FOR_COEFFICIENT,
 } from '../utils/timeTracking';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { formatCurrencyRounded, formatDate } from '../utils/format';
@@ -86,7 +86,7 @@ const CorrectionCoefficients = ({ coefficients }) => (
         </p>
         {coefficients.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">
-                Indiquez le type de chaque chantier sur sa carte ci-dessous : les coefficients apparaissent dès qu'un chantier classé, avec des heures au devis et des heures pointées, est terminé.
+                Les coefficients apparaissent dès qu'un chantier avec des heures au devis et des heures pointées est terminé. Un chantier compte comme une rénovation partielle tant que vous ne changez pas son type sur sa carte ci-dessous.
             </p>
         ) : (
             <ul className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -187,11 +187,10 @@ const WorksiteCard = ({ worksite, hourlyRate, onTypeChange }) => {
                 <label htmlFor={`tt-type-${quote.id}`} className="sr-only">Type de chantier</label>
                 <select
                     id={`tt-type-${quote.id}`}
-                    value={normalizeChantierType(quote.chantier_type) || ''}
+                    value={chantierTypeOrDefault(quote.chantier_type)}
                     onChange={(e) => onTypeChange(quote.id, e.target.value)}
                     className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-900 dark:text-white"
                 >
-                    <option value="">Type de chantier : non classé</option>
                     {CHANTIER_TYPES.map(t => (
                         <option key={t.id} value={t.id}>{t.label}</option>
                     ))}
@@ -272,11 +271,10 @@ const TimeTracking = () => {
                     .select('ai_preferences')
                     .eq('id', user.id)
                     .maybeSingle(),
-                // Chantiers classés par type, tous signés (même facturés ou
-                // payés, hors de la liste ci-dessous) : base des coefficients.
+                // Chantiers signés (même facturés ou payés, hors de la liste
+                // ci-dessous) : base des coefficients. Non classé = rénovation.
                 supabase.from('quotes')
                     .select(QUOTE_FIELDS)
-                    .not('chantier_type', 'is', null)
                     .in('status', SIGNED_STATUSES)
                     .neq('type', 'invoice'),
             ]);
@@ -322,7 +320,7 @@ const TimeTracking = () => {
                 .sort((a, b) => b.spent - a.spent);
             setWorksites(active);
 
-            // Coefficients : heures prévues et pointées de chaque chantier classé,
+            // Coefficients : heures prévues et pointées de chaque chantier signé,
             // avenants compris (comptés avec leur devis initial).
             const typedRoots = (typedRes.data || []).filter(q => chantierRootId(q) === q.id);
             let typedDocs = typedRoots;

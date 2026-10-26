@@ -234,6 +234,13 @@ const CHANTIER_TYPE_IDS = CHANTIER_TYPES.map(t => t.id);
 export const normalizeChantierType = (value) =>
     (CHANTIER_TYPE_IDS.includes(value) ? value : null);
 
+/** Type retenu pour un chantier non classé : la rénovation, cas de la grande majorité des chantiers. */
+export const DEFAULT_CHANTIER_TYPE = 'renovation_partielle';
+
+/** Type du chantier, la rénovation par défaut s'il n'est pas classé. */
+export const chantierTypeOrDefault = (value) =>
+    normalizeChantierType(value) || DEFAULT_CHANTIER_TYPE;
+
 /** Nombre de chantiers terminés à partir duquel un coefficient est jugé solide. */
 export const MIN_CHANTIERS_FOR_COEFFICIENT = 4;
 
@@ -242,6 +249,7 @@ export const MIN_CHANTIERS_FOR_COEFFICIENT = 4;
  * chiffrées, cumulées sur les chantiers TERMINÉS du type (un chantier en cours
  * n'a pas encore toutes ses heures). Les cumuls pondèrent naturellement par
  * la taille : un gros chantier pèse plus qu'un petit dépannage.
+ * Un chantier non classé compte comme une rénovation (DEFAULT_CHANTIER_TYPE).
  * Un chantier sans heures au devis ou sans pointage n'apprend rien : ignoré.
  *
  * @param {Array<{chantierType?:string, completed:boolean, estimated:number, spent:number}>} chantiers
@@ -251,10 +259,10 @@ export const MIN_CHANTIERS_FOR_COEFFICIENT = 4;
 export const correctionCoefficients = (chantiers) => {
     const sums = new Map();
     for (const c of Array.isArray(chantiers) ? chantiers : []) {
-        const type = normalizeChantierType(c?.chantierType);
+        const type = chantierTypeOrDefault(c?.chantierType);
         const estimated = Number(c?.estimated) || 0;
         const spent = Number(c?.spent) || 0;
-        if (!type || !c.completed || estimated <= 0 || spent <= 0) continue;
+        if (!c?.completed || estimated <= 0 || spent <= 0) continue;
         const sum = sums.get(type) || { count: 0, estimated: 0, spent: 0 };
         sum.count += 1;
         sum.estimated += estimated;
