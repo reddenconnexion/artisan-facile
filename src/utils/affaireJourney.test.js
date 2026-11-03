@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { affaireJourney, affaireAmounts, depositInvoicesOf, closingInvoicesOf } from './affaireJourney';
+import { affaireJourney, affaireAmounts, depositInvoicesOf, closingInvoicesOf, affaireRootId, clientOpenAffaires } from './affaireJourney';
 
 const quote = (over = {}) => ({ id: 1, type: 'quote', status: 'draft', total_ttc: 1000, ...over });
 const stateOf = (journey) => Object.fromEntries(journey.steps.map(s => [s.id, s.state]));
@@ -115,5 +115,46 @@ describe('affaireAmounts', () => {
         expect(affaireAmounts(quote(), children)).toEqual({
             quoteTTC: 1000, amendmentsTTC: 200, totalTTC: 1200, paidTTC: 300, remainingTTC: 900,
         });
+    });
+});
+
+describe('affaireRootId', () => {
+    it('un document lié ouvre l\'affaire de son devis parent', () => {
+        expect(affaireRootId({ id: 5, type: 'invoice', status: 'draft', parent_id: 1 })).toBe(1);
+    });
+
+    it('un devis envoyé ouvre sa propre affaire, pas un brouillon', () => {
+        expect(affaireRootId({ id: 1, type: 'quote', status: 'sent' })).toBe(1);
+        expect(affaireRootId({ id: 1, type: 'quote', status: 'draft' })).toBe(null);
+    });
+
+    it('un avoir ne donne pas accès à une affaire', () => {
+        expect(affaireRootId({ id: 9, type: 'credit_note', status: 'sent', parent_id: 5 })).toBe(null);
+    });
+});
+
+describe('clientOpenAffaires', () => {
+    it('liste les affaires en cours avec leur étape, les plus récentes d\'abord', () => {
+        const docs = [
+            quote({ id: 1, status: 'accepted', date: '2026-09-01', has_material_deposit: true }),
+            quote({ id: 2, status: 'sent', date: '2026-10-15', valid_until: '2099-01-01' }),
+            quote({ id: 3, status: 'draft' }),
+            quote({ id: 4, status: 'refused' }),
+            quote({ id: 6, status: 'accepted', archived_at: '2026-10-01' }),
+            { id: 7, type: 'invoice', status: 'sent', title: 'Dépannage' },
+        ];
+        const open = clientOpenAffaires(docs);
+        expect(open.map(a => a.quote.id)).toEqual([2, 1]);
+        expect(open[0].current.id).toBe('signature');
+        expect(open[1].current.id).toBe('acompte');
+    });
+
+    it('écarte un devis expiré sans réponse et une affaire soldée', () => {
+        const docs = [
+            quote({ id: 1, status: 'sent', valid_until: '2020-01-01' }),
+            quote({ id: 2, status: 'accepted', work_stage: 'completed' }),
+            { id: 3, type: 'invoice', status: 'paid', title: 'Facture de clôture - X', parent_id: 2 },
+        ];
+        expect(clientOpenAffaires(docs)).toEqual([]);
     });
 });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List, Archive, ArchiveRestore, MailOpen, Banknote } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List, Archive, ArchiveRestore, MailOpen, Banknote, Route } from 'lucide-react';
+import { affaireRootId } from '../utils/affaireJourney';
 import { supabase } from '../utils/supabase';
 import { exportToCSV } from '../utils/csvExport';
 import { buildLineItemRows, LINE_ITEM_COLUMNS, STATUS_LABELS } from '../utils/quoteLineExport';
@@ -710,6 +711,16 @@ const DevisList = () => {
                                                         <span className="text-gray-400">-</span>
                                                     ) : null}
                                                 </span>
+                                                {!mergeMode && affaireRootId(devis) && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); navigate(`/app/affaires/${affaireRootId(devis)}`); }}
+                                                        title="Suivi de l'affaire : devis, signature, acompte, chantier, facture"
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold text-ios bg-ios/10 hover:bg-ios/20 transition-colors"
+                                                    >
+                                                        <Route className="w-4 h-4" />
+                                                        Suivi
+                                                    </button>
+                                                )}
                                                 {!mergeMode && canMarkPaid(devis) && (
                                                     <button
                                                         onClick={(e) => handleMarkPaid(e, devis)}
@@ -806,6 +817,15 @@ const DevisList = () => {
                                         <span className="font-bold text-gray-900 dark:text-white text-base whitespace-nowrap">
                                             {devis.total_ttc ? formatCurrency(devis.total_ttc) : '-'}
                                         </span>
+                                        {!mergeMode && affaireRootId(devis) && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); navigate(`/app/affaires/${affaireRootId(devis)}`); }}
+                                                className="inline-flex items-center justify-center gap-1 text-sm font-semibold text-ios px-3 min-h-[44px] rounded-md bg-ios/10"
+                                            >
+                                                <Route className="w-4 h-4" />
+                                                Suivi
+                                            </button>
+                                        )}
                                         {!mergeMode && canMarkPaid(devis) && (
                                             <button
                                                 onClick={(e) => handleMarkPaid(e, devis)}
