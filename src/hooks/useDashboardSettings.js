@@ -7,8 +7,8 @@ import { toastError } from '../utils/supabaseErrorHandler';
  * Définition des widgets du tableau de bord.
  * Pour ajouter un nouveau widget : étendre cette constante + l'ajouter dans Dashboard.jsx.
  *
- * Par défaut, seuls les quatre widgets « actionnables » sont affichés
- * (indicateurs, à traiter, relances du jour, chantiers) : un tableau de bord
+ * Par défaut, seuls les widgets « actionnables » sont affichés
+ * (indicateurs, à traiter, suivi des affaires, relances du jour, chantiers) : un tableau de bord
  * court se lit d'un coup d'œil sur téléphone. Le reste s'active depuis
  * « Personnaliser ».
  */
@@ -18,6 +18,7 @@ export const DASHBOARD_WIDGETS = [
     { id: 'worksites',        label: 'Chantiers (kanban)',         description: 'Mini-kanban de vos chantiers, déplaçables par étape', defaultVisible: true,  alwaysOn: false },
     { id: 'quick_actions',    label: 'Actions rapides',            description: 'Raccourcis vers vos pages et actions les plus utilisées', defaultVisible: false, alwaysOn: false },
     { id: 'actionable',       label: 'À traiter',                  description: 'Devis en retard, factures à relancer, alertes', defaultVisible: true,  alwaysOn: false },
+    { id: 'affaires',         label: 'Suivi des affaires',         description: 'Affaires en cours et leur prochaine étape (devis → facture)', defaultVisible: true,  alwaysOn: false },
     { id: 'financial_health',    label: 'Score de santé financière',  description: 'Note 0-100 avec conseils contextuels',              defaultVisible: false, alwaysOn: false },
     { id: 'cash_flow_forecast', label: 'Trésorerie prévisionnelle', description: 'Projection à 90 jours des encaissements attendus',  defaultVisible: false, alwaysOn: false },
     { id: 'recent_documents',  label: 'Derniers documents',         description: '5 devis/factures les plus récents',                defaultVisible: false, alwaysOn: false },

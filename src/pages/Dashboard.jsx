@@ -54,6 +54,7 @@ import CopilotChat from '../components/CopilotChat';
 import { buildDashboardCopilotFacts } from '../utils/copilotContext';
 import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
 import TopClientsWidget from '../components/TopClientsWidget';
+import AffairesWidget from '../components/AffairesWidget';
 import { useDashboardSettings, reconcileWidgetOrder } from '../hooks/useDashboardSettings';
 import CashFlowForecast from '../components/CashFlowForecast';
 import { supabase } from '../utils/supabase';
@@ -63,7 +64,7 @@ import { supabase } from '../utils/supabase';
 // L'ordre est fixe : l'artisan retrouve chaque bloc au même endroit d'une
 // session à l'autre (un ordre manuel enregistré dans « Personnaliser » prévaut).
 const DASHBOARD_WIDGET_IDS = [
-    'kpi_strip', 'actionable', 'daily_relances', 'worksites', 'quick_actions',
+    'kpi_strip', 'actionable', 'affaires', 'daily_relances', 'worksites', 'quick_actions',
     'financial_health', 'cash_flow_forecast', 'recent_documents',
     'clients_memos', 'advanced_stats', 'recent_activity', 'storage_usage',
 ];
@@ -1134,6 +1135,7 @@ const Dashboard = () => {
         worksites: () => isVisible('worksites') ? <WorksitesKanban /> : null,
         quick_actions: () => isVisible('quick_actions') ? <QuickActions /> : null,
         actionable: () => isVisible('actionable') ? <ActionableDashboard user={user} /> : null,
+        affaires: () => isVisible('affaires') ? <AffairesWidget allQuotes={allQuotes} navigate={navigate} /> : null,
         financial_health: () => isVisible('financial_health') ? <FinancialHealthCard quotes={allQuotes} /> : null,
         cash_flow_forecast: () => isVisible('cash_flow_forecast') ? <CashFlowForecast allQuotes={allQuotes} navigate={navigate} /> : null,
         recent_documents: () => {

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { EmptyState } from './ui';
 import { supabase } from '../utils/supabase';
 import { FileText, CheckCircle, Clock, AlertCircle, ArrowRight, Mail, Phone, MessageSquare, Calendar, XCircle, Route, ChevronRight } from 'lucide-react';
-import { affaireRootId, clientOpenAffaires } from '../utils/affaireJourney';
+import { affaireRootId, openAffaires } from '../utils/affaireJourney';
 import { formatDate, formatCurrency } from '../utils/format';
 
 const StatusBadge = ({ status }) => {
@@ -83,7 +83,7 @@ const ClientHistory = ({ clientId }) => {
 
     const lastContact = interactions.length > 0 ? interactions[0] : null;
     // Affaires en cours du client, avec leur prochaine étape : accès direct au suivi.
-    const openAffaires = useMemo(() => clientOpenAffaires(history), [history]);
+    const clientAffaires = useMemo(() => openAffaires(history), [history]);
 
     if (loading) return <div className="text-center py-4 text-gray-500 dark:text-gray-400">Chargement de l'historique...</div>;
 
@@ -100,13 +100,13 @@ const ClientHistory = ({ clientId }) => {
     return (
         <div className="space-y-6">
             {/* Affaires en cours : un clic ouvre le suivi (devis → facture) */}
-            {openAffaires.length > 0 && (
+            {clientAffaires.length > 0 && (
                 <div className="space-y-2">
                     <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
                         <Route className="w-4 h-4 text-ios" />
                         Affaires en cours
                     </h3>
-                    {openAffaires.map(({ quote, current }) => (
+                    {clientAffaires.map(({ quote, current }) => (
                         <button
                             key={quote.id}
                             type="button"

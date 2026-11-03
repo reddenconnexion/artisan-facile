@@ -223,14 +223,14 @@ const isPast = (date) => {
 };
 
 /**
- * Affaires en cours d'un client, à partir de tous ses documents : chaque devis
- * racine envoyé (et pas expiré sans réponse), ni refusé, ni archivé, ni soldé,
- * avec son étape en cours.
- * Les plus récentes d'abord.
- * @param {Array} docs Les documents du client (table `quotes`).
- * @returns {Array<{ quote: object, current: object }>}
+ * Affaires en cours, à partir d'une liste de documents (ceux d'un client, ou
+ * tous ceux de l'artisan) : chaque devis racine envoyé (et pas expiré sans
+ * réponse), ni refusé, ni archivé, ni soldé, avec son parcours et son étape en
+ * cours. Les plus récentes d'abord.
+ * @param {Array} docs Documents (table `quotes`), devis racines et documents liés.
+ * @returns {Array<{ quote: object, current: object, journey: object }>}
  */
-export function clientOpenAffaires(docs = []) {
+export function openAffaires(docs = []) {
     const list = (docs || []).filter(Boolean);
     return list
         .filter(d => (d.type || 'quote') === 'quote' && !d.parent_id && !d.archived_at
@@ -239,9 +239,8 @@ export function clientOpenAffaires(docs = []) {
             && !(d.status === 'sent' && !d.signed_at && isPast(d.valid_until)))
         .map(quote => {
             const journey = affaireJourney(quote, list.filter(d => d.parent_id === quote.id));
-            return { quote, current: journey.current, completed: journey.completed, refused: journey.refused };
+            return { quote, current: journey.current, journey };
         })
-        .filter(a => !a.completed && !a.refused && a.current)
-        .sort((a, b) => new Date(b.quote.date || b.quote.created_at || 0) - new Date(a.quote.date || a.quote.created_at || 0))
-        .map(({ quote, current }) => ({ quote, current }));
+        .filter(a => !a.journey.completed && !a.journey.refused && a.current)
+        .sort((a, b) => new Date(b.quote.date || b.quote.created_at || 0) - new Date(a.quote.date || a.quote.created_at || 0));
 }
