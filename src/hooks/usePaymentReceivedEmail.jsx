@@ -5,10 +5,11 @@ import { paymentReceivedKind } from '../utils/paymentReceivedEmail';
 /**
  * Règlement encaissé → mail de confirmation au client.
  *
- * Dès que l'artisan valide l'encaissement d'un acompte ou du solde, on lui
- * propose un mail prêt à partir :
- *   - acompte : bien reçu, commande du matériel lancée ;
- *   - solde   : bien reçu, chantier entièrement réglé.
+ * Dès que l'artisan valide l'encaissement d'un acompte, d'une situation de
+ * travaux ou du solde, on lui propose un mail prêt à partir :
+ *   - acompte   : bien reçu, commande du matériel lancée ;
+ *   - situation : bien reçu, travaux qui se poursuivent ;
+ *   - solde     : bien reçu, chantier entièrement réglé.
  * Il peut le retoucher, l'envoyer (adresse pro si configurée, sinon sa
  * messagerie), le copier, ou passer. Rien n'est proposé pour une autre facture.
  *

@@ -89,7 +89,7 @@ const Affaire = () => {
             }
             const { data: linked, error: linkedError } = await supabase
                 .from('quotes')
-                .select('id, title, type, status, items, quote_number, invoice_number, total_ht, total_ttc, date, paid_at, signed_at, created_at')
+                .select('id, title, type, status, items, amendment_details, quote_number, invoice_number, total_ht, total_ttc, date, paid_at, signed_at, created_at')
                 .eq('parent_id', quoteId)
                 .neq('status', 'cancelled')
                 .order('created_at', { ascending: true });
@@ -172,7 +172,7 @@ const Affaire = () => {
                 try {
                     await markInvoicePaid(action.docId, user.id, paymentMethod);
                     toast.success('Paiement enregistré');
-                    // Acompte ou solde encaissé : mail de confirmation à proposer.
+                    // Acompte, situation ou solde encaissé : mail de confirmation à proposer.
                     const paidDoc = action.docId === quote.id ? quote : children.find(d => d.id === action.docId);
                     offerPaymentEmail(paidDoc);
                     invalidateQuotes();

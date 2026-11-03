@@ -157,7 +157,7 @@ const DevisForm = () => {
     }, [lineMenuId]);
     const [activeCalculatorItem, setActiveCalculatorItem] = useState(null);
     const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
-    // Acompte / solde encaissé : mail de confirmation au client à proposer.
+    // Acompte / situation / solde encaissé : mail de confirmation au client à proposer.
     const [offerPaymentEmail, paymentEmailModal] = usePaymentReceivedEmail();
     // Quand le modal s'ouvre automatiquement après l'envoi/paiement, on renvoie
     // l'utilisateur vers la liste à la fermeture. Lorsqu'il l'ouvre manuellement
@@ -1398,7 +1398,7 @@ const DevisForm = () => {
                 setReviewNavigateOnClose(true);
                 setShowReviewRequestModal(true);
             };
-            // Acompte ou solde qui vient d'être encaissé (quel que soit le statut
+            // Acompte, situation ou solde qui vient d'être encaissé (quel que soit le statut
             // d'avant) : on propose le mail de confirmation au client, puis la
             // demande d'avis s'il y a lieu, une fois ce mail fermé.
             const paymentEmailOffered = formData.status === 'paid' && initialStatus !== 'paid' && !!savedQuoteId
