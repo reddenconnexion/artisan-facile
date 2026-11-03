@@ -1,42 +1,59 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Mail, Copy, PackageCheck, Loader2 } from 'lucide-react';
+import { X, Mail, Copy, PackageCheck, BadgeCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTestMode } from '../context/TestModeContext';
 import { useUserProfile } from '../hooks/useDataCache';
-import { buildDepositReceivedEmail } from '../utils/depositReceivedEmail';
+import { buildPaymentReceivedEmail } from '../utils/paymentReceivedEmail';
 import { sendDocumentEmail, probablySentMessage } from '../utils/sendDocumentEmail';
 
+const COPY = {
+    deposit: {
+        Icon: PackageCheck,
+        title: 'Acompte reçu : prévenez le client',
+        caption: 'Mail suggéré : réception confirmée et commande du matériel lancée.',
+        logDetail: (ref) => `Confirmation de réception de l'acompte${ref} et lancement de la commande`,
+    },
+    balance: {
+        Icon: BadgeCheck,
+        title: 'Solde reçu : remerciez le client',
+        caption: 'Mail suggéré : règlement du solde confirmé, chantier entièrement réglé.',
+        logDetail: (ref) => `Confirmation de réception du solde${ref}`,
+    },
+};
+
 /**
- * Mail « acompte bien reçu, commande lancée » proposé après l'encaissement
- * d'un acompte (voir useDepositReceivedEmail). Charge l'acompte, son client et
- * son devis d'origine, rédige le mail, et le laisse retoucher avant l'envoi.
+ * Mail « règlement bien reçu » proposé après l'encaissement d'un acompte
+ * (commande lancée) ou du solde (chantier réglé) — voir usePaymentReceivedEmail.
+ * Charge la facture, son client et son devis d'origine, rédige le mail, et le
+ * laisse retoucher avant l'envoi.
  */
-const DepositReceivedEmailModal = ({ depositId, onClose }) => {
+const PaymentReceivedEmailModal = ({ invoiceId, kind = 'deposit', onClose }) => {
+    const copy = COPY[kind] || COPY.deposit;
     const { user } = useAuth();
     const { isTestMode, captureEmail } = useTestMode();
     const { data: userProfile, isLoading: profileLoading } = useUserProfile();
 
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
-    const [deposit, setDeposit] = useState(null);
+    const [invoice, setInvoice] = useState(null);
     const [to, setTo] = useState('');
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
 
-    // Charge l'acompte (avec son client et son devis d'origine), puis rédige le mail.
+    // Charge la facture (avec son client et son devis d'origine), puis rédige le mail.
     useEffect(() => {
         let cancelled = false;
         (async () => {
             const { data: doc, error } = await supabase
                 .from('quotes')
                 .select('id, title, total_ttc, invoice_number, quote_number, payment_method, client_id, parent_id, clients(name, email)')
-                .eq('id', depositId)
+                .eq('id', invoiceId)
                 .maybeSingle();
             if (cancelled) return;
             if (error || !doc) {
-                console.error('Acompte introuvable pour le mail de confirmation', error);
+                console.error('Facture introuvable pour le mail de confirmation', error);
                 onClose();
                 return;
             }
@@ -50,14 +67,14 @@ const DepositReceivedEmailModal = ({ depositId, onClose }) => {
                 parentQuote = parent || null;
             }
             if (cancelled) return;
-            setDeposit(doc);
+            setInvoice(doc);
             setTo(doc.clients?.email || '');
             // Le texte se rédige une fois le profil connu (signature).
-            setDraftInputs({ deposit: doc, parentQuote, client: doc.clients });
+            setDraftInputs({ kind, invoice: doc, parentQuote, client: doc.clients });
         })();
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [depositId]);
+    }, [invoiceId]);
 
     // Rédigé une seule fois : un rafraîchissement du profil ne doit pas
     // écraser les retouches de l'artisan.
@@ -66,7 +83,7 @@ const DepositReceivedEmailModal = ({ depositId, onClose }) => {
     useEffect(() => {
         if (!draftInputs || profileLoading || draftedRef.current) return;
         draftedRef.current = true;
-        const draft = buildDepositReceivedEmail({ ...draftInputs, userProfile });
+        const draft = buildPaymentReceivedEmail({ ...draftInputs, userProfile });
         setSubject(draft.subject);
         setBody(draft.body);
         setLoading(false);
@@ -79,15 +96,15 @@ const DepositReceivedEmailModal = ({ depositId, onClose }) => {
     }, [onClose, sending]);
 
     const logInteraction = () => {
-        if (!deposit?.client_id || !user?.id) return;
+        if (!invoice?.client_id || !user?.id) return;
         supabase.from('client_interactions').insert([{
             user_id: user.id,
-            client_id: deposit.client_id,
+            client_id: invoice.client_id,
             type: 'email',
             date: new Date(),
-            details: `Confirmation de réception de l'acompte${deposit.invoice_number ? ` ${deposit.invoice_number}` : ''} et lancement de la commande`,
+            details: copy.logDetail(invoice.invoice_number ? ` ${invoice.invoice_number}` : ''),
         }]).then(({ error }) => {
-            if (error) console.error('Error logging deposit email interaction:', error);
+            if (error) console.error('Error logging payment email interaction:', error);
         });
     };
 
@@ -105,8 +122,8 @@ const DepositReceivedEmailModal = ({ depositId, onClose }) => {
                 to: recipient,
                 subject,
                 text: body,
-                quote_id: deposit?.id,
-                client_id: deposit?.client_id,
+                quote_id: invoice?.id,
+                client_id: invoice?.client_id,
             });
             setSending(false);
             if (status === 'sent') {
@@ -144,19 +161,19 @@ const DepositReceivedEmailModal = ({ depositId, onClose }) => {
             <div
                 role="dialog"
                 aria-modal="true"
-                aria-label="Prévenir le client : acompte reçu"
+                aria-label={copy.title}
                 className="w-full sm:max-w-lg bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92vh] flex flex-col safe-area-bottom"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex items-start justify-between gap-3 p-5 pb-3 shrink-0">
                     <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
-                            <PackageCheck className="w-5 h-5" />
+                            <copy.Icon className="w-5 h-5" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Acompte reçu : prévenez le client</h2>
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{copy.title}</h2>
                             <p className="text-sm text-gray-600 dark:text-gray-300">
-                                Mail suggéré : réception confirmée et commande du matériel lancée.
+                                {copy.caption}
                             </p>
                         </div>
                     </div>
@@ -221,4 +238,4 @@ const DepositReceivedEmailModal = ({ depositId, onClose }) => {
     );
 };
 
-export default DepositReceivedEmailModal;
+export default PaymentReceivedEmailModal;
