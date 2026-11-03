@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EmptyState } from './ui';
 import { supabase } from '../utils/supabase';
-import { FileText, CheckCircle, Clock, AlertCircle, ArrowRight, Mail, Phone, MessageSquare, Calendar, XCircle } from 'lucide-react';
+import { FileText, CheckCircle, Clock, AlertCircle, ArrowRight, Mail, Phone, MessageSquare, Calendar, XCircle, Route, ChevronRight } from 'lucide-react';
+import { affaireRootId, clientOpenAffaires } from '../utils/affaireJourney';
 import { formatDate, formatCurrency } from '../utils/format';
 
 const StatusBadge = ({ status }) => {
@@ -81,6 +82,8 @@ const ClientHistory = ({ clientId }) => {
     };
 
     const lastContact = interactions.length > 0 ? interactions[0] : null;
+    // Affaires en cours du client, avec leur prochaine étape : accès direct au suivi.
+    const openAffaires = useMemo(() => clientOpenAffaires(history), [history]);
 
     if (loading) return <div className="text-center py-4 text-gray-500 dark:text-gray-400">Chargement de l'historique...</div>;
 
@@ -96,6 +99,40 @@ const ClientHistory = ({ clientId }) => {
 
     return (
         <div className="space-y-6">
+            {/* Affaires en cours : un clic ouvre le suivi (devis → facture) */}
+            {openAffaires.length > 0 && (
+                <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <Route className="w-4 h-4 text-ios" />
+                        Affaires en cours
+                    </h3>
+                    {openAffaires.map(({ quote, current }) => (
+                        <button
+                            key={quote.id}
+                            type="button"
+                            onClick={() => navigate(`/app/affaires/${quote.id}`)}
+                            className="tap-target w-full flex items-center gap-3 text-left px-4 py-3 rounded-xl bg-white dark:bg-white/5 border border-ios/30 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+                        >
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                    {quote.title || `Devis #${quote.quote_number || quote.id}`}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                    Devis #{quote.quote_number || quote.id}{quote.total_ttc ? ` · ${formatCurrency(quote.total_ttc)}` : ''}
+                                </p>
+                                <p className="text-xs mt-1 text-ios font-medium truncate">
+                                    Prochaine étape : {current.label}{current.action?.label ? ` — ${current.action.label}` : ''}
+                                </p>
+                            </div>
+                            <span className="flex items-center gap-1 text-xs font-semibold text-ios flex-shrink-0">
+                                Suivi
+                                <ChevronRight className="w-4 h-4" />
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
+
             {/* Last Contact Summary */}
             {lastContact && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex items-start md:items-center">
@@ -237,7 +274,20 @@ const ClientHistory = ({ clientId }) => {
                                             <StatusBadge status={item.status} />
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <ArrowRight className="w-5 h-5 text-gray-400" />
+                                            <div className="inline-flex items-center justify-end gap-1">
+                                                {affaireRootId(item) && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); navigate(`/app/affaires/${affaireRootId(item)}`); }}
+                                                        title="Suivi de l'affaire"
+                                                        aria-label="Suivi de l'affaire"
+                                                        className="p-2 rounded-md text-ios hover:bg-ios/10 transition-colors"
+                                                    >
+                                                        <Route className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                                <ArrowRight className="w-5 h-5 text-gray-400" />
+                                            </div>
                                         </td>
                                     </tr>
                                 ))

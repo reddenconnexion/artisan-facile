@@ -49,6 +49,7 @@ import { computeQuoteTotals } from '../utils/quoteTotals';
 import { normalizeChantierType, chantierTypeOrDefault } from '../utils/timeTracking';
 import DepositNextStepCard from '../components/DepositNextStepCard';
 import AffaireLink from './devis-form/AffaireLink';
+import { affaireRootId } from '../utils/affaireJourney';
 import { format } from 'date-fns';
 import { formatDate, formatCurrency } from '../utils/format';
 import ClientDisplayModeBar from './devis-form/ClientDisplayModeBar';
@@ -1953,10 +1954,8 @@ const DevisForm = () => {
     // Accès au suivi de l'affaire : dès que le devis est parti chez le client,
     // ou depuis un document lié (acompte, avenant, clôture). Un avoir se
     // rattache à une facture, pas au devis : il n'y donne pas accès.
-    const affaireLink = isEditing && id && id !== 'new' && formData.type !== 'credit_note'
-        && (formData.parent_id || (formData.status && formData.status !== 'draft'))
-        ? <AffaireLink id={formData.parent_id || id} />
-        : null;
+    const affaireId = isEditing && id && id !== 'new' ? affaireRootId({ ...formData, id }) : null;
+    const affaireLink = affaireId ? <AffaireLink id={affaireId} /> : null;
 
     if (dataLoaded && pdfOverviewMode) {
         return (

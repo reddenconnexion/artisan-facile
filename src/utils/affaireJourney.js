@@ -198,3 +198,50 @@ export function affaireJourney(quote, children = []) {
         refused,
     };
 }
+
+/**
+ * Affaire à laquelle un document donne accès : le devis racine (son parent
+ * pour un document lié — acompte, avenant, situation, clôture), dès que le
+ * devis est parti chez le client. Un brouillon isolé n'a pas encore d'affaire ;
+ * un avoir se rattache à une facture, pas au devis.
+ * @returns {number|string|null} l'id à ouvrir dans /app/affaires/:id
+ */
+export const affaireRootId = (doc) => {
+    if (!doc?.id || doc.type === 'credit_note') return null;
+    if (doc.parent_id) return doc.parent_id;
+    if (!doc.status || doc.status === 'draft') return null;
+    return doc.id;
+};
+
+const isPast = (date) => {
+    if (!date) return false;
+    const day = new Date(date);
+    if (Number.isNaN(day.getTime())) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return day < today;
+};
+
+/**
+ * Affaires en cours d'un client, à partir de tous ses documents : chaque devis
+ * racine envoyé (et pas expiré sans réponse), ni refusé, ni archivé, ni soldé,
+ * avec son étape en cours.
+ * Les plus récentes d'abord.
+ * @param {Array} docs Les documents du client (table `quotes`).
+ * @returns {Array<{ quote: object, current: object }>}
+ */
+export function clientOpenAffaires(docs = []) {
+    const list = (docs || []).filter(Boolean);
+    return list
+        .filter(d => (d.type || 'quote') === 'quote' && !d.parent_id && !d.archived_at
+            && d.status && !['draft', 'cancelled'].includes(d.status)
+            // Devis resté sans réponse après sa date de validité : plus une affaire en cours.
+            && !(d.status === 'sent' && !d.signed_at && isPast(d.valid_until)))
+        .map(quote => {
+            const journey = affaireJourney(quote, list.filter(d => d.parent_id === quote.id));
+            return { quote, current: journey.current, completed: journey.completed, refused: journey.refused };
+        })
+        .filter(a => !a.completed && !a.refused && a.current)
+        .sort((a, b) => new Date(b.quote.date || b.quote.created_at || 0) - new Date(a.quote.date || a.quote.created_at || 0))
+        .map(({ quote, current }) => ({ quote, current }));
+}
