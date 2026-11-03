@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    isDepositInvoice, isBalanceInvoice, paymentReceivedKind, paymentProjectTitle, buildPaymentReceivedEmail,
+    isDepositInvoice, isBalanceInvoice, isSituationInvoice, paymentReceivedKind, paymentProjectTitle, buildPaymentReceivedEmail,
 } from './paymentReceivedEmail';
 
 describe('isDepositInvoice', () => {
@@ -49,6 +49,25 @@ describe('isBalanceInvoice', () => {
     });
 });
 
+describe('isSituationInvoice', () => {
+    it('reconnaît une situation par son contexte ou son titre', () => {
+        expect(isSituationInvoice({ type: 'invoice', title: 'Cuisine', amendment_details: { situation: { index: 2 } } })).toBe(true);
+        expect(isSituationInvoice({ type: 'invoice', title: 'Situation de travaux n°1' })).toBe(true);
+        expect(isSituationInvoice({ type: 'invoice', title: 'Dépannage' })).toBe(false);
+        expect(isSituationInvoice({ type: 'invoice', status: 'cancelled', title: 'Situation - Cuisine' })).toBe(false);
+    });
+
+    it("prime sur l'acompte et le solde (lignes de matériel remboursé à prix négatif)", () => {
+        const doc = {
+            type: 'invoice', title: 'Situation - Cuisine',
+            items: [{ description: 'Déduction acompte matériel (Avancement: -50%)', price: -200 }],
+        };
+        expect(paymentReceivedKind(doc)).toBe('situation');
+        expect(isBalanceInvoice(doc)).toBe(false);
+        expect(isDepositInvoice(doc)).toBe(false);
+    });
+});
+
 describe('paymentProjectTitle', () => {
     it("prend le titre du devis d'origine", () => {
         expect(paymentProjectTitle({ title: "Facture d'acompte - X" }, { title: 'Rénovation cuisine' })).toBe('Rénovation cuisine');
@@ -58,6 +77,9 @@ describe('paymentProjectTitle', () => {
         expect(paymentProjectTitle({ title: "Facture d'Acompte (30%) - Salle de bain" })).toBe('Salle de bain');
         expect(paymentProjectTitle({ title: 'Acompte matériel - Tableau électrique' })).toBe('Tableau électrique');
         expect(paymentProjectTitle({ title: 'Facture de Clôture - Garage' })).toBe('Garage');
+        expect(paymentProjectTitle({ title: 'Situation de travaux n°2 - Extension' })).toBe('Extension');
+        expect(paymentProjectTitle({ title: 'Situation - X', amendment_details: { situation: { parent_title: 'Maison Durand' } } })).toBe('Maison Durand');
+        expect(paymentProjectTitle({ title: 'Situation de travaux n°1' })).toBe('');
         expect(paymentProjectTitle({ title: 'Acompte' })).toBe('');
     });
 });
@@ -103,5 +125,32 @@ describe('buildPaymentReceivedEmail', () => {
         expect(body).toContain('par chèque (facture FAC-2026-0120)');
         expect(body).toContain('Votre chantier « Rénovation cuisine » (devis n°42) est désormais entièrement réglé.');
         expect(body).not.toContain('commande du matériel');
+    });
+
+    it('situation : confirme le règlement, les travaux continuent, rappelle le reste à facturer', () => {
+        const { subject, body } = buildPaymentReceivedEmail({
+            kind: 'situation',
+            invoice: {
+                title: 'Situation - Extension', total_ttc: 1500, invoice_number: 'FAC-2026-0110', payment_method: 'virement',
+                amendment_details: { situation: { index: 2, remaining_ttc: 3200 } },
+            },
+            parentQuote: { title: 'Extension garage', quote_number: 51 },
+            client: { name: 'M. Bernard Luc' },
+            userProfile,
+        });
+        expect(subject).toBe('Règlement bien reçu - Situation n°2 - Extension garage - Red Den Connexion');
+        expect(body).toMatch(/^Bonjour M\. Bernard,/);
+        expect(body).toContain('règlement de la situation de travaux n°2 de 1');
+        expect(body).toContain('par virement (facture FAC-2026-0110)');
+        expect(body).toContain('Les travaux de votre chantier « Extension garage » (devis n°51) se poursuivent');
+        expect(body).toContain('il reste 3');
+        expect(body).not.toContain('commande du matériel');
+    });
+
+    it('situation : sans numéro ni reste connu', () => {
+        const { subject, body } = buildPaymentReceivedEmail({ kind: 'situation', invoice: { title: 'Situation - Cuisine' }, userProfile });
+        expect(subject).toBe('Règlement bien reçu - Situation - Cuisine - Red Den Connexion');
+        expect(body).toContain('règlement de la situation de travaux. Merci.');
+        expect(body).not.toContain('il reste');
     });
 });

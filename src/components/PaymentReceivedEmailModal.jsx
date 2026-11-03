@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Mail, Copy, PackageCheck, BadgeCheck, Loader2 } from 'lucide-react';
+import { X, Mail, Copy, PackageCheck, BadgeCheck, HardHat, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -15,6 +15,12 @@ const COPY = {
         caption: 'Mail suggéré : réception confirmée et commande du matériel lancée.',
         logDetail: (ref) => `Confirmation de réception de l'acompte${ref} et lancement de la commande`,
     },
+    situation: {
+        Icon: HardHat,
+        title: 'Situation réglée : prévenez le client',
+        caption: 'Mail suggéré : règlement de la situation confirmé, travaux qui se poursuivent.',
+        logDetail: (ref) => `Confirmation de réception du règlement de la situation${ref}`,
+    },
     balance: {
         Icon: BadgeCheck,
         title: 'Solde reçu : remerciez le client',
@@ -25,7 +31,8 @@ const COPY = {
 
 /**
  * Mail « règlement bien reçu » proposé après l'encaissement d'un acompte
- * (commande lancée) ou du solde (chantier réglé) — voir usePaymentReceivedEmail.
+ * (commande lancée), d'une situation de travaux (travaux qui se poursuivent)
+ * ou du solde (chantier réglé) — voir usePaymentReceivedEmail.
  * Charge la facture, son client et son devis d'origine, rédige le mail, et le
  * laisse retoucher avant l'envoi.
  */
@@ -48,7 +55,7 @@ const PaymentReceivedEmailModal = ({ invoiceId, kind = 'deposit', onClose }) => 
         (async () => {
             const { data: doc, error } = await supabase
                 .from('quotes')
-                .select('id, title, total_ttc, invoice_number, quote_number, payment_method, client_id, parent_id, clients(name, email)')
+                .select('id, title, total_ttc, invoice_number, quote_number, payment_method, client_id, parent_id, amendment_details, clients(name, email)')
                 .eq('id', invoiceId)
                 .maybeSingle();
             if (cancelled) return;
