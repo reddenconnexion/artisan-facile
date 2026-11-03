@@ -15,6 +15,8 @@ import { useConfirm } from '../context/ConfirmContext';
 import { recordFollowUp, getFollowUpSettings, acceptQuoteOnPayment } from '../utils/followUpService';
 import SignatureModal from '../components/SignatureModal';
 import ReviewRequestModal from '../components/ReviewRequestModal';
+import { useDepositReceivedEmail } from '../hooks/useDepositReceivedEmail';
+import { isDepositInvoice } from '../utils/depositReceivedEmail';
 
 // import { useVoice } from '../hooks/useVoice'; // Removed direct hook usage
 import SmartVoiceModal from '../components/SmartVoiceModal'; // Added Smart Modal
@@ -156,6 +158,8 @@ const DevisForm = () => {
     }, [lineMenuId]);
     const [activeCalculatorItem, setActiveCalculatorItem] = useState(null);
     const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
+    // Acompte encaissé : mail « acompte reçu, commande lancée » à proposer.
+    const [offerDepositEmail, depositEmailModal] = useDepositReceivedEmail();
     // Quand le modal s'ouvre automatiquement après l'envoi/paiement, on renvoie
     // l'utilisateur vers la liste à la fermeture. Lorsqu'il l'ouvre manuellement
     // (bouton "Demander un avis"), on reste sur la facture en cours.
@@ -1388,7 +1392,12 @@ const DevisForm = () => {
             // n'est pas encore terminé.
             const justBilled = formData.status === 'billed' && initialStatus !== 'billed' && initialStatus !== 'paid';
             const justPaid = formData.status === 'paid' && initialStatus !== 'paid' && initialStatus !== 'billed';
+            // Acompte qui vient d'être encaissé (quel que soit le statut d'avant) :
+            // on propose le mail de confirmation au client.
+            const depositJustPaid = formData.status === 'paid' && initialStatus !== 'paid'
+                && isDepositInvoice(formData) && savedQuoteId;
             setInitialStatus(formData.status);
+            if (depositJustPaid) offerDepositEmail(savedQuoteId);
             if (justBilled || justPaid) {
                 const titleLower = (formData.title || '').toLowerCase();
                 const isIntermediateInvoice = titleLower.includes('acompte') || titleLower.includes('situation');
@@ -2386,6 +2395,8 @@ const DevisForm = () => {
                 onSave={handleSignatureSave}
                 requiresOtp={false}
             />
+
+            {depositEmailModal}
 
             <ReviewRequestModal
                 isOpen={showReviewRequestModal}
