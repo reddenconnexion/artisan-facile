@@ -379,7 +379,9 @@ const ClientForm = () => {
 
     // const { isListening, transcript, startListening, stopListening, resetTranscript } = useVoice(); // Removed
     // location.state.tab : retour direct sur un onglet (ex. depuis les étiquettes).
-    const [activeTab, setActiveTab] = useState(() => location.state?.tab || 'info'); // 'info', 'contacts', 'history', 'plans'
+    // Un client existant s'ouvre sur son historique, la donnée la plus consultée ;
+    // un nouveau client, sur le formulaire.
+    const [activeTab, setActiveTab] = useState(() => location.state?.tab || (isEditing ? 'history' : 'info')); // 'history', 'info', 'plans', 'contacts', 'materials'
     const [showVoiceModal, setShowVoiceModal] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -714,63 +716,47 @@ const ClientForm = () => {
 
             {isEditing && <ClientStats clientId={id} onOpenHistory={() => setActiveTab('history')} />}
 
-            <div className="flex space-x-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto pb-0.5">
-                <button
-                    onClick={() => setActiveTab('info')}
-                    className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'info' ? 'text-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
-                >
-                    <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        Informations
-                    </div>
-                    {activeTab === 'info' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-ios rounded-t-full" />}
-                </button>
-                <button
-                    onClick={() => setActiveTab('contacts')}
-                    className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'contacts' ? 'text-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
-                >
-                    <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4" />
-                        Contacts
-                    </div>
-                    {activeTab === 'contacts' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-ios rounded-t-full" />}
-                </button>
-                {isEditing && (
+            {/* Onglets : l'historique d'abord (c'est lui qu'on consulte), puis la
+                fiche et les plans. Contacts et matériaux, rarement utilisés,
+                restent accessibles en fin de barre, en plus discret. */}
+            <div className="flex items-end gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto pb-0.5">
+                {[
+                    isEditing && { id: 'history', label: 'Historique', Icon: History },
+                    { id: 'info', label: 'Informations', Icon: FileText },
+                    isEditing && { id: 'plans', label: 'Plans & étiquettes', Icon: Zap, accent: 'yellow' },
+                ].filter(Boolean).map(({ id: tabId, label, Icon, accent }) => (
                     <button
-                        onClick={() => setActiveTab('materials')}
-                        className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'materials' ? 'text-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                        key={tabId}
+                        type="button"
+                        onClick={() => setActiveTab(tabId)}
+                        className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === tabId ? (accent === 'yellow' ? 'text-yellow-600' : 'text-blue-600') : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
                     >
                         <div className="flex items-center gap-2">
-                            <Palette className="w-4 h-4" />
-                            Matériaux
+                            <Icon className="w-4 h-4" />
+                            {label}
                         </div>
-                        {activeTab === 'materials' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-ios rounded-t-full" />}
+                        {activeTab === tabId && <div className={`absolute bottom-0 left-0 w-full h-0.5 rounded-t-full ${accent === 'yellow' ? 'bg-yellow-500' : 'bg-ios'}`} />}
                     </button>
-                )}
-                {isEditing && (
-                    <button
-                        onClick={() => setActiveTab('history')}
-                        className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
-                    >
-                        <div className="flex items-center gap-2">
-                            <History className="w-4 h-4" />
-                            Historique
-                        </div>
-                        {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-ios rounded-t-full" />}
-                    </button>
-                )}
-                {isEditing && (
-                    <button
-                        onClick={() => setActiveTab('plans')}
-                        className={`pb-2 px-1 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === 'plans' ? 'text-yellow-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
-                    >
-                        <div className="flex items-center gap-2">
-                            <Zap className="w-4 h-4" />
-                            Plans & étiquettes
-                        </div>
-                        {activeTab === 'plans' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-yellow-500 rounded-t-full" />}
-                    </button>
-                )}
+                ))}
+                <div className="flex items-end gap-3 ml-auto pl-3 border-l border-gray-200 dark:border-gray-700 flex-shrink-0">
+                    {[
+                        { id: 'contacts', label: 'Contacts', Icon: Users },
+                        isEditing && { id: 'materials', label: 'Matériaux', Icon: Palette },
+                    ].filter(Boolean).map(({ id: tabId, label, Icon }) => (
+                        <button
+                            key={tabId}
+                            type="button"
+                            onClick={() => setActiveTab(tabId)}
+                            className={`pb-2 px-1 text-xs transition-colors relative whitespace-nowrap flex-shrink-0 ${activeTab === tabId ? 'text-blue-600 font-medium' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600'}`}
+                        >
+                            <div className="flex items-center gap-1.5">
+                                <Icon className="w-3.5 h-3.5" />
+                                {label}
+                            </div>
+                            {activeTab === tabId && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-ios rounded-t-full" />}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {activeTab === 'info' && (
