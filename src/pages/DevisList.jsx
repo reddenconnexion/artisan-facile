@@ -14,6 +14,8 @@ import { useTestMode } from '../context/TestModeContext';
 import { useAuth } from '../context/AuthContext';
 import { archiveQuote, unarchiveQuote, markInvoicePaid } from '../utils/followUpService';
 import { usePaymentMethodPrompt } from '../hooks/usePaymentMethodPrompt';
+import { useDepositReceivedEmail } from '../hooks/useDepositReceivedEmail';
+import { isDepositInvoice } from '../utils/depositReceivedEmail';
 import { reopenedAfterExpiryAt } from '../utils/quoteReopen';
 import { Button, UrgencyBadge, EmptyState, LoadingState } from '../components/ui';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -198,6 +200,7 @@ const DevisList = () => {
     // « Payée » directement depuis la liste : mode de règlement puis
     // enregistrement, sans ouvrir la facture.
     const [askPaymentMethod, paymentPrompt] = usePaymentMethodPrompt();
+    const [offerDepositEmail, depositEmailModal] = useDepositReceivedEmail();
     const canMarkPaid = (devis) => devis.type === 'invoice' && !devis.archived_at
         && ['accepted', 'sent', 'billed'].includes(devis.status);
     const handleMarkPaid = async (e, devis) => {
@@ -212,6 +215,7 @@ const DevisList = () => {
         try {
             await markInvoicePaid(devis.id, user.id, method);
             toast.success('Facture marquée payée');
+            if (isDepositInvoice(devis)) offerDepositEmail(devis.id);
             refreshQuotes();
             queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         } catch (err) {
@@ -394,6 +398,7 @@ const DevisList = () => {
     return (
         <div className="space-y-6">
             {paymentPrompt}
+            {depositEmailModal}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h1 className="ios-title">
                     Devis &amp; Factures

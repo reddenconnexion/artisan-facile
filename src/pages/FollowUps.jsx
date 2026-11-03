@@ -4,6 +4,8 @@ import { useTestMode } from '../context/TestModeContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useUserProfile } from '../hooks/useDataCache';
 import { usePaymentMethodPrompt } from '../hooks/usePaymentMethodPrompt';
+import { useDepositReceivedEmail } from '../hooks/useDepositReceivedEmail';
+import { isDepositInvoice } from '../utils/depositReceivedEmail';
 import {
     getDueFollowUps,
     recordFollowUp,
@@ -40,6 +42,7 @@ const FollowUps = ({ embedded = false }) => {
     const navigate = useNavigate();
     const confirm = useConfirm();
     const [askPaymentMethod, paymentPrompt] = usePaymentMethodPrompt();
+    const [offerDepositEmail, depositEmailModal] = useDepositReceivedEmail();
     const [activeTab, setActiveTab] = useState('due');
     const [dueQuotes, setDueQuotes] = useState([]);
     const [availableSteps, setAvailableSteps] = useState([]);
@@ -280,6 +283,7 @@ const FollowUps = ({ embedded = false }) => {
         try {
             await markInvoicePaid(invoice.id, user.id, paymentMethod);
             toast.success('Facture marquée payée');
+            if (isDepositInvoice(invoice)) offerDepositEmail(invoice.id);
             closeInvoiceDraft(invoice.id);
             fetchDueQuotes();
         } catch (err) {
@@ -617,6 +621,7 @@ const FollowUps = ({ embedded = false }) => {
     return (
         <div className={embedded ? 'space-y-6' : 'max-w-6xl mx-auto space-y-6'}>
             {paymentPrompt}
+            {depositEmailModal}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 {!embedded && (
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
