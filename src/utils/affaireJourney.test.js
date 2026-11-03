@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { affaireJourney, affaireAmounts, depositInvoicesOf, closingInvoicesOf, affaireRootId, clientOpenAffaires } from './affaireJourney';
+import { affaireJourney, affaireAmounts, depositInvoicesOf, closingInvoicesOf, affaireRootId, openAffaires } from './affaireJourney';
 
 const quote = (over = {}) => ({ id: 1, type: 'quote', status: 'draft', total_ttc: 1000, ...over });
 const stateOf = (journey) => Object.fromEntries(journey.steps.map(s => [s.id, s.state]));
@@ -133,7 +133,7 @@ describe('affaireRootId', () => {
     });
 });
 
-describe('clientOpenAffaires', () => {
+describe('openAffaires', () => {
     it('liste les affaires en cours avec leur étape, les plus récentes d\'abord', () => {
         const docs = [
             quote({ id: 1, status: 'accepted', date: '2026-09-01', has_material_deposit: true }),
@@ -143,10 +143,11 @@ describe('clientOpenAffaires', () => {
             quote({ id: 6, status: 'accepted', archived_at: '2026-10-01' }),
             { id: 7, type: 'invoice', status: 'sent', title: 'Dépannage' },
         ];
-        const open = clientOpenAffaires(docs);
+        const open = openAffaires(docs);
         expect(open.map(a => a.quote.id)).toEqual([2, 1]);
         expect(open[0].current.id).toBe('signature');
         expect(open[1].current.id).toBe('acompte');
+        expect(open[1].journey.steps.map(st => st.id)).toEqual(['devis', 'signature', 'acompte', 'chantier', 'facture']);
     });
 
     it('écarte un devis expiré sans réponse et une affaire soldée', () => {
@@ -155,6 +156,6 @@ describe('clientOpenAffaires', () => {
             quote({ id: 2, status: 'accepted', work_stage: 'completed' }),
             { id: 3, type: 'invoice', status: 'paid', title: 'Facture de clôture - X', parent_id: 2 },
         ];
-        expect(clientOpenAffaires(docs)).toEqual([]);
+        expect(openAffaires(docs)).toEqual([]);
     });
 });
