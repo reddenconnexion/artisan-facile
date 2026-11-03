@@ -19,8 +19,7 @@ import AffaireTerrain from '../components/AffaireTerrain';
 import AffaireOrders from '../components/AffaireOrders';
 import { useDepositActions } from './devis-form/useDepositActions';
 import { usePaymentMethodPrompt } from '../hooks/usePaymentMethodPrompt';
-import { useDepositReceivedEmail } from '../hooks/useDepositReceivedEmail';
-import { isDepositInvoice } from '../utils/depositReceivedEmail';
+import { usePaymentReceivedEmail } from '../hooks/usePaymentReceivedEmail';
 
 const STATUS_LABELS = {
     draft: 'Brouillon',
@@ -69,7 +68,7 @@ const Affaire = () => {
     const [notFound, setNotFound] = useState(false);
     const [busy, setBusy] = useState(false);
     const [askPaymentMethod, paymentPrompt] = usePaymentMethodPrompt();
-    const [offerDepositEmail, depositEmailModal] = useDepositReceivedEmail();
+    const [offerPaymentEmail, paymentEmailModal] = usePaymentReceivedEmail();
     const { invalidateQuotes } = useInvalidateCache();
 
     const load = useCallback(async () => {
@@ -173,8 +172,9 @@ const Affaire = () => {
                 try {
                     await markInvoicePaid(action.docId, user.id, paymentMethod);
                     toast.success('Paiement enregistré');
-                    const paidDoc = children.find(d => d.id === action.docId);
-                    if (isDepositInvoice(paidDoc)) offerDepositEmail(action.docId);
+                    // Acompte ou solde encaissé : mail de confirmation à proposer.
+                    const paidDoc = action.docId === quote.id ? quote : children.find(d => d.id === action.docId);
+                    offerPaymentEmail(paidDoc);
                     invalidateQuotes();
                     await load();
                 } catch (error) {
@@ -258,7 +258,7 @@ const Affaire = () => {
     return (
         <div className="max-w-3xl mx-auto pb-28 sm:pb-12">
             {paymentPrompt}
-            {depositEmailModal}
+            {paymentEmailModal}
             <button
                 type="button"
                 onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/app/chantiers'))}

@@ -15,8 +15,7 @@ import { useConfirm } from '../context/ConfirmContext';
 import { recordFollowUp, getFollowUpSettings, acceptQuoteOnPayment } from '../utils/followUpService';
 import SignatureModal from '../components/SignatureModal';
 import ReviewRequestModal from '../components/ReviewRequestModal';
-import { useDepositReceivedEmail } from '../hooks/useDepositReceivedEmail';
-import { isDepositInvoice } from '../utils/depositReceivedEmail';
+import { usePaymentReceivedEmail } from '../hooks/usePaymentReceivedEmail';
 
 // import { useVoice } from '../hooks/useVoice'; // Removed direct hook usage
 import SmartVoiceModal from '../components/SmartVoiceModal'; // Added Smart Modal
@@ -158,8 +157,8 @@ const DevisForm = () => {
     }, [lineMenuId]);
     const [activeCalculatorItem, setActiveCalculatorItem] = useState(null);
     const [showReviewRequestModal, setShowReviewRequestModal] = useState(false);
-    // Acompte encaissé : mail « acompte reçu, commande lancée » à proposer.
-    const [offerDepositEmail, depositEmailModal] = useDepositReceivedEmail();
+    // Acompte / solde encaissé : mail de confirmation au client à proposer.
+    const [offerPaymentEmail, paymentEmailModal] = usePaymentReceivedEmail();
     // Quand le modal s'ouvre automatiquement après l'envoi/paiement, on renvoie
     // l'utilisateur vers la liste à la fermeture. Lorsqu'il l'ouvre manuellement
     // (bouton "Demander un avis"), on reste sur la facture en cours.
@@ -1392,21 +1391,23 @@ const DevisForm = () => {
             // n'est pas encore terminé.
             const justBilled = formData.status === 'billed' && initialStatus !== 'billed' && initialStatus !== 'paid';
             const justPaid = formData.status === 'paid' && initialStatus !== 'paid' && initialStatus !== 'billed';
-            // Acompte qui vient d'être encaissé (quel que soit le statut d'avant) :
-            // on propose le mail de confirmation au client.
-            const depositJustPaid = formData.status === 'paid' && initialStatus !== 'paid'
-                && isDepositInvoice(formData) && savedQuoteId;
+            const titleLower = (formData.title || '').toLowerCase();
+            const isIntermediateInvoice = titleLower.includes('acompte') || titleLower.includes('situation');
+            const wantsReview = (justBilled || justPaid) && !isIntermediateInvoice;
+            const showReview = () => {
+                setReviewNavigateOnClose(true);
+                setShowReviewRequestModal(true);
+            };
+            // Acompte ou solde qui vient d'être encaissé (quel que soit le statut
+            // d'avant) : on propose le mail de confirmation au client, puis la
+            // demande d'avis s'il y a lieu, une fois ce mail fermé.
+            const paymentEmailOffered = formData.status === 'paid' && initialStatus !== 'paid' && !!savedQuoteId
+                && offerPaymentEmail({ ...formData, id: savedQuoteId }, { onClose: wantsReview ? showReview : undefined });
             setInitialStatus(formData.status);
-            if (depositJustPaid) offerDepositEmail(savedQuoteId);
-            if (justBilled || justPaid) {
-                const titleLower = (formData.title || '').toLowerCase();
-                const isIntermediateInvoice = titleLower.includes('acompte') || titleLower.includes('situation');
-                if (!isIntermediateInvoice) {
-                    setReviewNavigateOnClose(true);
-                    setShowReviewRequestModal(true);
-                    // Don't navigate, let user see the modal
-                    return true;
-                }
+            if (wantsReview) {
+                if (!paymentEmailOffered) showReview();
+                // Don't navigate, let user see the modal
+                return true;
             }
             // On reste sur le devis après l'enregistrement : il faut pouvoir
             // l'envoyer ensuite. Un nouveau devis bascule sur son URL d'édition.
@@ -2396,7 +2397,7 @@ const DevisForm = () => {
                 requiresOtp={false}
             />
 
-            {depositEmailModal}
+            {paymentEmailModal}
 
             <ReviewRequestModal
                 isOpen={showReviewRequestModal}
