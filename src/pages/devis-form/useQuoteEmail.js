@@ -7,6 +7,7 @@ import { clientGreetingName } from '../../utils/clientGreeting';
 import { isOffline } from '../../utils/offlineSave';
 import { blobToBase64 } from '../../utils/mediaConverters';
 import { formatDate } from '../../utils/format';
+import { buildInvoiceEmailIntro, invoiceEmailKind, invoiceEmailProjectName, invoiceEmailSubjectPrefix } from '../../utils/invoiceEmail';
 import { buildDocumentEmailHtml } from './quoteEmailHtml';
 import { sendDocumentEmail, probablySentMessage } from '../../utils/sendDocumentEmail';
 
@@ -263,17 +264,20 @@ export const useQuoteEmail = ({
                 ? formatDate(formData.paid_at, { locale: lang === 'en' ? 'en-GB' : 'fr-FR' })
                 : '';
 
+            // Facture classique : on sépare le type (clôture, solde, acompte) du
+            // nom du chantier, pour ne pas écrire « votre facture pour le projet
+            // "Facture de Clôture - Cuisine" ».
+            const invoiceKind = isInvoice && !situationInfo ? invoiceEmailKind(formData) : null;
+
             // Template Construction — bilingue (fr par défaut, en sur demande)
             const EMAIL_I18N = {
                 fr: {
                     subjectPrefix: isInvoice
-                        ? `${situationInfo ? 'Facture de situation' : 'Facture'}${isPaidInvoice ? ' acquittée' : ''}`
+                        ? (situationInfo ? `Facture de situation${isPaidInvoice ? ' acquittée' : ''}` : invoiceEmailSubjectPrefix(invoiceKind, 'fr', isPaidInvoice))
                         : (isCreditNote ? 'Avoir' : (isAmendmentDoc ? 'Avenant' : 'Devis')),
                     defaultProject: 'Votre projet',
                     defaultWorks: 'Travaux',
                     introCreditNote: (name, title) => `Bonjour ${name},\n\nJe vous transmets un avoir${formData.amendment_details?.credit_note?.parent_invoice_number ? ` sur la facture ${formData.amendment_details.credit_note.parent_invoice_number}` : ''} concernant le projet "${title}".\nVous trouverez ci-dessous le lien pour y accéder.`,
-                    introInvoice: (name, title) => `Bonjour ${name},\n\nJe vous transmets votre facture pour le projet "${title}".\nVous trouverez ci-dessous le lien pour y accéder.`,
-                    introInvoicePaid: (name, title) => `Bonjour ${name},\n\nVotre règlement${paidDate ? ` du ${paidDate}` : ''} a bien été reçu — je vous en remercie.\nJe vous transmets votre facture acquittée pour le projet "${title}", à conserver comme justificatif de paiement.\nVous trouverez ci-dessous le lien pour y accéder.`,
                     introSituation: (name, title) => `Bonjour ${name},\n\n${isPaidInvoice
                         ? `Votre règlement${paidDate ? ` du ${paidDate}` : ''} a bien été reçu — je vous en remercie. Je vous transmets la facture de situation n°${situationInfo?.index || 1} acquittée pour le projet "${title}", à conserver comme justificatif de paiement.`
                         : `Les travaux du projet "${title}" suivent leur cours. Je vous transmets la facture de situation n°${situationInfo?.index || 1} : elle correspond uniquement à la part des travaux réalisés à ce jour, et non au montant total du devis.`}\n\nOù en est le chantier :\n${buildSituationRecap({
@@ -292,22 +296,20 @@ export const useQuoteEmail = ({
                     invoiceButtonLabel: isPaidInvoice ? 'Voir ma facture acquittée' : 'Voir ma facture',
                     creditNoteButtonLabel: 'Voir mon avoir',
                     signCaption: 'Signature directement en ligne, sans impression — en moins d\'une minute.',
-                    reportLine: `Le rapport d'intervention est egalement disponible depuis ce lien.`,
+                    reportLine: `Le rapport d'intervention est également disponible depuis ce lien.`,
                     portalLabel: 'Votre espace client (documents et suivi de chantier) :',
                     portalTitle: 'Votre espace client',
                     portalCaption: 'Retrouvez à tout moment vos devis, factures, rapports et le suivi de votre chantier.',
                     portalButtonLabel: 'Accéder à mon espace client',
-                    closing: `N'hesitez pas a me contacter pour toute question.\n\nBien cordialement,`,
+                    closing: `N'hésitez pas à me contacter pour toute question.\n\nBien cordialement,`,
                 },
                 en: {
                     subjectPrefix: isInvoice
-                        ? `${situationInfo ? 'Progress invoice' : 'Invoice'}${isPaidInvoice ? ' (paid)' : ''}`
+                        ? (situationInfo ? `Progress invoice${isPaidInvoice ? ' (paid)' : ''}` : invoiceEmailSubjectPrefix(invoiceKind, 'en', isPaidInvoice))
                         : (isCreditNote ? 'Credit note' : (isAmendmentDoc ? 'Amendment' : 'Quote')),
                     defaultProject: 'Your project',
                     defaultWorks: 'Works',
                     introCreditNote: (name, title) => `Hello ${name},\n\nPlease find attached a credit note${formData.amendment_details?.credit_note?.parent_invoice_number ? ` for invoice ${formData.amendment_details.credit_note.parent_invoice_number}` : ''} regarding the project "${title}".\nYou will find the link to access it below.`,
-                    introInvoice: (name, title) => `Hello ${name},\n\nPlease find attached your invoice for the project "${title}".\nYou will find the link to access it below.`,
-                    introInvoicePaid: (name, title) => `Hello ${name},\n\nYour payment${paidDate ? ` of ${paidDate}` : ''} has been received — thank you.\nPlease find your paid invoice for the project "${title}", to keep as proof of payment.\nYou will find the link to access it below.`,
                     introSituation: (name, title) => `Hello ${name},\n\n${isPaidInvoice
                         ? `Your payment${paidDate ? ` of ${paidDate}` : ''} has been received — thank you. Please find paid progress invoice No. ${situationInfo?.index || 1} for the project "${title}", to keep as proof of payment.`
                         : `Work on the project "${title}" is progressing. Please find progress invoice No. ${situationInfo?.index || 1}: it only covers the share of the works completed to date, not the full amount of the quote.`}\n\nWhere the project stands:\n${buildSituationRecap({
@@ -349,18 +351,29 @@ export const useQuoteEmail = ({
             const docNo = ['invoice', 'credit_note'].includes(formData.type) && formData.invoice_number
                 ? formData.invoice_number
                 : (formData.quote_number || id);
-            const subject = `${E.subjectPrefix}${id ? ` N°${docNo}` : ''} - ${localizedTitle || E.defaultProject} - ${companyName}`;
+            const invoiceProjectName = invoiceKind
+                ? invoiceEmailProjectName(formData, lang, lang === 'en' ? contentEn?.title : '')
+                : '';
+            const subjectTitle = invoiceKind ? invoiceProjectName : (localizedTitle || E.defaultProject);
+            const subject = `${E.subjectPrefix}${id ? ` N°${docNo}` : ''}${subjectTitle ? ` - ${subjectTitle}` : ''} - ${companyName}`;
 
-            const projectTitle = localizedTitle || E.defaultWorks;
+            const projectTitle = invoiceKind
+                ? (invoiceProjectName || localizedTitle || E.defaultWorks)
+                : (localizedTitle || E.defaultWorks);
             // « M. Cohignac Erwan » → « Bonjour M. Cohignac » (civilité + nom
             // seul) ; sans civilité dans la fiche, nom complet inchangé.
             const greetingName = clientGreetingName(selectedClient.name, lang);
             const introduction = isInvoice
                 ? (situationInfo
                     ? E.introSituation(greetingName, situationInfo.parent_title || projectTitle)
-                    : (isPaidInvoice
-                        ? E.introInvoicePaid(greetingName, projectTitle)
-                        : E.introInvoice(greetingName, projectTitle)))
+                    : buildInvoiceEmailIntro({
+                        kind: invoiceKind,
+                        projectName: invoiceProjectName,
+                        greetingName,
+                        lang: lang === 'en' ? 'en' : 'fr',
+                        paid: isPaidInvoice,
+                        paidDate,
+                    }))
                 : (isCreditNote && E.introCreditNote
                     ? E.introCreditNote(greetingName, projectTitle)
                     : (isAmendmentDoc && E.introAmendment
