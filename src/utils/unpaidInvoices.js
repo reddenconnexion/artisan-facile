@@ -109,7 +109,7 @@ export const buildInvoiceReminderEmail = (invoice, status, { client, profile } =
     const amount = formatPrice(invoice.total_ttc, '—');
     const issued = formatDate(invoice.date);
     const due = formatDate(status.dueDate);
-    const greeting = `Bonjour ${clientGreetingName(client?.name) || ''}`.trim() + ',';
+    const greeting = `Bonjour ${clientGreetingName(client?.name, 'fr', client?.civility) || ''}`.trim() + ',';
     const lastReminder = invoice.last_followup_at ? formatDate(invoice.last_followup_at) : null;
     const iban = profile?.iban ? `\n\nPour rappel, le règlement peut se faire par virement sur le compte suivant : ${profile.iban}` : '';
     const signature = ['Cordialement,', profile?.full_name, profile?.company_name].filter(Boolean).join('\n');

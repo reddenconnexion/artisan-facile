@@ -70,7 +70,7 @@ export const useQuoteEmail = ({
         const docLabel = formData.type === 'amendment' ? "l'avenant" : 'le devis';
         const docNo = formData.quote_number || id;
         const projectTitle = formData.title || 'vos travaux';
-        const greetingName = clientGreetingName(selectedClient.name, 'fr');
+        const greetingName = clientGreetingName(selectedClient.name, 'fr', selectedClient.civility);
         const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre artisan';
 
         const signatureBlock = [
@@ -362,7 +362,7 @@ export const useQuoteEmail = ({
                 : (localizedTitle || E.defaultWorks);
             // « M. Cohignac Erwan » → « Bonjour M. Cohignac » (civilité + nom
             // seul) ; sans civilité dans la fiche, nom complet inchangé.
-            const greetingName = clientGreetingName(selectedClient.name, lang);
+            const greetingName = clientGreetingName(selectedClient.name, lang, selectedClient.civility);
             const introduction = isInvoice
                 ? (situationInfo
                     ? E.introSituation(greetingName, situationInfo.parent_title || projectTitle)

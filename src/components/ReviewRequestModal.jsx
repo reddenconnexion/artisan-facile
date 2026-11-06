@@ -41,7 +41,7 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
 
     const emailSubject = `Votre avis compte pour ${companyName}`;
     const emailBody = [
-        `Bonjour ${clientGreetingName(client?.name) || 'Madame, Monsieur'},`,
+        `Bonjour ${clientGreetingName(client?.name, 'fr', client?.civility) || 'Madame, Monsieur'},`,
         `Merci encore pour votre confiance, j'espère que le travail vous donne entière satisfaction.`,
         `Si c'est le cas, un avis Google m'aiderait beaucoup à me faire connaître${contextCity ? ` sur ${contextCity}` : ''}. Cela ne prend que 30 secondes :\n${reviewUrl}`,
         `Si vous manquez de temps ou d'inspiration, voici une base que vous pouvez reprendre et tourner à votre façon :\n"${suggestedReview}"`,

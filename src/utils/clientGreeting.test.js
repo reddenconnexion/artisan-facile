@@ -69,4 +69,24 @@ describe('clientGreetingName', () => {
         // Civilité seule sans nom : renvoie le nom tel quel
         expect(clientGreetingName('Mme')).toBe('Mme');
     });
+
+    it('utilise la civilité choisie sur la fiche', () => {
+        expect(clientGreetingName('LAFITTE Marie', 'fr', 'mme')).toBe('Mme Lafitte');
+        expect(clientGreetingName('Marie LAFITTE', 'fr', 'mme')).toBe('Mme Lafitte');
+        expect(clientGreetingName('Cohignac Erwan', 'fr', 'm')).toBe('M. Cohignac');
+        expect(clientGreetingName('Marie Dupont', 'fr', 'mme')).toBe('Mme Dupont');
+        expect(clientGreetingName('DUPONT Jean et Marie', 'fr', 'm_et_mme')).toBe('M. et Mme Dupont');
+        expect(clientGreetingName('Lafitte', 'fr', 'mme')).toBe('Mme Lafitte');
+        expect(clientGreetingName('LAFITTE Marie', 'en', 'mme')).toBe('Mrs Lafitte');
+    });
+
+    it('la civilité de la fiche prime sur celle saisie dans le nom', () => {
+        expect(clientGreetingName('M. Dupont Jean', 'fr', 'mme')).toBe('Mme Dupont');
+    });
+
+    it('ignore la civilité pour une société ou une valeur inconnue', () => {
+        expect(clientGreetingName('SARL Batipro', 'fr', 'm')).toBe('SARL Batipro');
+        expect(clientGreetingName('LAFITTE Marie', 'fr', '')).toBe('Marie Lafitte');
+        expect(clientGreetingName('LAFITTE Marie', 'fr', 'xyz')).toBe('Marie Lafitte');
+    });
 });

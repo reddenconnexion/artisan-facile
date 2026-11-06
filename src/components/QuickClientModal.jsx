@@ -7,6 +7,7 @@ import { toastError } from '../utils/supabaseErrorHandler';
 import { parseClientBlock } from '../utils/addressParser';
 import { useModalA11y } from '../hooks/useModalA11y';
 import { Input, Field } from './ui';
+import CivilityPicker from './CivilityPicker';
 
 /**
  * Création rapide d'un client sans quitter la page (devis en cours) :
@@ -23,6 +24,7 @@ const QuickClientModal = ({ initialName = '', onClose, onCreated }) => {
     const containerRef = useModalA11y(true, onClose);
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState({
+        civility: '',
         name: initialName,
         phone: '',
         email: '',
@@ -60,7 +62,7 @@ const QuickClientModal = ({ initialName = '', onClose, onCreated }) => {
         try {
             const { data, error } = await supabase
                 .from('clients')
-                .insert([{ ...form, name: form.name.trim(), status: 'lead', user_id: user.id }])
+                .insert([{ ...form, civility: form.civility || null, name: form.name.trim(), status: 'lead', user_id: user.id }])
                 .select()
                 .single();
             if (error) throw error;
@@ -113,6 +115,14 @@ const QuickClientModal = ({ initialName = '', onClose, onCreated }) => {
                 </div>
 
                 <div className="space-y-3">
+                    <div>
+                        <span id="quick-client-civility-label" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Civilité</span>
+                        <CivilityPicker
+                            id="quick-client-civility"
+                            value={form.civility}
+                            onChange={(civility) => setForm(prev => ({ ...prev, civility }))}
+                        />
+                    </div>
                     <Field label="Nom" required htmlFor="quick-client-name">
                         <Input id="quick-client-name" value={form.name} onChange={set('name')} onPaste={handlePaste} autoComplete="name" required />
                     </Field>

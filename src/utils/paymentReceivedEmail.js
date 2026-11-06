@@ -91,7 +91,7 @@ const paymentMethodPhrase = (method) => PAYMENT_PHRASES[method] || '';
  */
 export const buildPaymentReceivedEmail = ({ kind = 'deposit', invoice, parentQuote, client, userProfile } = {}) => {
     const companyName = userProfile?.company_name || userProfile?.full_name || 'Votre artisan';
-    const greetingName = clientGreetingName(client?.name || '', 'fr');
+    const greetingName = clientGreetingName(client?.name || '', 'fr', client?.civility);
     const projectTitle = paymentProjectTitle(invoice, parentQuote);
     const amount = Number(invoice?.total_ttc) || 0;
     const invoiceRef = invoice?.invoice_number || '';

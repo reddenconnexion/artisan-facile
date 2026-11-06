@@ -13,6 +13,7 @@ import ClientContacts from '../components/ClientContacts';
 import ClientReferences from '../components/ClientReferences';
 import ClientStats from '../components/ClientStats';
 import { Input, Field } from '../components/ui';
+import CivilityPicker from '../components/CivilityPicker';
 import { parseClientBlock, parseClientSms } from '../utils/addressParser';
 import { formatDate, formatDateTime } from '../utils/format';
 
@@ -385,6 +386,7 @@ const ClientForm = () => {
     const [showVoiceModal, setShowVoiceModal] = useState(false);
 
     const [formData, setFormData] = useState({
+        civility: '',
         name: '',
         email: '',
         phone: '',
@@ -450,6 +452,7 @@ const ClientForm = () => {
             if (error) throw error;
             if (data) {
                 setFormData({
+                    civility: data.civility || '',
                     name: data.name,
                     email: data.email || '',
                     phone: data.phone || '',
@@ -608,6 +611,7 @@ const ClientForm = () => {
         try {
             const clientData = {
                 ...formData,
+                civility: formData.civility || null,
                 user_id: user.id
             };
 
@@ -808,6 +812,18 @@ const ClientForm = () => {
                         </div>
                     )}
                     <div>
+                        <div className="mb-3">
+                            <span id="civility-label" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Civilité
+                            </span>
+                            <CivilityPicker
+                                value={formData.civility}
+                                onChange={(civility) => setFormData(prev => ({ ...prev, civility }))}
+                            />
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                Pour la salutation des mails : « Bonjour Mme Lafitte ».
+                            </p>
+                        </div>
                         <div className="flex justify-between items-center mb-1">
                             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Nom complet / Entreprise *

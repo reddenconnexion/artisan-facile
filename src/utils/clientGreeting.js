@@ -1,16 +1,29 @@
-// Salutation des emails client à partir du nom de la fiche client.
+// Salutation des emails client à partir de la fiche client.
 //
-// Il n'existe pas de champ « civilité » ni « prénom » sur les clients : tout
-// est dans le nom, saisi le plus souvent « NOM Prénom » (« LAFITTE Marie »,
-// « M. Cohignac Erwan »…).
-//   - Avec une civilité en tête : civilité normalisée + nom de famille seul
-//     (« Bonjour Mme Lafitte »).
+// La civilité se choisit sur la fiche (champ `civility` : 'm', 'mme',
+// 'm_et_mme'). Les fiches plus anciennes peuvent l'avoir en tête du nom
+// (« M. Cohignac Erwan », « madame Dupont »…), elle est alors reconnue aussi.
+//   - Avec une civilité : civilité + nom de famille seul (« Bonjour Mme Lafitte »).
 //   - Sans civilité : prénom puis nom (« Bonjour Marie Lafitte »).
 // Le nom de famille est le mot écrit en MAJUSCULES quand il y en a un ; sinon,
 // le premier mot (convention « Nom Prénom »), sauf s'il s'agit d'un prénom
 // courant (« Marie Dupont » reste tel quel). Les NOMS en majuscules sont remis
 // en minuscules (« LAFITTE » → « Lafitte »). Les sociétés et les noms qu'on ne
 // sait pas découper (plus de deux mots sans repère) ne sont pas réordonnés.
+
+/** Choix proposés sur la fiche client. */
+export const CIVILITY_OPTIONS = [
+    { value: 'm', label: 'M.' },
+    { value: 'mme', label: 'Mme' },
+    { value: 'm_et_mme', label: 'M. et Mme' },
+];
+
+const CIVILITY_LABELS = {
+    m: { fr: 'M.', en: 'Mr' },
+    mme: { fr: 'Mme', en: 'Mrs' },
+    m_et_mme: { fr: 'M. et Mme', en: 'Mr and Mrs' },
+};
+
 const CIVILITIES = [
     // Les formes composées d'abord, sinon « M. et Mme » matcherait « M. » seul.
     { re: /^(?:monsieur|mr\.?|m\.?)\s+et\s+(?:madame|mme\.?)\s+/i, fr: 'M. et Mme', en: 'Mr and Mrs' },
@@ -58,24 +71,43 @@ const splitPersonName = (words) => {
     return { lastName: nameCase(a), firstName: nameCase(b) };
 };
 
-export const clientGreetingName = (name, lang = 'fr') => {
-    const trimmed = (name || '').trim().replace(/\s+/g, ' ');
-    if (!trimmed) return '';
+// Nom de famille seul, à placer après la civilité.
+const lastNameOf = (words) => {
+    const upper = words.filter(isUpperWord);
+    if (upper.length && upper.length < words.length) return upper.map(nameCase).join(' ');
+    if (words.length === 2 && isFirstName(words[0]) && !isFirstName(words[1])) return nameCase(words[1]);
+    return nameCase(words[0]);
+};
 
-    for (const civility of CIVILITIES) {
-        const match = trimmed.match(civility.re);
+/**
+ * @param {string} name   nom de la fiche client
+ * @param {'fr'|'en'} [lang]
+ * @param {string} [civility] civilité choisie sur la fiche ('m', 'mme', 'm_et_mme')
+ */
+export const clientGreetingName = (name, lang = 'fr', civility = null) => {
+    let rest = (name || '').trim().replace(/\s+/g, ' ');
+    if (!rest) return '';
+
+    // Civilité saisie en tête du nom (fiches anciennes) : on la retire du nom.
+    let prefixLabel = null;
+    for (const c of CIVILITIES) {
+        const match = rest.match(c.re);
         if (!match) continue;
-        const rest = trimmed.slice(match[0].length).trim();
-        if (!rest) break; // civilité seule : on retombe sur le nom complet
-        const words = rest.split(' ');
-        const upper = words.filter(isUpperWord);
-        const hasUpperSignal = upper.length && upper.length < words.length;
-        const lastName = hasUpperSignal ? upper.map(nameCase).join(' ') : nameCase(words[0]);
-        return `${lang === 'en' ? civility.en : civility.fr} ${lastName}`;
+        const after = rest.slice(match[0].length).trim();
+        if (!after) break; // civilité seule : on retombe sur le nom complet
+        prefixLabel = lang === 'en' ? c.en : c.fr;
+        rest = after;
+        break;
     }
 
-    if (COMPANY_RE.test(trimmed)) return trimmed;
-    const parts = splitPersonName(trimmed.split(' '));
-    if (!parts) return trimmed;
+    const chosen = CIVILITY_LABELS[civility];
+    const label = chosen ? chosen[lang === 'en' ? 'en' : 'fr'] : prefixLabel;
+    if (label && !COMPANY_RE.test(rest)) {
+        return `${label} ${lastNameOf(rest.split(' '))}`;
+    }
+
+    if (COMPANY_RE.test(rest)) return rest;
+    const parts = splitPersonName(rest.split(' '));
+    if (!parts) return rest;
     return [parts.firstName, parts.lastName].filter(Boolean).join(' ');
 };

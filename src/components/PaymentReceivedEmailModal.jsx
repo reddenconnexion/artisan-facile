@@ -55,7 +55,7 @@ const PaymentReceivedEmailModal = ({ invoiceId, kind = 'deposit', onClose }) => 
         (async () => {
             const { data: doc, error } = await supabase
                 .from('quotes')
-                .select('id, title, total_ttc, invoice_number, quote_number, payment_method, client_id, parent_id, amendment_details, clients(name, email)')
+                .select('id, title, total_ttc, invoice_number, quote_number, payment_method, client_id, parent_id, amendment_details, clients(name, email, civility)')
                 .eq('id', invoiceId)
                 .maybeSingle();
             if (cancelled) return;
