@@ -25,7 +25,7 @@ const PaymentSchedule = ({ invoiceId, totalAmount, onScheduleChange }) => {
         try {
             const { data, error } = await supabase
                 .from('invoice_installments')
-                .select('*, quotes (id, title, client_id, user_id, clients (name, email))')
+                .select('*, quotes (id, title, client_id, user_id, clients (name, email, civility))')
                 .eq('quote_id', invoiceId)
                 .order('due_date', { ascending: true });
 

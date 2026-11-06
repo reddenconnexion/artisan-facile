@@ -80,7 +80,7 @@ export const getDueFollowUps = async (userId) => {
         .from('quotes')
         .select(`
             *,
-            clients (name, email, phone)
+            clients (name, email, phone, civility)
         `)
         // Filter by status 'sent' (envoyé) which means we are waiting for response.
         // Note: 'draft' is too early. 'accepted' is too late.
@@ -482,7 +482,7 @@ export const getUnpaidInvoiceReminders = async (userId) => {
             .select(`
                 id, type, status, title, date, valid_until, total_ttc, invoice_number, quote_number,
                 client_id, follow_up_count, last_followup_at, relance_snoozed_until, archived_at,
-                clients (name, email, phone, siren, tva_intracom)
+                clients (name, email, phone, siren, tva_intracom, civility)
             `)
             .eq('user_id', userId)
             .eq('type', 'invoice')
@@ -575,7 +575,7 @@ export const getOverdueInstallments = async (userId) => {
                 id,
                 client_id,
                 title,
-                clients (name, email)
+                clients (name, email, civility)
             )
         `)
         .eq('quotes.user_id', userId)
@@ -606,7 +606,7 @@ export const sendInstallmentReminder = async (installment, userId, captureEmail 
     const isLate = new Date(installment.due_date) < new Date();
 
     const subject = `Rappel de paiement : Échéance du ${formatDate(installment.due_date)} - ${invoice.title}`;
-    const body = `Bonjour ${clientGreetingName(client.name)},\n\n` +
+    const body = `Bonjour ${clientGreetingName(client.name, 'fr', client.civility)},\n\n` +
         `Sauf erreur de notre part, nous n'avons pas reçu le règlement de l'échéance suivante concernant la facture n°${invoice.id} :\n\n` +
         `- Date d'échéance : ${formatDate(installment.due_date)}\n` +
         `- Montant attendu : ${installment.amount.toFixed(2)} €\n` +
