@@ -176,53 +176,118 @@ const signatureLines = (profile) => {
     return sig ? `${head}\n\n-- \n${sig}` : head;
 };
 
-const greetingLine = (client) =>
-    `Bonjour ${clientGreetingName(client?.name, 'fr', client?.civility) || ''}`.trim() + ',';
-
 const quoteLabel = (quote) => (quote.title ? `« ${quote.title} »` : `n°${quote.quote_number || quote.id}`);
+
+// ── Modèles de mails, modifiables par l'artisan ──────────────────────────────
+//
+// Repères entre accolades, remplacés à l'envoi. Une ligne qui contient un
+// repère facultatif sans valeur (pas de lien de signature, pas de téléphone,
+// devis déjà expiré…) disparaît entièrement, pour ne jamais envoyer
+// « Mon numéro : » tout seul. La signature est ajoutée à la fin.
+
+/** Remplit un modèle. `optional` : repères dont la ligne saute s'ils sont vides. */
+export const renderTemplate = (text, vars, optional = []) => {
+    const lines = String(text || '').split('\n')
+        .filter((line) => !optional.some((k) => !vars[k] && line.includes(`{${k}}`)));
+    let out = lines.join('\n');
+    for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(v ?? '');
+    return out
+        .replace(/[ \t]+([,.])/g, '$1') // « Bonjour , » quand la fiche client n'a pas de nom
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+};
+
+// Relances de devis : un modèle par moment de la séquence.
+export const QUOTE_TEMPLATE_KINDS = [
+    { key: 'first', label: '1re relance', when: 'J+7' },
+    { key: 'middle', label: 'Relances suivantes', when: 'J+14, J+21' },
+    { key: 'last', label: 'Dernier message', when: 'J+34' },
+    { key: 'resume', label: "Reprise d'un projet reporté", when: 'à la date choisie' },
+];
+
+export const QUOTE_PLACEHOLDERS = ['client', 'devis', 'montant', 'date', 'lien', 'telephone', 'validite', 'entreprise'];
+const QUOTE_OPTIONAL = ['lien', 'telephone', 'validite'];
+
+const LINK_LINE = 'Vous pouvez le consulter et le signer en ligne ici : {lien}';
+
+export const DEFAULT_QUOTE_TEMPLATES = {
+    first: {
+        subject: 'Votre devis {devis}',
+        body: 'Bonjour {client},\n\n' +
+            'Je me permets de revenir vers vous au sujet du devis {devis} ({montant} TTC) que je vous ai adressé le {date}.\n\n' +
+            "L'avez-vous bien reçu ? Si vous avez la moindre question sur les travaux, le matériel ou le planning, je suis disponible pour en parler.\n\n" +
+            `${LINK_LINE}\n\n` +
+            "Pour information, ce devis est valable jusqu'au {validite}.",
+    },
+    middle: {
+        subject: 'Votre projet : devis {devis}',
+        body: 'Bonjour {client},\n\n' +
+            'Je reviens vers vous concernant le devis {devis} ({montant} TTC).\n\n' +
+            'Si certains points vous font hésiter (choix du matériel, planning, budget), je peux tout à fait adapter la proposition. ' +
+            'Un simple appel suffit souvent à y voir plus clair, ou répondez directement à ce message.\n' +
+            'Mon numéro : {telephone}\n\n' +
+            `${LINK_LINE}\n\n` +
+            "Pour information, ce devis est valable jusqu'au {validite}.",
+    },
+    last: {
+        subject: "Devis {devis} : votre projet est-il toujours d'actualité ?",
+        body: 'Bonjour {client},\n\n' +
+            'Je reviens une dernière fois vers vous au sujet du devis {devis} ({montant} TTC).\n\n' +
+            'Sans nouvelles de votre part, je vais classer ce dossier prochainement. ' +
+            "Si votre projet est toujours d'actualité, même plus tard, il suffit de répondre à ce message ou de m'appeler : je reprendrai le dossier avec plaisir.\n" +
+            'Mon numéro : {telephone}\n\n' +
+            LINK_LINE,
+    },
+    resume: {
+        subject: 'Votre projet : devis {devis}',
+        body: 'Bonjour {client},\n\n' +
+            'Comme convenu lors de notre échange, je reviens vers vous au sujet de votre projet et du devis {devis} ({montant} TTC).\n\n' +
+            "Est-il toujours d'actualité ? Si les choses ont évolué depuis, je peux mettre le devis à jour et convenir avec vous d'une date pour les travaux. " +
+            "Il suffit de répondre à ce message ou de m'appeler.\n" +
+            'Mon numéro : {telephone}\n\n' +
+            LINK_LINE,
+    },
+};
+
+/** Quel modèle pour cette relance ? */
+export const quoteTemplateKind = (due) => {
+    if (due?.resumed) return 'resume';
+    if (due?.isLast && due.index > 0) return 'last';
+    return due?.index === 0 ? 'first' : 'middle';
+};
+
+/** Modèle de l'artisan pour ce moment, à défaut celui de l'appli. */
+export const quoteTemplate = (kind, settings) => {
+    const custom = readAutopilotSettings(settings).quote_templates?.[kind] || {};
+    const base = DEFAULT_QUOTE_TEMPLATES[kind] || DEFAULT_QUOTE_TEMPLATES.middle;
+    return {
+        subject: String(custom.subject || '').trim() || base.subject,
+        body: String(custom.body || '').trim() || base.body,
+        custom: Boolean(String(custom.subject || '').trim() || String(custom.body || '').trim()),
+    };
+};
 
 /**
  * E-mail de relance d'un devis, selon l'étape : accusé de réception, puis
- * proposition d'échange, puis message de clôture.
+ * proposition d'échange, puis message de clôture (ou reprise d'un projet
+ * reporté). Texte : modèle de l'artisan s'il en a écrit un.
  */
-export const buildQuoteFollowUpEmail = (quote, due, { client, profile, link } = {}) => {
-    const label = quoteLabel(quote);
-    const amount = quote.total_ttc != null ? ` (${formatPrice(quote.total_ttc)} TTC)` : '';
-    const sentOn = quote.date ? ` le ${formatDate(quote.date)}` : '';
-    const phone = profile?.phone ? ` au ${profile.phone}` : '';
-    const linkLine = link ? `\n\nVous pouvez le consulter et le signer en ligne ici : ${link}` : '';
-    const validUntil = quote.valid_until && dayNumber(quote.valid_until) >= dayNumber(new Date())
-        ? `\n\nPour information, ce devis est valable jusqu'au ${formatDate(quote.valid_until)}.`
-        : '';
-
-    let subject;
-    let text;
-    if (due.resumed) {
-        subject = `Votre projet : devis ${label}`;
-        text = `Comme convenu lors de notre échange, je reviens vers vous au sujet de votre projet et du devis ${label}${amount}.\n\n` +
-            `Est-il toujours d'actualité ? Si les choses ont évolué depuis, je peux mettre le devis à jour et convenir avec vous d'une date pour les travaux. ` +
-            `Il suffit de répondre à ce message ou de m'appeler${phone}.` +
-            linkLine;
-    } else if (due.isLast && due.index > 0) {
-        subject = `Devis ${label} : votre projet est-il toujours d'actualité ?`;
-        text = `Je reviens une dernière fois vers vous au sujet du devis ${label}${amount}.\n\n` +
-            `Sans nouvelles de votre part, je vais classer ce dossier prochainement. ` +
-            `Si votre projet est toujours d'actualité, même plus tard, il suffit de répondre à ce message ou de m'appeler${phone} : je reprendrai le dossier avec plaisir.` +
-            linkLine;
-    } else if (due.index === 0) {
-        subject = `Votre devis ${label}`;
-        text = `Je me permets de revenir vers vous au sujet du devis ${label}${amount} que je vous ai adressé${sentOn}.\n\n` +
-            `L'avez-vous bien reçu ? Si vous avez la moindre question sur les travaux, le matériel ou le planning, je suis disponible pour en parler.` +
-            linkLine + validUntil;
-    } else {
-        subject = `Votre projet : devis ${label}`;
-        text = `Je reviens vers vous concernant le devis ${label}${amount}.\n\n` +
-            `Si certains points vous font hésiter (choix du matériel, planning, budget), je peux tout à fait adapter la proposition. ` +
-            `Un simple appel suffit souvent à y voir plus clair : vous pouvez me joindre${phone || ' par téléphone'} ou répondre directement à ce message.` +
-            linkLine + validUntil;
-    }
-
-    return { subject, body: `${greetingLine(client)}\n\n${text}\n\n${signatureLines(profile)}` };
+export const buildQuoteFollowUpEmail = (quote, due, { client, profile, link, settings, now = new Date() } = {}) => {
+    const vars = {
+        client: clientGreetingName(client?.name, 'fr', client?.civility) || '',
+        devis: quoteLabel(quote),
+        montant: quote.total_ttc != null ? formatPrice(quote.total_ttc) : '',
+        date: quote.date ? formatDate(quote.date) : '',
+        lien: link || '',
+        telephone: profile?.phone || '',
+        validite: quote.valid_until && dayNumber(quote.valid_until) >= dayNumber(now) ? formatDate(quote.valid_until) : '',
+        entreprise: profile?.company_name || profile?.full_name || '',
+    };
+    const tpl = quoteTemplate(quoteTemplateKind(due), settings);
+    return {
+        subject: renderTemplate(tpl.subject, vars, QUOTE_OPTIONAL),
+        body: `${renderTemplate(tpl.body, vars, QUOTE_OPTIONAL)}\n\n${signatureLines(profile)}`,
+    };
 };
 
 // ── 2. Rappel des factures impayées ──────────────────────────────────────────
@@ -298,14 +363,6 @@ export const DEFAULT_REVIEW_BODY = 'Bonjour {client},\n\n' +
     "Cela prend moins d'une minute :\n{lien}\n\n" +
     "Et si quelque chose ne va pas, dites-le moi simplement en répondant à ce message : je reviens.";
 
-const fillTemplate = (text, vars) => String(text)
-    .replace(/\{client\}/g, vars.client)
-    .replace(/\{chantier\}/g, vars.chantier)
-    .replace(/\{lien\}/g, vars.lien)
-    .replace(/\{entreprise\}/g, vars.entreprise)
-    // « Bonjour , » quand la fiche client n'a pas de nom.
-    .replace(/[ \t]+([,.])/g, '$1');
-
 export const buildReviewRequestEmail = (invoice, { client, profile, reviewUrl, settings } = {}) => {
     const cfg = readAutopilotSettings(settings);
     const vars = {
@@ -319,8 +376,8 @@ export const buildReviewRequestEmail = (invoice, { client, profile, reviewUrl, s
     // Le lien est la raison d'être du mail : s'il a été effacé du modèle, on le remet.
     if (!bodyTpl.includes('{lien}')) bodyTpl += '\n\n{lien}';
     return {
-        subject: fillTemplate(subjectTpl, vars),
-        body: `${fillTemplate(bodyTpl, vars)}\n\n${signatureLines(profile)}`,
+        subject: renderTemplate(subjectTpl, vars),
+        body: `${renderTemplate(bodyTpl, vars)}\n\n${signatureLines(profile)}`,
     };
 };
 
@@ -431,7 +488,7 @@ export const planAutopilotRun = ({
             if (doneKeys.has(key)) continue;
             const client = reachable(doc);
             if (!client) continue;
-            const { subject, body } = buildQuoteFollowUpEmail(doc, due, { client, profile, link: linkFor(doc) });
+            const { subject, body } = buildQuoteFollowUpEmail(doc, due, { client, profile, link: linkFor(doc), settings: cfg, now });
             push({ kind: 'quote_followup', key, quote_id: doc.id, client_id: doc.client_id, step: due.nextCount, to: client.email.trim(), subject, body, amount: Number(doc.total_ttc) || 0, label: due.step?.label || `Relance ${due.nextCount}` });
         }
     }

@@ -13,6 +13,7 @@ import { formatCurrencyRounded } from '../utils/format';
 import { TRIAL_DAYS } from '../utils/founderOffer';
 import FollowUpPostpone from '../components/FollowUpPostpone';
 import ReviewTemplateEditor from '../components/ReviewTemplateEditor';
+import QuoteTemplatesEditor from '../components/QuoteTemplatesEditor';
 
 const KINDS = {
     quote_followup: { icon: FileText, label: 'Relance de devis', color: 'text-blue-600 dark:text-blue-400' },
@@ -273,16 +274,33 @@ const Autopilot = () => {
                         ))}
                     </ul>
                 )}
-                <div className={`${card} p-3 mt-3`}>
-                    <p className="text-sm text-gray-700 dark:text-gray-200 flex items-start gap-2">
-                        <Star size={15} className="text-amber-500 shrink-0 mt-0.5" />
-                        <span>Les demandes d'avis Google partent quand vous terminez un chantier et quittez les lieux (après « Je repars » si vous pointez), avec votre message :</span>
-                    </p>
-                    {isPro ? (
-                        <div className="ml-6"><ReviewTemplateEditor settings={settings} save={save} profile={profile} /></div>
-                    ) : null}
-                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Les demandes d'avis Google partent aussi quand vous terminez un chantier et quittez les lieux (après « Je repars » si vous pointez).
+                </p>
             </section>
+
+            {isPro && (
+                <section className={`${card} p-4 mb-6`}>
+                    <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                        <Pencil size={15} /> Vos modèles de mails
+                    </h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Écrits une fois, remplis par l'appli pour chaque client. Pour retoucher un seul mail, utilisez « Modifier » dans la liste ci-dessus.
+                    </p>
+                    <div className="mt-3">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                            <FileText size={15} className="text-blue-600 dark:text-blue-400" /> Relances de devis
+                        </p>
+                        <div className="ml-6"><QuoteTemplatesEditor settings={settings} save={save} profile={profile} /></div>
+                    </div>
+                    <div className="mt-3">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                            <Star size={15} className="text-amber-500" /> Demande d'avis Google (fin de chantier)
+                        </p>
+                        <div className="ml-6"><ReviewTemplateEditor settings={settings} save={save} profile={profile} /></div>
+                    </div>
+                </section>
+            )}
 
             {preview.postponed?.length > 0 && (
                 <section className="mb-6">
