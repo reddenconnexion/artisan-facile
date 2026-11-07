@@ -57,7 +57,7 @@ const TerrainVoiceButton = () => {
             return;
         }
         if (!canUseVoice && plan === 'free') {
-            toast.error(`Limite atteinte : ${voiceLimit} mémos vocaux/mois sur le plan gratuit.`);
+            toast.error(`Vous avez utilisé vos ${voiceLimit} dictées du mois. Avec le Pro, c'est sans limite.`);
             return;
         }
         await startVoicePipeline();

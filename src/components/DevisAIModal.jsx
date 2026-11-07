@@ -41,7 +41,7 @@ const DevisAIModal = ({ open, onClose, onItemsGenerated, userProfile }) => {
             if (!hasPersonalKey && !isPro && userProfile?.id) {
                 const { allowed, remaining, limit } = await checkLimit(userProfile.id, 'ai_generation', plan);
                 if (!allowed) {
-                    toast.error(`Limite atteinte : ${limit} générations IA/mois. Passez au plan Pro pour un accès illimité.`);
+                    toast.error(`Vous avez utilisé vos ${limit} textes rédigés par l'appli ce mois-ci. Avec le Pro, c'est sans limite.`);
                     handleClose();
                     return;
                 }

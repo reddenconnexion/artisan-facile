@@ -3,6 +3,7 @@ import { clientGreetingName } from './clientGreeting';
 import { formatDate } from './format';
 import { idsBilledByChildren, invoiceReminderStatus } from './unpaidInvoices';
 import { REOPENED_AFTER_EXPIRY_STEP, reopenedAfterExpiryAt } from './quoteReopen';
+import { DEFAULT_FOLLOW_UP_STEPS } from './autopilot';
 
 /**
  * Validates and retrieves the follow-up settings for a user.
@@ -25,14 +26,7 @@ export const getFollowUpSettings = async (userId) => {
         }
 
         // Aucune configuration sauvegardée : initialiser avec les 4 étapes par défaut
-        const defaultSettings = {
-            steps: [
-                { delay: 3, label: "Première relance", context: "Vérifier que le devis a bien été reçu et proposer de répondre à toute question immédiate." },
-                { delay: 7, label: "Deuxième relance", context: "Apporter de la valeur : partager un cas client similaire, une précision technique ou un comparatif pour aider à la décision." },
-                { delay: 7, label: "Troisième relance", context: "Proposer un appel téléphonique ou un contact via un autre canal (LinkedIn) pour lever les derniers freins." },
-                { delay: 13, label: "Message de clôture", context: "Informer que le devis va être archivé sous peu et proposer un recontact futur si le projet se concrétise." }
-            ]
-        };
+        const defaultSettings = { steps: DEFAULT_FOLLOW_UP_STEPS.map(step => ({ ...step })) };
 
         // Sauvegarder automatiquement pour que l'utilisateur les voie dans la config
         await supabase

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Crown, CheckCircle, CreditCard, Loader2, ShieldCheck, Users } from 'lucide-react';
-import { TRIAL_DAYS, proOffer, spotsLabel } from '../utils/founderOffer';
+import { PRO_BENEFITS, TRIAL_DAYS, proOffer, spotsLabel } from '../utils/founderOffer';
 
 /**
  * Offre Pro (page Abonnement) : essai gratuit, tarif fondateur bloqué à vie
@@ -14,14 +14,12 @@ const FounderOfferCard = ({ spotsLeft, interval, onIntervalChange, onCheckout, l
         .toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', timeZone: 'Europe/Paris' }));
 
     const perks = [
-        'Dictée vocale et IA illimitées : vos devis se rédigent pendant que vous parlez',
-        'Transcription incluse, sans clé OpenAI ou Gemini à configurer',
-        'Pipeline vocal automatique (exécution directe, annulable 30 s)',
+        ...PRO_BENEFITS.map((b) => b.title),
         ...(offer.founder ? [
             'Visio de 30 min avec Denis, électricien depuis 25 ans : bibliothèque de prix et premier devis montés avec vous',
             'Tarif bloqué à vie tant que vous restez abonné',
         ] : []),
-        'Tout le plan gratuit, dont les factures Factur-X prêtes pour la facturation électronique obligatoire de 2027',
+        'Tout le gratuit, dont les factures prêtes pour la facture électronique obligatoire de 2027',
     ];
 
     return (
@@ -74,6 +72,10 @@ const FounderOfferCard = ({ spotsLeft, interval, onIntervalChange, onCheckout, l
                 {offer.monthlyEquivalent && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">soit {offer.monthlyEquivalent}</p>
                 )}
+                <p className="mt-3 text-sm text-gray-700 dark:text-gray-300">
+                    L'appli relance vos clients et réclame votre argent pendant que vous êtes sur le chantier.
+                    Un seul devis signé en plus dans l'année, et l'abonnement est payé.
+                </p>
 
                 <ul className="mt-5 space-y-2.5">
                     {perks.map((perk) => (

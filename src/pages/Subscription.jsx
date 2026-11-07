@@ -1,65 +1,50 @@
 import { useEffect, useState } from 'react';
 import {
-    Crown, Mic, Sparkles, Zap, CheckCircle, X, TrendingUp, BarChart2,
-    Loader2, ExternalLink, CreditCard
+    Crown, Mic, Sparkles, CheckCircle, X, FileText, Receipt, Star, BellRing, BarChart2,
+    Loader2, ExternalLink, CreditCard, Bot
 } from 'lucide-react';
 import { usePlanLimits } from '../hooks/usePlanLimits';
-import { PLAN_LIMITS } from '../utils/planLimits';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { formatDate } from '../utils/format';
 import { STRIPE_PORTAL_LOGIN_URL, portalLoginUrl } from '../utils/stripePortal';
 import { cancellationNotice } from '../utils/subscriptionStatus';
-import { proOffer, trialNotice } from '../utils/founderOffer';
+import { PRO_BENEFITS, PRO_PRICES, formatEuros, proOffer, trialNotice } from '../utils/founderOffer';
 import { useFounderSpots } from '../hooks/useFounderSpots';
 import { useUserProfile } from '../hooks/useDataCache';
 import FounderOfferCard from '../components/FounderOfferCard';
 import FounderVisioContact from '../components/FounderVisioContact';
+import AutopilotSettings from '../components/AutopilotSettings';
+import { useAutopilot } from '../hooks/useAutopilot';
+import { formatCurrencyRounded } from '../utils/format';
 
+const BENEFIT_ICONS = { quotes: FileText, invoices: Receipt, reviews: Star, summary: BellRing, voice: Mic };
+
+// Comparatif en mots simples : ce que l'artisan fait lui-même en gratuit,
+// ce que l'appli fait pour lui en Pro.
 const FEATURES = [
     {
-        category: 'Mémos vocaux',
-        free: `${PLAN_LIMITS.free.voice_memos} mémos/mois`,
-        pro: 'Illimité',
-        icon: Mic,
-    },
-    {
-        category: 'Génération IA',
-        free: `${PLAN_LIMITS.free.ai_generations} générations/mois`,
-        pro: 'Illimité',
-        icon: Sparkles,
-    },
-    {
-        category: 'Transcription',
-        free: 'Votre clé OpenAI ou Gemini requise',
-        pro: 'Incluse (géré par l\'app)',
-        icon: Zap,
-        proHighlight: true,
-    },
-    {
-        category: 'Pipeline automatique',
-        free: false,
-        pro: true,
-        freeLabel: 'Formulaires pré-remplis uniquement',
-        proLabel: 'Exécution auto + annulation 30s',
-        icon: TrendingUp,
-        proHighlight: true,
-    },
-    {
-        category: 'Tous les modules',
+        category: 'Devis, factures, agenda, clients',
         free: true,
         pro: true,
-        freeLabel: 'Clients, Devis, Factures, Rapports...',
-        proLabel: 'Tout inclus',
+        freeLabel: 'Illimités',
+        proLabel: 'Illimités',
         icon: BarChart2,
     },
+    ...PRO_BENEFITS.map((b) => ({
+        category: b.title,
+        free: b.free,
+        pro: b.pro,
+        icon: BENEFIT_ICONS[b.key] || Sparkles,
+        proHighlight: true,
+    })),
 ];
 
 const CheckMark = ({ value, label }) => {
     if (value === true || (typeof value === 'string' && value)) {
         return (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center justify-center gap-1.5">
                 <CheckCircle size={14} className="text-green-500 flex-shrink-0" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">{label || value}</span>
             </div>
@@ -67,9 +52,9 @@ const CheckMark = ({ value, label }) => {
     }
     if (value === false) {
         return (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center justify-center gap-1.5">
                 <X size={14} className="text-gray-300 dark:text-gray-600 flex-shrink-0" />
-                <span className="text-sm text-gray-400 dark:text-gray-500">{label || 'Non disponible'}</span>
+                <span className="text-sm text-gray-400 dark:text-gray-500">{label || 'Non'}</span>
             </div>
         );
     }
@@ -80,6 +65,7 @@ const Subscription = () => {
     const { plan, cancelAt, trialEnd, isFounder, trialEligible, usage, isPro, isOwner, remainingVoice, voiceLimit, remainingAI, aiLimit, loading, refresh } = usePlanLimits();
     const spotsLeft = useFounderSpots();
     const { data: profile } = useUserProfile();
+    const { preview } = useAutopilot();
     const [billingInterval, setBillingInterval] = useState('month');
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -98,7 +84,7 @@ const Subscription = () => {
     // Handle Stripe redirect callbacks
     useEffect(() => {
         if (searchParams.get('success') === 'true') {
-            toast.success('🎉 Bienvenue dans le plan Pro ! Votre essai et vos avantages sont actifs.');
+            toast.success("🎉 Bienvenue dans le Pro ! Activez votre pilote automatique ci-dessous : l'appli s'occupe de vos relances.", { duration: 8000 });
             refresh();
             // Clean URL
             navigate('/app/subscription', { replace: true });
@@ -168,7 +154,11 @@ const Subscription = () => {
                     <Crown size={22} className="text-amber-500" />
                     Plan & Abonnement
                 </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Gérez votre abonnement et suivez votre utilisation</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                    {isPro
+                        ? 'Votre pilote automatique, votre abonnement et votre utilisation'
+                        : "Le Pro, c'est l'appli qui relance vos clients et réclame votre argent pendant que vous êtes sur le chantier."}
+                </p>
             </div>
 
             {/* Current plan banner */}
@@ -231,6 +221,41 @@ const Subscription = () => {
                 </div>
             </div>
 
+            {/* Pro : le pilote automatique, en premier — c'est ce que l'abonnement paie. */}
+            {isPro && <AutopilotSettings />}
+
+            {/* Gratuit : ce que le Pro ferait aujourd'hui, avec ses vrais chiffres. */}
+            {!isPro && (
+                <div className="rounded-xl border border-blue-100 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/20 p-5 mb-5">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Bot size={18} className="text-blue-600 dark:text-blue-400" />
+                        Chez vous, aujourd'hui
+                    </p>
+                    {preview && preview.total > 0 ? (
+                        <ul className="mt-3 space-y-1.5 text-sm text-gray-700 dark:text-gray-200">
+                            {preview.quotes.count > 0 && (
+                                <li><strong>{preview.quotes.count} devis</strong> attendent une réponse : {formatCurrencyRounded(preview.quotes.amount)} de travaux.</li>
+                            )}
+                            {preview.invoices.count > 0 && (
+                                <li><strong>{preview.invoices.count} facture{preview.invoices.count > 1 ? 's' : ''} en retard</strong> : {formatCurrencyRounded(preview.invoices.amount)} qui dorment chez vos clients.</li>
+                            )}
+                            {preview.reviews.count > 0 && (
+                                <li><strong>{preview.reviews.count} client{preview.reviews.count > 1 ? 's' : ''} satisfait{preview.reviews.count > 1 ? 's' : ''}</strong> à qui demander un avis Google.</li>
+                            )}
+                            <li className="text-gray-600 dark:text-gray-300">Avec le Pro, l'appli s'en occupe toute seule, dès aujourd'hui.</li>
+                        </ul>
+                    ) : (
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                            Rien en attente pour l'instant. Dès que vous enverrez un devis, l'appli pourra le relancer pour vous.
+                        </p>
+                    )}
+                    <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                        Un seul chantier signé grâce à une relance rembourse l'année entière
+                        ({formatEuros(PRO_PRICES[offer.founder ? 'founder' : 'standard'].month * 12)} sur 12 mois).
+                    </p>
+                </div>
+            )}
+
             {/* Usage this month */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 mb-5">
                 <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
@@ -243,7 +268,7 @@ const Subscription = () => {
                         <div className="flex items-center justify-between mb-1.5">
                             <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
                                 <Mic size={14} className="text-blue-400" />
-                                Mémos vocaux
+                                Dictées
                             </span>
                             <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
                                 {usage.voice_memos_count}
@@ -277,7 +302,7 @@ const Subscription = () => {
                         <div className="flex items-center justify-between mb-1.5">
                             <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
                                 <Sparkles size={14} className="text-purple-400" />
-                                Générations IA
+                                Textes rédigés par l'appli
                             </span>
                             <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
                                 {usage.ai_generations_count}
@@ -311,7 +336,7 @@ const Subscription = () => {
             {/* Feature comparison */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden mb-6">
                 <div className="grid grid-cols-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                    <span>Fonctionnalité</span>
+                    <span>Ce que fait l'appli</span>
                     <span className="text-center">Gratuit</span>
                     <span className="text-center text-amber-600 dark:text-amber-400">Pro</span>
                 </div>
