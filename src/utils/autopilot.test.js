@@ -12,7 +12,7 @@ const profile = { full_name: 'Denis Meriot', company_name: 'Red Den Connexion', 
 const client = (id, extra = {}) => ({ id, name: 'Mme LAFITTE', email: `client${id}@exemple.fr`, ...extra });
 
 const quote = (extra = {}) => ({
-    id: 1, type: 'quote', status: 'sent', date: '2026-11-06', client_id: 10, total_ttc: 1800,
+    id: 1, type: 'quote', status: 'sent', date: '2026-11-02', client_id: 10, total_ttc: 1800,
     title: 'Mise aux normes tableau', public_token: 'tok', follow_up_count: 0, clients: client(10), ...extra,
 });
 const invoice = (extra = {}) => ({
@@ -41,9 +41,13 @@ describe('horloge de Paris', () => {
 });
 
 describe('relance des devis', () => {
-    it('première relance 3 jours après l\'envoi', () => {
-        expect(dueQuoteFollowUp(quote({ date: '2026-11-08' }), DEFAULT_FOLLOW_UP_STEPS, NOW)).toBeNull();
-        expect(dueQuoteFollowUp(quote({ date: '2026-11-07' }), DEFAULT_FOLLOW_UP_STEPS, NOW))
+    it('séquence par défaut : J+7, J+14, J+21, clôture à J+34', () => {
+        expect(DEFAULT_FOLLOW_UP_STEPS.map(s => s.delay)).toEqual([7, 7, 7, 13]);
+    });
+
+    it('première relance 7 jours après l\'envoi', () => {
+        expect(dueQuoteFollowUp(quote({ date: '2026-11-04' }), DEFAULT_FOLLOW_UP_STEPS, NOW)).toBeNull();
+        expect(dueQuoteFollowUp(quote({ date: '2026-11-03' }), DEFAULT_FOLLOW_UP_STEPS, NOW))
             .toMatchObject({ index: 0, nextCount: 1, isLast: false });
     });
 

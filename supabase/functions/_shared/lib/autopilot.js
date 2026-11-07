@@ -2,7 +2,7 @@
 // l'artisan, et quand.
 //
 //   1. Relancer les devis envoyés et pas encore signés (séquence de relance
-//      de l'artisan, J+3 / J+7 / J+7 / J+13 par défaut).
+//      de l'artisan : J+7, J+14, J+21 puis clôture à J+34 par défaut).
 //   2. Rappeler les factures en retard (rappel amiable puis 2e rappel). La
 //      mise en demeure n'est jamais envoyée seule : elle est signalée à
 //      l'artisan, qui décide.
@@ -29,7 +29,7 @@ export const readAutopilotSettings = (raw) => ({ ...AUTOPILOT_DEFAULTS, ...(raw 
 
 /** Séquence de relance des devis quand l'artisan n'en a pas défini. */
 export const DEFAULT_FOLLOW_UP_STEPS = [
-    { delay: 3, label: 'Première relance', context: 'Vérifier que le devis a bien été reçu et proposer de répondre à toute question immédiate.' },
+    { delay: 7, label: 'Première relance', context: 'Vérifier que le devis a bien été reçu et proposer de répondre à toute question immédiate.' },
     { delay: 7, label: 'Deuxième relance', context: 'Apporter de la valeur : partager un cas client similaire, une précision technique ou un comparatif pour aider à la décision.' },
     { delay: 7, label: 'Troisième relance', context: 'Proposer un appel téléphonique ou un contact via un autre canal (LinkedIn) pour lever les derniers freins.' },
     { delay: 13, label: 'Message de clôture', context: 'Informer que le devis va être archivé sous peu et proposer un recontact futur si le projet se concrétise.' },

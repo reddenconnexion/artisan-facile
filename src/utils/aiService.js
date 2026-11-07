@@ -902,13 +902,13 @@ export const generateFollowUpEmail = async (quotes, client, step, context = {}) 
     }).join('\n');
 
     const stepGuides = [
-        // Étape 0 — Première relance (J+3)
+        // Étape 0 — Première relance (J+7)
         `Message court et naturel (3-4 phrases). S'assurer que le${isGrouped ? 's devis sont' : ' devis est'} bien arrivé${isGrouped ? 's' : ''} et proposer de répondre à d'éventuelles questions. Aucune pression, ton humain.`,
-        // Étape 1 — Deuxième relance (J+10)
+        // Étape 1 — Deuxième relance (J+14)
         `Message de valeur (4-5 phrases). Souligner un point fort ${isGrouped ? 'des projets' : 'du projet'} ou apporter une précision technique utile. Rappeler la disponibilité pour en parler, de préférence par téléphone.`,
-        // Étape 2 — Troisième relance (J+17)
+        // Étape 2 — Troisième relance (J+21)
         `Message direct et orienté action (4-5 phrases). Proposer explicitement un appel téléphonique pour lever les derniers doutes — c'est souvent plus simple qu'un échange d'emails.`,
-        // Étape 3 — Message de clôture (J+30)
+        // Étape 3 — Message de clôture (J+34)
         `Message de clôture respectueux (4-5 phrases). Informer que le${isGrouped ? 's devis vont être archivés' : ' devis va être archivé'} prochainement. Laisser une porte ouverte pour un recontact futur, sans aucune pression. Ton chaleureux.`,
     ];
 

@@ -103,7 +103,7 @@ export const PRO_BENEFITS = [
         key: 'quotes',
         pro: "L'appli relance toute seule",
         title: 'Vos devis relancés tout seuls',
-        text: "Un devis reste sans réponse ? L'appli relance votre client à J+3, J+10 et J+17, avec un mail poli et le lien pour signer en ligne.",
+        text: "Un devis reste sans réponse ? L'appli relance votre client à J+7, J+14 et J+21, avec un mail poli et le lien pour signer en ligne.",
         free: 'Vous devez y penser et cliquer',
     },
     {
