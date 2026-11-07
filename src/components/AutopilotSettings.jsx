@@ -4,6 +4,7 @@ import { Bot, FileText, Receipt, Star, BellRing, Loader2, Mail, AlertTriangle } 
 import { toast } from 'sonner';
 import { useAutopilot } from '../hooks/useAutopilot';
 import { formatCurrencyRounded } from '../utils/format';
+import ReviewTemplateEditor from './ReviewTemplateEditor';
 
 const ITEMS = [
     { key: 'quotes', icon: FileText, title: 'Relancer mes devis pas encore signés', text: 'À J+7, J+14 et J+21, puis un dernier message avant de classer le devis.' },
@@ -93,6 +94,9 @@ const AutopilotSettings = () => {
                                         Ajoutez d'abord votre lien d'avis Google dans{' '}
                                         <Link to="/app/settings?tab=entreprise" className="underline">Mon entreprise</Link>.
                                     </p>
+                                )}
+                                {key === 'reviews' && (
+                                    <ReviewTemplateEditor settings={settings} save={save} profile={profile} />
                                 )}
                                 {key === 'summary' && (
                                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">

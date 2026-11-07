@@ -200,6 +200,39 @@ describe('avis Google à la fin du chantier', () => {
     });
 });
 
+describe('message de demande d\'avis modifiable', () => {
+    const inv = invoice({ status: 'paid', paid_at: '2026-11-07T15:00:00Z', title: 'Pose de prises extérieures' });
+
+    it('par défaut : le texte de l\'appli, repères remplis', () => {
+        const { subject, body } = buildReviewRequestEmail(inv, { client: client(20), profile, reviewUrl: profile.google_review_url });
+        expect(subject).toBe('Merci pour votre confiance - Red Den Connexion');
+        expect(body).toMatch(/^Bonjour Mme Lafitte,/);
+        expect(body).toContain('pour « Pose de prises extérieures »');
+        expect(body).toContain(profile.google_review_url);
+        expect(body).not.toMatch(/\{\w+\}/);
+    });
+
+    it('le message de l\'artisan remplace celui de l\'appli', () => {
+        const settings = { review_subject: 'Votre avis, {client} ?', review_body: 'Salut {client} !\nUn petit avis pour {chantier} ? {lien}\nDenis' };
+        const { subject, body } = buildReviewRequestEmail(inv, { client: client(20), profile, reviewUrl: 'https://g/r', settings });
+        expect(subject).toBe('Votre avis, Mme Lafitte ?');
+        expect(body).toMatch(/^Salut Mme Lafitte !\nUn petit avis pour « Pose de prises extérieures » \? https:\/\/g\/r\nDenis/);
+        expect(body).toContain('\n\n-- \nRed Den Connexion'); // signature toujours ajoutée
+    });
+
+    it('lien effacé du modèle : remis à la fin ; client sans nom : pas de « Bonjour , »', () => {
+        const settings = { review_body: 'Bonjour {client}, merci !' };
+        const { body } = buildReviewRequestEmail(inv, { client: { email: 'x@y.fr' }, profile, reviewUrl: 'https://g/r', settings });
+        expect(body).toMatch(/^Bonjour, merci !\n\nhttps:\/\/g\/r/);
+    });
+
+    it('utilisé par le pilote et par la demande en fin de chantier', () => {
+        const settings = { enabled: true, review_body: 'Mon texte {lien}' };
+        const doc = quote({ status: 'accepted', work_stage: 'completed' });
+        expect(planReviewNow({ settings, profile, doc, now: NOW }).action.body).toMatch(/^Mon texte https/);
+    });
+});
+
 describe('plan d\'une exécution', () => {
     const settings = { enabled: true };
     const base = { settings, profile, now: NOW, appUrl: 'https://app.artisanfacile.fr/' };
