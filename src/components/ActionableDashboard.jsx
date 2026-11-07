@@ -10,7 +10,7 @@ import { useInvalidateCache } from '../hooks/useDataCache';
 import { useTestMode } from '../context/TestModeContext';
 import { fr } from 'date-fns/locale';
 import { urgencyWeight } from '../utils/urgency';
-import { latestClosingByParent, amendmentAlreadyBilled, isPostClosingComplement, complementInvoiceTitle } from '../utils/amendmentBilling';
+import { ISSUED_INVOICE_STATUSES, latestClosingByParent, amendmentAlreadyBilled, isPostClosingComplement, complementInvoiceTitle } from '../utils/amendmentBilling';
 import { UrgencyBadge } from './ui';
 
 const ActionableDashboard = ({ user }) => {
@@ -101,7 +101,7 @@ const ActionableDashboard = ({ user }) => {
                     .eq('user_id', user.id)
                     .in('parent_id', amendmentParentIds)
                     .eq('type', 'invoice')
-                    .in('status', ['billed', 'paid']);
+                    .in('status', ISSUED_INVOICE_STATUSES);
 
                 closingByParent = latestClosingByParent(closingInvoices);
             }

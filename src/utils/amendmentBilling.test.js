@@ -36,14 +36,18 @@ const amendment = (over = {}) => ({
 });
 
 describe('isClosingInvoiceRow', () => {
-    it('reconnaît une facture de clôture émise (billed/paid)', () => {
+    it('reconnaît une facture de clôture émise (billed/paid/sent/accepted)', () => {
         expect(isClosingInvoiceRow(closing())).toBe(true);
         expect(isClosingInvoiceRow(closing({ status: 'paid' }))).toBe(true);
+        // Clôture envoyée par mail, pas encore payée : elle est émise.
+        expect(isClosingInvoiceRow(closing({ status: 'sent' }))).toBe(true);
+        expect(isClosingInvoiceRow(closing({ status: 'accepted' }))).toBe(true);
         expect(isClosingInvoiceRow(closing({ title: 'Facture de cloture (sans accent)' }))).toBe(true);
     });
 
     it('écarte un brouillon de clôture, un acompte ou un avenant', () => {
         expect(isClosingInvoiceRow(closing({ status: 'draft' }))).toBe(false);
+        expect(isClosingInvoiceRow(closing({ status: 'cancelled' }))).toBe(false);
         expect(isClosingInvoiceRow(closing({ title: 'Acompte 30%' }))).toBe(false);
         expect(isClosingInvoiceRow(closing({ type: 'amendment' }))).toBe(false);
     });
