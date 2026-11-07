@@ -43,7 +43,7 @@ const json = (body: unknown, status = 200) => jsonResponse(body, status, corsHea
 
 const PROFILE_COLUMNS = 'id, plan, autopilot_settings, follow_up_settings, smtp_config, full_name, company_name, phone, professional_email, website, logo_url, google_review_url, email_signature_html, iban';
 const CLIENT_COLUMNS = 'id, name, email, civility, autopilot_paused, siren, tva_intracom';
-const DOC_COLUMNS = 'id, type, status, date, created_at, valid_until, total_ttc, title, client_id, archived_at, signed_at, paid_at, parent_id, relance_snoozed_until, follow_up_count, last_followup_at, public_token, invoice_number, quote_number, work_stage, work_completed_at';
+const DOC_COLUMNS = 'id, type, status, date, created_at, valid_until, total_ttc, title, client_id, archived_at, signed_at, paid_at, parent_id, relance_snoozed_until, relance_postponed, follow_up_count, last_followup_at, public_token, invoice_number, quote_number, work_stage, work_completed_at';
 const KIND_LABELS: Record<string, string> = {
     quote_followup: 'Relance automatique du devis',
     invoice_reminder: 'Rappel automatique de facture',

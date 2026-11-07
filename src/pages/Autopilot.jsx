@@ -11,6 +11,7 @@ import { useAutopilot } from '../hooks/useAutopilot';
 import { usePlanLimits } from '../hooks/usePlanLimits';
 import { formatCurrencyRounded } from '../utils/format';
 import { TRIAL_DAYS } from '../utils/founderOffer';
+import FollowUpPostpone from '../components/FollowUpPostpone';
 
 const KINDS = {
     quote_followup: { icon: FileText, label: 'Relance de devis', color: 'text-blue-600 dark:text-blue-400' },
@@ -21,7 +22,7 @@ const KINDS = {
 const card = 'bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm';
 
 /** Un mail prévu : lecture, modification, « Ne pas envoyer ». */
-const QueuedMail = ({ item, canEdit, onSave, onHold, onReset }) => {
+const QueuedMail = ({ item, canEdit, onSave, onHold, onReset, onPostponed }) => {
     const kind = KINDS[item.kind] || KINDS.quote_followup;
     const Icon = kind.icon;
     const [open, setOpen] = useState(false);
@@ -149,6 +150,11 @@ const QueuedMail = ({ item, canEdit, onSave, onHold, onReset }) => {
                     <Link to={`/app/devis/${item.quote_id}`} className="ml-auto inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
                         Ouvrir {item.doc_type === 'invoice' ? 'la facture' : 'le devis'}
                     </Link>
+                    {item.kind === 'quote_followup' && !item.skipped && (
+                        <div className="basis-full">
+                            <FollowUpPostpone compact quote={{ id: item.quote_id, relance_postponed: false, relance_snoozed_until: null }} onChange={onPostponed} />
+                        </div>
+                    )}
                 </div>
             )}
         </li>
@@ -185,7 +191,7 @@ const SentMail = ({ row }) => {
 const Autopilot = () => {
     const navigate = useNavigate();
     const { isPro, loading: planLoading } = usePlanLimits();
-    const { settings, preview, recent, loading, saveDraft, holdDraft, resetDraft } = useAutopilot();
+    const { settings, preview, recent, loading, reload, saveDraft, holdDraft, resetDraft } = useAutopilot();
 
     if (planLoading || loading || !preview) {
         return (
@@ -261,6 +267,7 @@ const Autopilot = () => {
                                 onSave={saveDraft}
                                 onHold={onHold}
                                 onReset={resetDraft}
+                                onPostponed={reload}
                             />
                         ))}
                     </ul>
@@ -269,6 +276,29 @@ const Autopilot = () => {
                     Les demandes d'avis Google partent aussi quand vous terminez un chantier et quittez les lieux (après « Je repars » si vous pointez).
                 </p>
             </section>
+
+            {preview.postponed?.length > 0 && (
+                <section className="mb-6">
+                    <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-2">
+                        <Clock size={15} className="text-violet-600" /> Projets reportés ({preview.postponed.length})
+                    </h2>
+                    <ul className="space-y-2">
+                        {preview.postponed.map((q) => (
+                            <li key={q.id} className={`${card} p-3`}>
+                                <div className="flex items-center gap-2 min-w-0 mb-1.5">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                        {q.client_name}{q.title ? ` · ${q.title}` : ''}{q.amount > 0 ? ` · ${formatCurrencyRounded(q.amount)}` : ''}
+                                    </p>
+                                    <Link to={`/app/devis/${q.id}`} className="ml-auto shrink-0 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Ouvrir</Link>
+                                </div>
+                                {isPro ? (
+                                    <FollowUpPostpone compact quote={q} onChange={reload} />
+                                ) : null}
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            )}
 
             {preview.needsArtisan.length > 0 && (
                 <section className="mb-6">

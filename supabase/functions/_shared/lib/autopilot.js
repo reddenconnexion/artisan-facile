@@ -137,18 +137,30 @@ export const dueQuoteFollowUp = (quote, steps = DEFAULT_FOLLOW_UP_STEPS, now = n
     const today = dayNumber(now);
     const issued = dayNumber(quote.date || quote.created_at);
     if (issued == null) return null;
-    if (today - issued > MAX_QUOTE_AGE_DAYS) return null;
-
-    const validUntil = dayNumber(quote.valid_until);
-    if (validUntil != null && validUntil < today) return null;
 
     const snoozed = dayNumber(quote.relance_snoozed_until);
     if (snoozed != null && snoozed > today) return null;
 
     const index = quote.follow_up_count || 0;
+    const last = dayNumber(quote.last_followup_at);
+
+    // Projet reporté par le client (« ce sera pour le printemps ») : à la date
+    // de reprise, un mail de reprise, même si le devis a expiré entre-temps
+    // (on propose de le mettre à jour) ou dépasse 60 jours.
+    if (quote.relance_postponed && snoozed != null && (last == null || last < snoozed)) {
+        if (today - snoozed > MAX_QUOTE_AGE_DAYS) return null;
+        return { index, step: { label: 'Reprise du projet' }, isLast: false, resumed: true, nextCount: index + 1 };
+    }
+
+    // Après la reprise d'un projet reporté, la séquence compte depuis la
+    // reprise, et l'expiration du devis d'origine ne l'arrête pas.
+    const postponed = Boolean(quote.relance_postponed && snoozed != null);
+    const start = postponed ? Math.max(issued, snoozed) : issued;
+    if (today - start > MAX_QUOTE_AGE_DAYS) return null;
+    const validUntil = dayNumber(quote.valid_until);
+    if (!postponed && validUntil != null && validUntil < today) return null;
     if (index >= steps.length) return null;
 
-    const last = dayNumber(quote.last_followup_at);
     const reference = index === 0 || last == null ? issued : last;
     const delay = Number(steps[index]?.delay) || 0;
     if (reference + delay > today) return null;
@@ -185,7 +197,13 @@ export const buildQuoteFollowUpEmail = (quote, due, { client, profile, link } = 
 
     let subject;
     let text;
-    if (due.isLast && due.index > 0) {
+    if (due.resumed) {
+        subject = `Votre projet : devis ${label}`;
+        text = `Comme convenu lors de notre échange, je reviens vers vous au sujet de votre projet et du devis ${label}${amount}.\n\n` +
+            `Est-il toujours d'actualité ? Si les choses ont évolué depuis, je peux mettre le devis à jour et convenir avec vous d'une date pour les travaux. ` +
+            `Il suffit de répondre à ce message ou de m'appeler${phone}.` +
+            linkLine;
+    } else if (due.isLast && due.index > 0) {
         subject = `Devis ${label} : votre projet est-il toujours d'actualité ?`;
         text = `Je reviens une dernière fois vers vous au sujet du devis ${label}${amount}.\n\n` +
             `Sans nouvelles de votre part, je vais classer ce dossier prochainement. ` +
