@@ -9,6 +9,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { formatDate } from '../utils/format';
+import { STRIPE_PORTAL_LOGIN_URL, portalLoginUrl } from '../utils/stripePortal';
 
 const FEATURES = [
     {
@@ -127,8 +128,10 @@ const Subscription = () => {
                 throw new Error('URL du portail non reçue');
             }
         } catch (err) {
-            toast.error('Erreur : ' + err.message);
-            setPortalLoading(false);
+            console.warn('stripe-portal indisponible, repli sur le lien de connexion :', err.message);
+            const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: {} }));
+            toast.info('Connectez-vous au portail Stripe avec votre e-mail.');
+            window.location.href = portalLoginUrl(user?.email);
         }
     };
 
@@ -372,6 +375,17 @@ const Subscription = () => {
                         {portalLoading ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
                         Gérer / annuler l'abonnement
                     </button>
+                    <p className="text-[11px] text-green-600/80 dark:text-green-400/70 mt-2">
+                        Factures, carte bancaire, résiliation :{' '}
+                        <a
+                            href={STRIPE_PORTAL_LOGIN_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline hover:text-green-700 dark:hover:text-green-300"
+                        >
+                            portail client Stripe
+                        </a>
+                    </p>
                 </div>
             )}
         </div>
