@@ -55,6 +55,11 @@ Deno.serve(async (req) => {
           ? new Date(subscription.cancel_at * 1000).toISOString()
           : null;
 
+        // Essai gratuit en cours : date du premier prélèvement.
+        const trialEnd = status === 'trialing' && subscription.trial_end
+          ? new Date(subscription.trial_end * 1000).toISOString()
+          : null;
+
         await supabaseAdmin
           .from('profiles')
           .update({
@@ -62,6 +67,7 @@ Deno.serve(async (req) => {
             [subscriptionIdField]: subscription.id,
             [subscriptionStatusField]: status,
             subscription_cancel_at: cancelAt,
+            subscription_trial_end: trialEnd,
           })
           .eq(customerIdField, customerId);
 
@@ -81,6 +87,7 @@ Deno.serve(async (req) => {
             [subscriptionIdField]: null,
             [subscriptionStatusField]: 'cancelled',
             subscription_cancel_at: null,
+            subscription_trial_end: null,
           })
           .eq(customerIdField, customerId);
 
@@ -119,7 +126,16 @@ Deno.serve(async (req) => {
             .eq('id', userId);
         }
 
-        console.log(`[${isTestMode ? 'TEST' : 'LIVE'}] Checkout completed for user ${userId}`);
+        // Tarif fondateur souscrit : la place est prise (une seule fois).
+        if (session.metadata?.founder === 'true') {
+          await supabaseAdmin
+            .from('profiles')
+            .update({ founder_since: new Date().toISOString() })
+            .eq('id', userId)
+            .is('founder_since', null);
+        }
+
+        console.log(`[${isTestMode ? 'TEST' : 'LIVE'}] Checkout completed for user ${userId} founder=${session.metadata?.founder ?? 'false'}`);
         break;
       }
 

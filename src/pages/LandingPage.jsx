@@ -3,8 +3,13 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { CheckCircle, ArrowRight, Shield, Zap, Smartphone, Calendar, FileText, Users, Loader2, X, Radio, Building2, BadgeCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { useFounderSpots } from '../hooks/useFounderSpots';
+import { TRIAL_DAYS, proOffer, spotsLabel } from '../utils/founderOffer';
 
 const LandingPage = () => {
+    const founderSpots = useFounderSpots();
+    const proPlan = proOffer(founderSpots, 'month');
+    const proSpots = proPlan.founder ? spotsLabel(founderSpots) : null;
     const { user, loading, loginAsDemo } = useAuth();
     const navigate = useNavigate();
     const [demoLoading, setDemoLoading] = useState(false);
@@ -702,40 +707,55 @@ const LandingPage = () => {
                         </div>
 
                         {/* Pro Plan */}
-                        <div className="bg-white/10 rounded-2xl p-8 border border-white/20 text-white">
+                        <div className="bg-white/10 rounded-2xl p-8 border-2 border-amber-300 text-white relative">
+                            {proPlan.founder && (
+                                <div className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                                    <span className="bg-amber-400 text-gray-900 text-xs font-bold px-4 py-1 rounded-full">
+                                        OFFRE MEMBRE FONDATEUR{proSpots ? ` · ${proSpots.toUpperCase()}` : ''}
+                                    </span>
+                                </div>
+                            )}
                             <div className="mb-6">
                                 <p className="text-lg font-semibold text-blue-100 mb-1">Plan Pro</p>
-                                <div className="flex items-end gap-1">
-                                    <span className="text-5xl font-extrabold">Bientôt</span>
+                                <div className="flex items-end gap-2 flex-wrap">
+                                    <span className="text-5xl font-extrabold">{proPlan.priceLabel.replace('/mois', '')}</span>
+                                    <span className="text-blue-100 mb-2">/mois{proPlan.founder ? ', à vie' : ''}</span>
+                                    {proPlan.founder && (
+                                        <span className="text-blue-200 line-through mb-2">{proPlan.standardLabel}</span>
+                                    )}
                                 </div>
-                                <p className="text-sm text-blue-200 mt-1">Fonctionnalités avancées pour scaler votre activité</p>
+                                <p className="text-sm text-amber-200 font-medium mt-1">
+                                    {TRIAL_DAYS} jours gratuits · Annulable en 2 clics · Satisfait ou remboursé
+                                </p>
                             </div>
                             <ul className="space-y-3 mb-8">
                                 {[
                                     'Tout du plan Essentiel, plus :',
-                                    '🤖 Génération de devis par IA',
-                                    'Saisie & mémos vocaux transcrits',
-                                    'Planificateur de tournée',
-                                    'Gestion des stocks',
-                                    'Relances automatiques impayés',
-                                    'Comptabilité avancée & export',
-                                    'Portail client personnalisé',
-                                    'Collecte d\'avis Google',
-                                    'Rapports d\'intervention PDF',
-                                    'Support prioritaire',
+                                    'Dictée vocale illimitée : vos devis se rédigent pendant que vous parlez',
+                                    'Génération de devis par IA illimitée',
+                                    'Transcription incluse, sans clé API à configurer',
+                                    'Pipeline vocal automatique',
+                                    ...(proPlan.founder ? [
+                                        'Visio de 30 min avec Denis, électricien depuis 25 ans, pour démarrer',
+                                        'Tarif fondateur bloqué à vie',
+                                    ] : []),
+                                    '1er mois remboursé s\'il ne vous convient pas',
                                 ].map((f, i) => (
                                     <li key={f} className={`flex items-center gap-3 text-sm ${i === 0 ? 'font-semibold text-white' : 'text-blue-100'}`}>
-                                        <CheckCircle className={`w-5 h-5 flex-shrink-0 ${i === 0 ? 'text-blue-300' : 'text-blue-300'}`} />
+                                        <CheckCircle className="w-5 h-5 flex-shrink-0 text-amber-300" />
                                         {f}
                                     </li>
                                 ))}
                             </ul>
-                            <button
-                                disabled
-                                className="block w-full text-center bg-white/20 text-white font-bold py-3 rounded-xl cursor-not-allowed opacity-70"
+                            <Link
+                                to="/register"
+                                className="block w-full text-center bg-amber-400 text-gray-900 font-bold py-3 rounded-xl hover:bg-amber-300 transition-colors"
                             >
-                                Disponible prochainement
-                            </button>
+                                Essayer {TRIAL_DAYS} jours gratuitement
+                            </Link>
+                            <p className="text-xs text-blue-200 text-center mt-2">
+                                Créez votre compte gratuit, puis activez l'essai Pro depuis l'appli.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -756,7 +776,7 @@ const LandingPage = () => {
                         {[
                             {
                                 question: "Artisan Facile est-il vraiment gratuit ?",
-                                answer: "Oui — et pas seulement en période d'essai. Le plan Essentiel est gratuit pour toujours, sans carte bancaire, sans engagement. Il inclut les devis et factures illimités, l'agenda, le CRM clients, la bibliothèque de prix et le mode hors ligne. Un plan Pro avec des fonctionnalités avancées sera disponible prochainement pour ceux qui souhaitent aller plus loin."
+                                answer: "Oui — et pas seulement en période d'essai. Le plan Essentiel est gratuit pour toujours, sans carte bancaire, sans engagement. Il inclut les devis et factures illimités, l'agenda, le CRM clients, la bibliothèque de prix et le mode hors ligne. Le plan Pro (dictée vocale et IA illimitées) s'essaie 30 jours gratuitement, pour ceux qui veulent aller plus loin."
                             },
                             {
                                 question: "Je démarre mon activité d'artisan, est-ce fait pour moi ?",

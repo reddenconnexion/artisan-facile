@@ -49,6 +49,7 @@ import StorageUsageWidget from '../components/StorageUsageWidget';
 import QuickActions from '../components/QuickActions';
 import TodayPanel from '../components/TodayPanel';
 import OnboardingChecklist from '../components/OnboardingChecklist';
+import FounderOfferBanner from '../components/FounderOfferBanner';
 import FinancialHealthCard from '../components/FinancialHealthCard';
 import CopilotChat from '../components/CopilotChat';
 import { buildDashboardCopilotFacts } from '../utils/copilotContext';
@@ -1388,6 +1389,9 @@ const Dashboard = () => {
             {/* Checklist d'onboarding — affichée tant que les étapes essentielles
                 ne sont pas validées (ou jusqu'à dismiss explicite) */}
             <OnboardingChecklist />
+
+            {/* Offre membre fondateur — comptes gratuits, tant qu'il reste des places */}
+            <FounderOfferBanner />
 
             {/* Widgets — ordre fixe (orderedWidgetIds). Fragment = aucun nœud
                 DOM ajouté, donc l'espacement space-y-6 reste correct. */}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
     Crown, Mic, Sparkles, Zap, CheckCircle, X, TrendingUp, BarChart2,
-    Loader2, ExternalLink, AlertCircle, CreditCard
+    Loader2, ExternalLink, CreditCard, Mail
 } from 'lucide-react';
 import { usePlanLimits } from '../hooks/usePlanLimits';
 import { PLAN_LIMITS } from '../utils/planLimits';
@@ -11,6 +11,10 @@ import { toast } from 'sonner';
 import { formatDate } from '../utils/format';
 import { STRIPE_PORTAL_LOGIN_URL, portalLoginUrl } from '../utils/stripePortal';
 import { cancellationNotice } from '../utils/subscriptionStatus';
+import { proOffer, trialNotice, founderVisioMailto } from '../utils/founderOffer';
+import { useFounderSpots } from '../hooks/useFounderSpots';
+import { useUserProfile } from '../hooks/useDataCache';
+import FounderOfferCard from '../components/FounderOfferCard';
 
 const FEATURES = [
     {
@@ -72,18 +76,27 @@ const CheckMark = ({ value, label }) => {
 };
 
 const Subscription = () => {
-    const { plan, cancelAt, usage, isPro, isOwner, remainingVoice, voiceLimit, remainingAI, aiLimit, loading, refresh } = usePlanLimits();
+    const { plan, cancelAt, trialEnd, isFounder, trialEligible, usage, isPro, isOwner, remainingVoice, voiceLimit, remainingAI, aiLimit, loading, refresh } = usePlanLimits();
+    const spotsLeft = useFounderSpots();
+    const { data: profile } = useUserProfile();
+    const [billingInterval, setBillingInterval] = useState('month');
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [portalLoading, setPortalLoading] = useState(false);
     const cancelNotice = cancellationNotice(cancelAt);
+    const trialText = trialNotice(trialEnd);
+    const offer = proOffer(spotsLeft, billingInterval);
+    const proStatusText = trialText
+        || cancelNotice
+        || (isFounder ? 'Membre fondateur · tarif bloqué à vie' : 'Renouvellement automatique');
+    const visioMailto = founderVisioMailto({ name: profile?.full_name, company: profile?.company_name });
     const currentMonth = formatDate(new Date(), { month: 'long', year: 'numeric' });
 
     // Handle Stripe redirect callbacks
     useEffect(() => {
         if (searchParams.get('success') === 'true') {
-            toast.success('🎉 Abonnement Pro activé ! Bienvenue dans le plan Pro.');
+            toast.success('🎉 Bienvenue dans le plan Pro ! Votre essai et vos avantages sont actifs.');
             refresh();
             // Clean URL
             navigate('/app/subscription', { replace: true });
@@ -97,7 +110,7 @@ const Subscription = () => {
         setCheckoutLoading(true);
         try {
             const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-                body: { origin: window.location.origin },
+                body: { origin: window.location.origin, interval: billingInterval },
             });
             if (error) {
                 const body = await error.context?.json?.().catch(() => null);
@@ -175,9 +188,7 @@ const Subscription = () => {
                             <p className="text-purple-200 text-xs mt-1">Accès illimité à toutes les fonctionnalités</p>
                         )}
                         {isPro && !isOwner && (
-                            <p className="text-orange-100 text-xs mt-1">
-                                {cancelNotice ? `14,99 € / mois · ${cancelNotice}` : '14,99 € / mois · Renouvellement automatique'}
-                            </p>
+                            <p className="text-orange-100 text-xs mt-1">{proStatusText}</p>
                         )}
                     </div>
                     {isOwner ? (
@@ -199,7 +210,9 @@ const Subscription = () => {
                         </div>
                     ) : (
                         <div className="text-right">
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">14,99 € / mois</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                {offer.founder ? `Fondateur : ${offer.priceLabel}` : offer.priceLabel}
+                            </p>
                             <button
                                 onClick={handleCheckout}
                                 disabled={checkoutLoading}
@@ -331,31 +344,16 @@ const Subscription = () => {
                 })}
             </div>
 
-            {/* Upgrade CTA (free users only) */}
+            {/* Offre Pro (utilisateurs gratuits) */}
             {!isPro && (
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white text-center">
-                    <Crown size={32} className="mx-auto mb-2 text-amber-300" />
-                    <h3 className="font-bold text-lg mb-1">Passez au plan Pro</h3>
-                    <p className="text-blue-100 text-sm mb-1">
-                        Transcription incluse, pipeline automatique, IA illimitée.
-                    </p>
-                    <p className="text-blue-200 text-xs mb-4">Votre clé API n'est plus nécessaire — tout est géré par l'app.</p>
-                    <button
-                        onClick={handleCheckout}
-                        disabled={checkoutLoading}
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-white text-blue-700 font-bold rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-60"
-                    >
-                        {checkoutLoading
-                            ? <Loader2 size={16} className="animate-spin" />
-                            : <CreditCard size={16} />
-                        }
-                        Souscrire pour 14,99 € / mois
-                    </button>
-                    <p className="text-xs text-blue-200 mt-3 flex items-center justify-center gap-1">
-                        <AlertCircle size={11} />
-                        Paiement sécurisé par Stripe · Annulable à tout moment
-                    </p>
-                </div>
+                <FounderOfferCard
+                    spotsLeft={spotsLeft}
+                    interval={billingInterval}
+                    onIntervalChange={setBillingInterval}
+                    onCheckout={handleCheckout}
+                    loading={checkoutLoading}
+                    trialEligible={trialEligible}
+                />
             )}
 
             {isOwner && (
@@ -369,12 +367,27 @@ const Subscription = () => {
             {isPro && !isOwner && (
                 <div className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl p-4 text-center">
                     <CheckCircle size={24} className="mx-auto text-green-500 mb-2" />
-                    <p className="text-green-700 dark:text-green-300 font-semibold text-sm">Plan Pro actif</p>
+                    <p className="text-green-700 dark:text-green-300 font-semibold text-sm">
+                        {isFounder ? 'Plan Pro actif · Membre fondateur' : 'Plan Pro actif'}
+                    </p>
                     <p className="text-green-600 dark:text-green-400 text-xs mt-1 mb-3">
                         {cancelNotice
                             ? `${cancelNotice}. Vous repasserez ensuite au plan gratuit, sans nouveau prélèvement.`
-                            : 'Toutes les fonctionnalités sont disponibles.'}
+                            : trialText
+                                ? `${trialText}. Annulable à tout moment avant cette date.`
+                                : 'Toutes les fonctionnalités sont disponibles.'}
                     </p>
+                    {isFounder && !cancelNotice && (
+                        <div className="mb-3">
+                            <a
+                                href={visioMailto}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                                <Mail size={14} />
+                                Réserver ma visio de 30 min avec Denis
+                            </a>
+                        </div>
+                    )}
                     <button
                         onClick={handleManageSubscription}
                         disabled={portalLoading}
