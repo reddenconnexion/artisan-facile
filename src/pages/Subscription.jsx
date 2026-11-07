@@ -10,6 +10,7 @@ import { supabase } from '../utils/supabase';
 import { toast } from 'sonner';
 import { formatDate } from '../utils/format';
 import { STRIPE_PORTAL_LOGIN_URL, portalLoginUrl } from '../utils/stripePortal';
+import { cancellationNotice } from '../utils/subscriptionStatus';
 
 const FEATURES = [
     {
@@ -71,11 +72,12 @@ const CheckMark = ({ value, label }) => {
 };
 
 const Subscription = () => {
-    const { plan, usage, isPro, isOwner, remainingVoice, voiceLimit, remainingAI, aiLimit, loading, refresh } = usePlanLimits();
+    const { plan, cancelAt, usage, isPro, isOwner, remainingVoice, voiceLimit, remainingAI, aiLimit, loading, refresh } = usePlanLimits();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [portalLoading, setPortalLoading] = useState(false);
+    const cancelNotice = cancellationNotice(cancelAt);
     const currentMonth = formatDate(new Date(), { month: 'long', year: 'numeric' });
 
     // Handle Stripe redirect callbacks
@@ -173,7 +175,9 @@ const Subscription = () => {
                             <p className="text-purple-200 text-xs mt-1">Accès illimité à toutes les fonctionnalités</p>
                         )}
                         {isPro && !isOwner && (
-                            <p className="text-orange-100 text-xs mt-1">14,99 € / mois · Renouvellement automatique</p>
+                            <p className="text-orange-100 text-xs mt-1">
+                                {cancelNotice ? `14,99 € / mois · ${cancelNotice}` : '14,99 € / mois · Renouvellement automatique'}
+                            </p>
                         )}
                     </div>
                     {isOwner ? (
@@ -366,7 +370,11 @@ const Subscription = () => {
                 <div className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl p-4 text-center">
                     <CheckCircle size={24} className="mx-auto text-green-500 mb-2" />
                     <p className="text-green-700 dark:text-green-300 font-semibold text-sm">Plan Pro actif</p>
-                    <p className="text-green-600 dark:text-green-400 text-xs mt-1 mb-3">Toutes les fonctionnalités sont disponibles.</p>
+                    <p className="text-green-600 dark:text-green-400 text-xs mt-1 mb-3">
+                        {cancelNotice
+                            ? `${cancelNotice}. Vous repasserez ensuite au plan gratuit, sans nouveau prélèvement.`
+                            : 'Toutes les fonctionnalités sont disponibles.'}
+                    </p>
                     <button
                         onClick={handleManageSubscription}
                         disabled={portalLoading}
