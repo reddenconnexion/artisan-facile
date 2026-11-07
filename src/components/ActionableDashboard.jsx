@@ -12,6 +12,7 @@ import { fr } from 'date-fns/locale';
 import { urgencyWeight } from '../utils/urgency';
 import { ISSUED_INVOICE_STATUSES, latestClosingByParent, amendmentAlreadyBilled, isPostClosingComplement, complementInvoiceTitle } from '../utils/amendmentBilling';
 import { UrgencyBadge } from './ui';
+import { isUnpaidInvoice } from '../utils/unpaidInvoices';
 
 const ActionableDashboard = ({ user }) => {
     const navigate = useNavigate();
@@ -127,20 +128,26 @@ const ActionableDashboard = ({ user }) => {
                 .sort((a, b) => urgencyWeight(b.urgency) - urgencyWeight(a.urgency));
 
 
-            // 3. Pending Invoices (Billed but not Paid)
+            // 3. Factures en attente : émises mais pas encore payées.
+            // Une facture envoyée par mail est au statut 'sent', une facture issue
+            // d'un devis converti reste 'accepted' : s'en tenir à 'billed' laissait
+            // ce bloc vide (aucune facture n'a ce statut en pratique).
             const { data: rawPendingInvoices } = await supabase
                 .from('quotes')
-                .select('*, clients(name), children:quotes!parent_id(id)')
+                .select('*, clients(name), children:quotes!parent_id(id, type, status)')
                 .eq('user_id', user.id)
-                .eq('status', 'billed')
+                .in('status', ISSUED_INVOICE_STATUSES.filter(s => s !== 'paid'))
                 .eq('type', 'invoice')
+                .is('archived_at', null)
                 .order('date', { ascending: true })
                 .limit(10);
 
-            // Exclude parent invoices that have child invoices (deposits/closing).
-            // Payment tracking happens through the children, so the parent is no longer "pending".
+            // Une facture déjà ventilée en factures filles (acompte, situation,
+            // clôture) n'est plus due elle-même : ce sont les filles qui le sont.
+            // Même règle que les relances d'impayés (idsBilledByChildren).
             const pendingInvoices = (rawPendingInvoices || []).filter(inv =>
-                !inv.children || inv.children.length === 0
+                isUnpaidInvoice(inv) &&
+                !(inv.children || []).some(c => c.type === 'invoice' && c.status !== 'cancelled')
             );
 
             // 4. Drafts (To finish)
