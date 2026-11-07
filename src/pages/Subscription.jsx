@@ -87,8 +87,10 @@ const Subscription = () => {
     const cancelNotice = cancellationNotice(cancelAt);
     const trialText = trialNotice(trialEnd);
     const offer = proOffer(spotsLeft, billingInterval);
-    const proStatusText = trialText
-        || cancelNotice
+    // Résiliation d'abord : un essai annulé garde sa date de fin d'essai,
+    // mais aucun prélèvement n'aura lieu.
+    const proStatusText = cancelNotice
+        || trialText
         || (isFounder ? 'Membre fondateur · tarif bloqué à vie' : 'Renouvellement automatique');
     const visioMailto = founderVisioMailto({ name: profile?.full_name, company: profile?.company_name });
     const currentMonth = formatDate(new Date(), { month: 'long', year: 'numeric' });
