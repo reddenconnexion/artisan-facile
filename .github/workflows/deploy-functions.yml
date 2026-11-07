@@ -50,7 +50,10 @@ jobs:
           echo "Fonctions détectées : ${FUNCTIONS[*]}"
           for fn in "${FUNCTIONS[@]}"; do
             echo "→ Deploying $fn..."
-            if ! supabase functions deploy "$fn" --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} 2>&1; then
+            # --yes : depuis la CLI de novembre 2026, le déploiement demande une
+            # confirmation interactive ; sans terminal, il s'arrête sans rien
+            # déployer (« Re-run with --yes to confirm »).
+            if ! supabase functions deploy "$fn" --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} --yes 2>&1; then
               echo "✗ FAILED: $fn"
               FAILED+=("$fn")
             else
