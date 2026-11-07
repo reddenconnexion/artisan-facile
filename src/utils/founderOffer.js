@@ -11,8 +11,11 @@ export const PRO_PRICES = {
     founder: { month: 990, year: 9900 },
 };
 
-// Adresse affichée aux membres fondateurs pour réserver la visio de 30 min.
+// Coordonnées affichées aux membres fondateurs pour réserver la visio de 30 min
+// (appel, SMS ou e-mail ; affichées en clair si l'appareil n'ouvre pas le lien).
 export const FOUNDER_CONTACT_EMAIL = 'rotvener97@gmail.com';
+export const FOUNDER_CONTACT_PHONE = '06 95 10 08 23';
+const FOUNDER_CONTACT_PHONE_E164 = '+33695100823';
 
 /** « 9,90 € », « 99 € », « 149,90 € » (centimes → euros, sans ,00 superflu). */
 export const formatEuros = (cents) => {
@@ -76,4 +79,17 @@ export const founderVisioMailto = ({ name, company } = {}) => {
         '',
     ].join('\n');
     return `mailto:${FOUNDER_CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+};
+
+/** Lien d'appel vers Denis. */
+export const founderVisioTel = () => `tel:${FOUNDER_CONTACT_PHONE_E164}`;
+
+/**
+ * SMS prérempli vers Denis. « ?&body= » est compris à la fois par iOS
+ * (qui attend « &body= ») et par Android (qui attend « ?body= »).
+ */
+export const founderVisioSms = ({ name, company } = {}) => {
+    const who = [name, company].filter(Boolean).join(' — ');
+    const body = `Bonjour Denis, membre fondateur Artisan Facile${who ? ` (${who})` : ''} : je souhaite réserver ma visio de 30 min. Mes disponibilités : `;
+    return `sms:${FOUNDER_CONTACT_PHONE_E164}?&body=${encodeURIComponent(body)}`;
 };
