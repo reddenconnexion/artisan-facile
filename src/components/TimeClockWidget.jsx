@@ -9,6 +9,21 @@ import {
 } from '../utils/timeTracking';
 import { pickCurrentEvent, worksiteForEvent, eventLabel } from '../utils/currentAppointment';
 import { useInvalidateCache } from '../hooks/useDataCache';
+import { announceReviewResult, finishChantierAndAskReview, requestReviewAtWorkEnd } from '../utils/reviewAtWorkEnd';
+
+// Au départ du chantier (« Je repars ») : chantier déjà terminé → demande
+// d'avis Google tout de suite ; sinon, on propose de le terminer en un geste.
+const afterLeavingChantier = async (quoteId, label) => {
+    const { data } = await supabase.from('quotes').select('work_stage').eq('id', quoteId).maybeSingle();
+    if (data?.work_stage === 'completed') {
+        announceReviewResult(await requestReviewAtWorkEnd(quoteId));
+        return;
+    }
+    toast(`Chantier${label ? ` « ${label} »` : ''} terminé ?`, {
+        duration: 12000,
+        action: { label: 'Oui, terminé', onClick: () => finishChantierAndAskReview(quoteId) },
+    });
+};
 
 const pad = (n) => String(n).padStart(2, '0');
 const formatChrono = (s) => `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
@@ -145,6 +160,7 @@ const TimeClockWidget = ({ compact = false, onSaved }) => {
             setClock(null);
             toast.success(`${formatHours(hours)} enregistrées${clock.quoteLabel && clock.quoteId ? ` sur ${clock.quoteLabel}` : ''}`);
             onSaved?.();
+            if (clock.quoteId) afterLeavingChantier(clock.quoteId, clock.quoteLabel);
         } catch (err) {
             console.error('Erreur enregistrement pointage:', err);
             // On ne perd pas le pointage : le chrono continue, l'artisan pourra

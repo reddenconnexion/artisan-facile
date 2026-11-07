@@ -6,9 +6,9 @@ import { useAutopilot } from '../hooks/useAutopilot';
 import { formatCurrencyRounded } from '../utils/format';
 
 const ITEMS = [
-    { key: 'quotes', icon: FileText, title: 'Relancer mes devis pas encore signés', text: 'À J+3, J+10 et J+17, puis un dernier message avant de classer le devis.' },
+    { key: 'quotes', icon: FileText, title: 'Relancer mes devis pas encore signés', text: 'À J+7, J+14 et J+21, puis un dernier message avant de classer le devis.' },
     { key: 'invoices', icon: Receipt, title: 'Réclamer mes factures en retard', text: "Rappel aimable 3 jours après l'échéance, puis rappel ferme 10 jours plus tard. La mise en demeure, c'est vous qui décidez." },
-    { key: 'reviews', icon: Star, title: 'Demander un avis Google après paiement', text: 'Un seul message par client, deux jours après le paiement.' },
+    { key: 'reviews', icon: Star, title: 'Demander un avis Google en fin de chantier', text: "Quand vous terminez le chantier et quittez les lieux (après « Je repars » si vous pointez). Un seul message par client." },
     { key: 'summary', icon: BellRing, title: 'Le point du soir à 18 h', text: 'Une notification : signé, payé, relancé.' },
 ];
 

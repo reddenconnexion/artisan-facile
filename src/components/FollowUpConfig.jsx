@@ -77,7 +77,7 @@ const FollowUpConfig = () => {
                                     value={step.label}
                                     onChange={(e) => handleStepChange(index, 'label', e.target.value)}
                                     className="w-full font-medium border-0 border-b border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-0 px-0 bg-transparent dark:text-white placeholder-gray-400"
-                                    placeholder="Nom de la relance (ex: Relance J+3)"
+                                    placeholder="Nom de la relance (ex: Relance J+7)"
                                 />
                             </div>
                             <div className="w-full md:w-32">

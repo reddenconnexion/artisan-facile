@@ -61,10 +61,13 @@ Sans valeur, les fonctions acceptent toutes les origines (`*`). Une seule origin
 
 ## 5. Pilote automatique (plan Pro)
 
-L'Edge Function `autopilot-run` relance seule les devis non signés, rappelle les
-factures en retard, demande un avis Google après paiement (du lundi au vendredi,
-9 h – 18 h, heure de Paris) et envoie le résumé du soir à 18 h. Elle se déploie
-avec les autres fonctions ; il reste à la planifier une fois.
+L'Edge Function `autopilot-run` relance seule les devis non signés (J+7, J+14,
+J+21, clôture à J+34) et rappelle les factures en retard (du lundi au vendredi,
+9 h – 18 h, heure de Paris), et envoie le résumé du soir à 18 h. La demande
+d'avis Google part quand l'artisan termine le chantier et quitte les lieux
+(l'appli appelle la fonction avec son JWT, après « Je repars » s'il pointait) ;
+l'envoi horaire la rattrape de 3 h à 7 jours après la fin du chantier. Elle se
+déploie avec les autres fonctions ; il reste à la planifier une fois.
 
 1. Secrets d'Edge Function : `APP_URL` est facultatif (par défaut
    `https://artisanfacile.fr`, le domaine de production). `RESEND_API_KEY` sert

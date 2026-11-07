@@ -103,7 +103,7 @@ export const PRO_BENEFITS = [
         key: 'quotes',
         pro: "L'appli relance toute seule",
         title: 'Vos devis relancés tout seuls',
-        text: "Un devis reste sans réponse ? L'appli relance votre client à J+3, J+10 et J+17, avec un mail poli et le lien pour signer en ligne.",
+        text: "Un devis reste sans réponse ? L'appli relance votre client à J+7, J+14 et J+21, avec un mail poli et le lien pour signer en ligne.",
         free: 'Vous devez y penser et cliquer',
     },
     {
@@ -117,7 +117,7 @@ export const PRO_BENEFITS = [
         key: 'reviews',
         pro: "Demandé automatiquement",
         title: 'Des avis Google sans rien demander',
-        text: "Deux jours après le paiement, votre client reçoit un mot de remerciement avec votre lien d'avis Google.",
+        text: "Chantier terminé, vous repartez : votre client reçoit aussitôt un mot de remerciement avec votre lien d'avis Google, au moment où il est le plus content.",
         free: 'À demander vous-même',
     },
     {

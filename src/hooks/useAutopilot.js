@@ -11,7 +11,7 @@ const fetchAutopilotData = async (userId, profile) => {
     const since = new Date(Date.now() - 400 * DAY_MS).toISOString().slice(0, 10);
     const [docsRes, logRes, reviewsRes] = await Promise.all([
         supabase.from('quotes')
-            .select('id, type, status, date, created_at, valid_until, total_ttc, title, client_id, archived_at, signed_at, paid_at, parent_id, relance_snoozed_until, follow_up_count, last_followup_at, public_token, invoice_number, quote_number, clients (id, name, email, civility, autopilot_paused, siren, tva_intracom)')
+            .select('id, type, status, date, created_at, valid_until, total_ttc, title, client_id, archived_at, signed_at, paid_at, parent_id, relance_snoozed_until, follow_up_count, last_followup_at, public_token, invoice_number, quote_number, work_stage, work_completed_at, clients (id, name, email, civility, autopilot_paused, siren, tva_intracom)')
             .eq('user_id', userId)
             .not('status', 'in', '(draft,cancelled)')
             .gte('date', since),

@@ -10,6 +10,7 @@ import { urgencyWeight } from '../utils/urgency';
 import { UrgencyBadge } from './ui';
 import { useChantierMargins } from '../hooks/useChantierMargins';
 import { MarginBadge, MarginAlertBanner } from './ChantierMargin';
+import { askReviewAfterUndoDelay } from '../utils/reviewAtWorkEnd';
 
 // Métadonnées d'affichage par colonne (reprend les étapes partagées + une icône
 // et une couleur de liseré, alignées sur la page Pilotage Chantiers).
@@ -101,6 +102,7 @@ const WorksitesKanban = () => {
             const { error } = await supabase.from('quotes').update({ work_stage: newStage }).eq('id', quoteId);
             if (error) throw error;
             toast.success('Chantier déplacé');
+            if (newStage === 'completed') askReviewAfterUndoDelay(quoteId);
         } catch (e) {
             setWorksites(prev => prev.map(w => (w.id === quoteId ? { ...w, work_stage: previousStage } : w)));
             toast.error('Déplacement impossible : ' + e.message);
