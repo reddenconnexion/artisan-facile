@@ -36,3 +36,8 @@ verify_jwt = true
 # artisan (appelée par le navigateur juste après l'insertion, JWT requis)
 [functions.notify-new-feedback]
 verify_jwt = true
+
+# Pilote automatique du plan Pro (relances, rappels, avis, résumé du soir) :
+# appelé chaque heure par pg_cron avec x-cron-secret, sans JWT.
+[functions.autopilot-run]
+verify_jwt = false

@@ -59,7 +59,7 @@ const VoiceRecorderButton = () => {
     const handleStart = async (e) => {
         e.preventDefault();
         if (!canUseVoice && plan === 'free') {
-            toast.error(`Limite atteinte : ${voiceLimit} mémos vocaux/mois sur le plan gratuit. Passez au plan Pro pour continuer.`);
+            toast.error(`Vous avez utilisé vos ${voiceLimit} dictées du mois. Avec le Pro, c'est sans limite.`);
             return;
         }
         if (isProcessing) return;

@@ -4,7 +4,7 @@ import { CheckCircle, ArrowRight, Shield, Zap, Smartphone, Calendar, FileText, U
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { useFounderSpots } from '../hooks/useFounderSpots';
-import { TRIAL_DAYS, proOffer, spotsLabel } from '../utils/founderOffer';
+import { PRO_BENEFITS, TRIAL_DAYS, proOffer, spotsLabel } from '../utils/founderOffer';
 
 const LandingPage = () => {
     const founderSpots = useFounderSpots();
@@ -730,11 +730,8 @@ const LandingPage = () => {
                             </div>
                             <ul className="space-y-3 mb-8">
                                 {[
-                                    'Tout du plan Essentiel, plus :',
-                                    'Dictée vocale illimitée : vos devis se rédigent pendant que vous parlez',
-                                    'Génération de devis par IA illimitée',
-                                    'Transcription incluse, sans clé API à configurer',
-                                    'Pipeline vocal automatique',
+                                    'Tout du plan Essentiel, plus le pilote automatique :',
+                                    ...PRO_BENEFITS.map((b) => b.title),
                                     ...(proPlan.founder ? [
                                         'Visio de 30 min avec Denis, électricien depuis 25 ans, pour démarrer',
                                         'Tarif fondateur bloqué à vie',
@@ -776,7 +773,7 @@ const LandingPage = () => {
                         {[
                             {
                                 question: "Artisan Facile est-il vraiment gratuit ?",
-                                answer: "Oui — et pas seulement en période d'essai. Le plan Essentiel est gratuit pour toujours, sans carte bancaire, sans engagement. Il inclut les devis et factures illimités, l'agenda, le CRM clients, la bibliothèque de prix et le mode hors ligne. Le plan Pro (dictée vocale et IA illimitées) s'essaie 30 jours gratuitement, pour ceux qui veulent aller plus loin."
+                                answer: "Oui — et pas seulement en période d'essai. Le plan Essentiel est gratuit pour toujours, sans carte bancaire, sans engagement. Il inclut les devis et factures illimités, l'agenda, le CRM clients, la bibliothèque de prix et le mode hors ligne. Le plan Pro ajoute le pilote automatique : l'appli relance seule vos devis non signés et vos factures en retard, demande vos avis Google et vous fait le point chaque soir. Il s'essaie 30 jours gratuitement."
                             },
                             {
                                 question: "Je démarre mon activité d'artisan, est-ce fait pour moi ?",

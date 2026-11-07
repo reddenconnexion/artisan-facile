@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
 
         const count = usage?.ai_generations_count ?? 0;
         if (count >= FREE_AI_LIMIT) {
-          return json({ error: `Limite atteinte : ${FREE_AI_LIMIT} générations IA/mois. Passez au plan Pro pour un accès illimité.` }, 403);
+          return json({ error: `Vous avez utilisé vos ${FREE_AI_LIMIT} textes rédigés par l'appli ce mois-ci. Avec le Pro, c'est sans limite.` }, 403);
         }
       }
 

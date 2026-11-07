@@ -93,3 +93,45 @@ export const founderVisioSms = ({ name, company } = {}) => {
     const body = `Bonjour Denis, membre fondateur Artisan Facile${who ? ` (${who})` : ''} : je souhaite réserver ma visio de 30 min. Mes disponibilités : `;
     return `sms:${FOUNDER_CONTACT_PHONE_E164}?&body=${encodeURIComponent(body)}`;
 };
+
+/**
+ * Ce que le Pro fait pour l'artisan, en mots de chantier : la même liste sert
+ * la page Abonnement, la carte d'offre, le bandeau et la page d'accueil.
+ */
+export const PRO_BENEFITS = [
+    {
+        key: 'quotes',
+        pro: "L'appli relance toute seule",
+        title: 'Vos devis relancés tout seuls',
+        text: "Un devis reste sans réponse ? L'appli relance votre client à J+3, J+10 et J+17, avec un mail poli et le lien pour signer en ligne.",
+        free: 'Vous devez y penser et cliquer',
+    },
+    {
+        key: 'invoices',
+        pro: "L'appli réclame toute seule",
+        title: 'Vos factures en retard réclamées pour vous',
+        text: "Rappel aimable, puis rappel ferme, sans que vous ayez à y penser. Vous êtes payé plus vite, sans jouer les gendarmes.",
+        free: 'Vous devez y penser et cliquer',
+    },
+    {
+        key: 'reviews',
+        pro: "Demandé automatiquement",
+        title: 'Des avis Google sans rien demander',
+        text: "Deux jours après le paiement, votre client reçoit un mot de remerciement avec votre lien d'avis Google.",
+        free: 'À demander vous-même',
+    },
+    {
+        key: 'summary',
+        pro: "Chaque soir à 18 h",
+        title: 'Le point du soir sur votre téléphone',
+        text: "À 18 h : ce qui a été signé, payé et relancé dans la journée. Vous savez où vous en êtes sans ouvrir l'appli.",
+        free: false,
+    },
+    {
+        key: 'voice',
+        pro: "Sans limite, rien à régler",
+        title: 'Vos devis dictés, sans limite',
+        text: "Vous parlez, l'appli écrit le devis, le rapport ou le mail. Rien à régler.",
+        free: 'Clé IA à installer vous-même, 10 dictées par mois',
+    },
+];

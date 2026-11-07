@@ -52,8 +52,9 @@ const FounderOfferBanner = () => {
                     </p>
                     <p className="text-sm text-white/95 mt-0.5">
                         {trialEligible ? `${TRIAL_DAYS} jours gratuits, puis ` : ''}
-                        {offer.priceLabel} à vie au lieu de {offer.standardLabel} : dictée vocale et IA illimitées,
-                        visio de démarrage avec Denis, satisfait ou remboursé.
+                        {offer.priceLabel} à vie au lieu de {offer.standardLabel} : l'appli relance vos devis et vos
+                        factures en retard toute seule, demande vos avis Google et vous fait le point chaque soir.
+                        Visio de démarrage avec Denis, satisfait ou remboursé.
                     </p>
                     <button
                         type="button"

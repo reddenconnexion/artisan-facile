@@ -384,6 +384,9 @@ const ClientForm = () => {
     // un nouveau client, sur le formulaire.
     const [activeTab, setActiveTab] = useState(() => location.state?.tab || (isEditing ? 'history' : 'info')); // 'history', 'info', 'plans', 'contacts', 'materials'
     const [showVoiceModal, setShowVoiceModal] = useState(false);
+    // Pilote automatique : hors du formulaire (enregistré au clic), pour que
+    // l'enregistrement de la fiche ne dépende pas de cette colonne.
+    const [autopilotPaused, setAutopilotPaused] = useState(undefined);
 
     const [formData, setFormData] = useState({
         civility: '',
@@ -469,6 +472,7 @@ const ClientForm = () => {
                     tva_intracom: data.tva_intracom || '',
                     contacts: data.contacts || []
                 });
+                setAutopilotPaused(data.autopilot_paused);
             }
         } catch (error) {
             toast.error('Erreur lors du chargement du client');
@@ -1024,6 +1028,33 @@ const ClientForm = () => {
                             </div>
                         </div>
                     </div>
+
+                    {isEditing && typeof autopilotPaused === 'boolean' && (
+                        <label className="flex items-start gap-3 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2.5 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                className="mt-0.5 h-4 w-4"
+                                checked={!autopilotPaused}
+                                onChange={async (e) => {
+                                    const paused = !e.target.checked;
+                                    setAutopilotPaused(paused);
+                                    const { error } = await supabase.from('clients').update({ autopilot_paused: paused }).eq('id', id);
+                                    if (error) {
+                                        setAutopilotPaused(!paused);
+                                        toast.error("Réglage non enregistré : " + error.message);
+                                    } else {
+                                        toast.success(paused ? "Ce client ne sera plus relancé automatiquement." : 'Relances automatiques réactivées pour ce client.');
+                                    }
+                                }}
+                            />
+                            <span>
+                                <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">Relances automatiques</span>
+                                <span className="block text-xs text-gray-500 dark:text-gray-400">
+                                    Avec le pilote automatique (Pro), l'appli peut relancer ce client pour ses devis, ses factures et un avis Google. Décochez pour ne jamais le relancer.
+                                </span>
+                            </span>
+                        </label>
+                    )}
 
                     <div>
                         <div className="flex justify-between items-center mb-1">

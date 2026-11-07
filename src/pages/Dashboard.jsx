@@ -50,6 +50,7 @@ import QuickActions from '../components/QuickActions';
 import TodayPanel from '../components/TodayPanel';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import FounderOfferBanner from '../components/FounderOfferBanner';
+import AutopilotCard from '../components/AutopilotCard';
 import FinancialHealthCard from '../components/FinancialHealthCard';
 import CopilotChat from '../components/CopilotChat';
 import { buildDashboardCopilotFacts } from '../utils/copilotContext';
@@ -1389,6 +1390,10 @@ const Dashboard = () => {
             {/* Checklist d'onboarding — affichée tant que les étapes essentielles
                 ne sont pas validées (ou jusqu'à dismiss explicite) */}
             <OnboardingChecklist />
+
+            {/* Pilote automatique : ce que l'appli a fait (Pro) ou ferait (gratuit),
+                chiffré avec les vrais devis et factures de l'artisan. */}
+            <AutopilotCard />
 
             {/* Offre membre fondateur — comptes gratuits, tant qu'il reste des places */}
             <FounderOfferBanner />
