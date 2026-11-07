@@ -13,6 +13,7 @@ import {
     archiveQuote,
 } from '../utils/followUpService';
 import { generateFollowUpEmail } from '../utils/aiService';
+import { buildManualQuoteFollowUp } from '../utils/autopilot';
 import { supabase } from '../utils/supabase';
 import { sendDocumentEmail, probablySentMessage, sendingLabel } from '../utils/sendDocumentEmail';
 import { toast } from 'sonner';
@@ -59,6 +60,7 @@ const DailyRelanceSuggestions = () => {
     const [openMap, setOpenMap] = useState({}); // quote_id -> { opened, openCount }
     const [generating, setGenerating] = useState({});
     const [drafts, setDrafts] = useState({});
+    const [stepCount, setStepCount] = useState(0);
     const [expanded, setExpanded] = useState({});
     const [sending, setSending] = useState({});
     const [snoozing, setSnoozing] = useState({});
@@ -94,10 +96,11 @@ const DailyRelanceSuggestions = () => {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [data] = await Promise.all([
+            const [data, followUpSettings] = await Promise.all([
                 getDueFollowUps(user.id),
                 getFollowUpSettings(user.id), // amorce les réglages par défaut si absents
             ]);
+            setStepCount(followUpSettings?.steps?.length || 0);
             const filtered = (data || []).filter(q => !isTestQuote(q));
             setDueQuotes(filtered);
 
@@ -144,7 +147,26 @@ const DailyRelanceSuggestions = () => {
         return Object.values(g);
     }, [dueQuotes]);
 
-    const handleGenerate = async (key, quotes) => {
+    // Brouillon tiré des modèles de l'artisan (mêmes textes que le pilote
+    // automatique) : instantané, sans IA.
+    const handleGenerate = (key, quotes) => {
+        const ref = quotes[0];
+        const index = ref.next_step?.index ?? 0;
+        const draft = buildManualQuoteFollowUp(quotes, {
+            stepIndex: index,
+            isLast: stepCount > 0 && index === stepCount - 1,
+            reopened: Boolean(ref.next_step?.reopenedAfterExpiry),
+            client: ref.clients,
+            profile,
+            settings: profile?.autopilot_settings,
+            appUrl: window.location.origin,
+        });
+        setDrafts(prev => ({ ...prev, [key]: { ...draft, source: 'template' } }));
+        setExpanded(prev => ({ ...prev, [key]: true }));
+    };
+
+    // Variante : texte rédigé par l'IA à partir de l'historique du client.
+    const handleGenerateAI = async (key, quotes) => {
         try {
             setGenerating(prev => ({ ...prev, [key]: true }));
             const ref = quotes[0];
@@ -152,7 +174,7 @@ const DailyRelanceSuggestions = () => {
             const client = ref.clients || { name: 'Client' };
             const relanceContext = await getRelanceContext(ref, user.id);
             const draft = await generateFollowUpEmail(quotes, client, step, { ...aiContext, relanceContext });
-            setDrafts(prev => ({ ...prev, [key]: draft }));
+            setDrafts(prev => ({ ...prev, [key]: { ...draft, source: 'ai' } }));
             setExpanded(prev => ({ ...prev, [key]: true }));
         } catch (e) {
             toast.error('Erreur génération IA : ' + e.message);
@@ -424,11 +446,10 @@ const DailyRelanceSuggestions = () => {
                                     {!draft ? (
                                         <button
                                             onClick={() => handleGenerate(key, quotes)}
-                                            disabled={isGenerating}
-                                            className="px-3 py-1.5 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg flex items-center gap-1.5 shadow-sm disabled:opacity-60"
+                                            className="px-3 py-1.5 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg flex items-center gap-1.5 shadow-sm"
                                         >
-                                            {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                                            {isGenerating ? 'Rédaction…' : 'Préparer'}
+                                            <Mail className="w-3.5 h-3.5" />
+                                            Préparer
                                         </button>
                                     ) : (
                                         <button
@@ -447,15 +468,25 @@ const DailyRelanceSuggestions = () => {
                                 <div className="mt-3 rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/10 p-3 space-y-2.5">
                                     <div className="flex items-center justify-between">
                                         <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide flex items-center gap-1">
-                                            <MailOpen className="w-3 h-3" /> Brouillon — personnalisé selon l'historique
+                                            <MailOpen className="w-3 h-3" /> {draft.source === 'ai' ? 'Texte proposé par l\'IA' : 'Votre modèle'} — modifiable avant envoi
                                         </span>
-                                        <button
-                                            onClick={() => handleGenerate(key, quotes)}
-                                            disabled={isGenerating}
-                                            className="text-[11px] text-amber-600 dark:text-amber-400 hover:opacity-70 disabled:opacity-50"
-                                        >
-                                            {isGenerating ? 'Régénération…' : '↺ Régénérer'}
-                                        </button>
+                                        {draft.source === 'ai' ? (
+                                            <button
+                                                onClick={() => handleGenerate(key, quotes)}
+                                                className="text-[11px] text-amber-600 dark:text-amber-400 hover:opacity-70"
+                                            >
+                                                ↺ Mon modèle
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleGenerateAI(key, quotes)}
+                                                disabled={isGenerating}
+                                                className="text-[11px] text-amber-600 dark:text-amber-400 hover:opacity-70 disabled:opacity-50 flex items-center gap-1"
+                                            >
+                                                {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                                {isGenerating ? 'Rédaction…' : 'Texte par l\'IA'}
+                                            </button>
+                                        )}
                                     </div>
                                     <input
                                         type="text"

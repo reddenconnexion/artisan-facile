@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
     parisClock, isSendingWindow, isSummaryHour, dueQuoteFollowUp, buildQuoteFollowUpEmail,
     dueInvoiceReminder, dueReviewRequest, buildReviewRequestEmail, planAutopilotRun,
-    dueReviewAfterWork, planReviewNow, renderTemplate, quoteTemplateKind, DEFAULT_QUOTE_TEMPLATES, nextSendTime, sendTimeLabel, applyDraft,
+    dueReviewAfterWork, planReviewNow, renderTemplate, quoteTemplateKind, DEFAULT_QUOTE_TEMPLATES,
+    buildManualQuoteFollowUp, nextSendTime, sendTimeLabel, applyDraft,
     buildEveningSummary, summarizeActions, readAutopilotSettings, actionKey,
     DEFAULT_FOLLOW_UP_STEPS, MAX_EMAILS_PER_DAY,
 } from './autopilot';
@@ -208,6 +209,14 @@ describe('modèles de relance de devis', () => {
         expect(out).toBe('Bonjour,\n\nMerci.');
     });
 
+    it('repère vide en milieu de phrase : seul le repère disparaît', () => {
+        const vars = { lien: '', validite: '' };
+        expect(renderTemplate('Alors, ça vous va ? {lien}\nMerci.', vars, ['lien'])).toBe('Alors, ça vous va ?\nMerci.');
+        expect(renderTemplate('Le voici : {lien}\nMerci.', vars, ['lien'])).toBe('Merci.');
+        expect(renderTemplate("Valable jusqu'au {validite}.\nMerci.", vars, ['validite'])).toBe('Merci.');
+        expect(renderTemplate('{lien}\nMerci.', vars, ['lien'])).toBe('Merci.');
+    });
+
     it('le bon modèle à chaque moment', () => {
         expect(quoteTemplateKind({ index: 0 })).toBe('first');
         expect(quoteTemplateKind({ index: 1, isLast: false })).toBe('middle');
@@ -245,6 +254,31 @@ describe('modèles de relance de devis', () => {
             const tags = `${subject} ${body}`.match(/\{(\w+)\}/g) || [];
             tags.forEach((t) => expect(['{client}', '{devis}', '{montant}', '{date}', '{lien}', '{telephone}', '{validite}', '{entreprise}']).toContain(t));
         }
+    });
+});
+
+describe('relances préparées à la main', () => {
+    const settings = { quote_templates: { middle: { body: 'Bonjour {client}, alors pour {devis} ({montant}) ? {lien}' } } };
+
+    it('utilisent le modèle de l\'artisan pour l\'étape choisie', () => {
+        const { body } = buildManualQuoteFollowUp([quote()], { stepIndex: 1, client: client(10), profile, settings, appUrl: 'https://app/', now: NOW });
+        expect(body).toMatch(/^Bonjour Mme Lafitte, alors pour « Mise aux normes tableau » \(1\s800,00\s€\) \? https:\/\/app\/q\/tok/);
+    });
+
+    it('plusieurs devis du même client : un seul mail qui les cite tous, sans lien', () => {
+        const quotes = [quote({ id: 1, title: 'Tableau', total_ttc: 1000 }), quote({ id: 2, title: 'Prises', total_ttc: 500 }), quote({ id: 3, title: 'Éclairage', total_ttc: 250 })];
+        const { body } = buildManualQuoteFollowUp(quotes, { stepIndex: 1, client: client(10), profile, settings, appUrl: 'https://app', now: NOW });
+        expect(body).toMatch(/^Bonjour Mme Lafitte, alors pour « Tableau », « Prises » et « Éclairage » \(1\s750,00\s€\) \?$/m);
+        expect(body).not.toContain('/q/');
+    });
+
+    it('dernière étape, devis rouvert, projet reporté : le bon modèle', () => {
+        const last = buildManualQuoteFollowUp([quote()], { stepIndex: 3, isLast: true, client: client(10), profile, now: NOW });
+        expect(last.body).toContain('classer ce dossier');
+        const reopened = buildManualQuoteFollowUp([quote()], { stepIndex: 0, reopened: true, client: client(10), profile, now: NOW });
+        expect(reopened.body).toContain('adapter la proposition');
+        const resumed = buildManualQuoteFollowUp([quote({ relance_postponed: true, relance_snoozed_until: '2026-11-09T06:00:00Z' })], { stepIndex: 0, client: client(10), profile, now: NOW });
+        expect(resumed.body).toContain('Comme convenu');
     });
 });
 

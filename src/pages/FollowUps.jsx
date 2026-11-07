@@ -17,6 +17,7 @@ import {
 } from '../utils/followUpService';
 import { buildInvoiceReminderEmail, invoiceReference } from '../utils/unpaidInvoices';
 import { generateFollowUpEmail } from '../utils/aiService';
+import { buildManualQuoteFollowUp } from '../utils/autopilot';
 import { supabase } from '../utils/supabase';
 import { sendDocumentEmail, probablySentMessage, sendingLabel } from '../utils/sendDocumentEmail';
 import { toast } from 'sonner';
@@ -127,9 +128,25 @@ const FollowUps = ({ embedded = false }) => {
         return { ...stepData, index: idx };
     };
 
-    // Suggestions are generated on demand (button per card) rather than on page
-    // load, to avoid burning AI tokens for relances the user may never send.
-    const handleGenerate = async (key, quotes) => {
+    // Message tiré des modèles de l'artisan (mêmes textes que le pilote
+    // automatique), pour l'étape choisie : instantané, sans IA.
+    const handleGenerate = (key, quotes) => {
+        const step = getEffectiveStep(key, quotes[0]);
+        const draft = buildManualQuoteFollowUp(quotes, {
+            stepIndex: step.index,
+            isLast: availableSteps.length > 0 && step.index === availableSteps.length - 1,
+            reopened: Boolean(step.reopenedAfterExpiry),
+            client: quotes[0].clients,
+            profile,
+            settings: profile?.autopilot_settings,
+            appUrl: window.location.origin,
+        });
+        setSuggestions(prev => ({ ...prev, [key]: { ...draft, source: 'template' } }));
+        setExpanded(prev => ({ ...prev, [key]: true }));
+    };
+
+    // Variante à la demande : texte rédigé par l'IA (consomme le quota IA).
+    const handleGenerateAI = async (key, quotes) => {
         try {
             setGenerating(prev => ({ ...prev, [key]: true }));
             const step = getEffectiveStep(key, quotes[0]);
@@ -137,7 +154,7 @@ const FollowUps = ({ embedded = false }) => {
             // Récupère l'historique client + l'engagement e-mail pour personnaliser la relance.
             const relanceContext = await getRelanceContext(quotes[0], user.id);
             const emailContent = await generateFollowUpEmail(quotes, client, step, { ...aiContext, relanceContext });
-            setSuggestions(prev => ({ ...prev, [key]: emailContent }));
+            setSuggestions(prev => ({ ...prev, [key]: { ...emailContent, source: 'ai' } }));
             setExpanded(prev => ({ ...prev, [key]: true }));
         } catch (error) {
             toast.error("Erreur génération IA: " + error.message);
@@ -512,11 +529,10 @@ const FollowUps = ({ embedded = false }) => {
                             {!suggestion ? (
                                 <button
                                     onClick={() => handleGenerate(cardKey, quotes)}
-                                    disabled={isGenerating}
-                                    className={`px-4 py-2 text-sm font-semibold text-white rounded-lg flex items-center gap-2 shadow-sm disabled:opacity-60 transition-opacity ${style.btn}`}
+                                    className={`px-4 py-2 text-sm font-semibold text-white rounded-lg flex items-center gap-2 shadow-sm transition-opacity ${style.btn}`}
                                 >
-                                    <Sparkles className="w-4 h-4" />
-                                    {isGenerating ? 'Génération…' : 'Suggérer un message'}
+                                    <Mail className="w-4 h-4" />
+                                    Préparer le message
                                 </button>
                             ) : (
                                 <button
@@ -561,16 +577,26 @@ const FollowUps = ({ embedded = false }) => {
                     <div className={`border-t-2 ${style.panel} rounded-b-xl p-5 space-y-3`}>
                         <div className="flex justify-between items-center">
                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
-                                <Sparkles className="w-3.5 h-3.5" />
-                                Suggestion IA — modifiable avant envoi
+                                {suggestion.source === 'ai' ? <Sparkles className="w-3.5 h-3.5" /> : <Mail className="w-3.5 h-3.5" />}
+                                {suggestion.source === 'ai' ? 'Texte proposé par l\'IA' : 'Votre modèle'} — modifiable avant envoi
                             </p>
-                            <button
-                                onClick={() => handleGenerate(cardKey, quotes)}
-                                disabled={isGenerating}
-                                className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-50"
-                            >
-                                {isGenerating ? 'Régénération…' : '↺ Régénérer'}
-                            </button>
+                            {suggestion.source === 'ai' ? (
+                                <button
+                                    onClick={() => handleGenerate(cardKey, quotes)}
+                                    className="text-xs text-blue-500 hover:text-blue-700"
+                                >
+                                    ↺ Mon modèle
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => handleGenerateAI(cardKey, quotes)}
+                                    disabled={isGenerating}
+                                    className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-50 flex items-center gap-1"
+                                >
+                                    <Sparkles className="w-3.5 h-3.5" />
+                                    {isGenerating ? 'Rédaction…' : 'Texte par l\'IA'}
+                                </button>
+                            )}
                         </div>
 
                         <div>
