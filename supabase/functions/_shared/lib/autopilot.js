@@ -243,6 +243,8 @@ export const DEFAULT_QUOTE_TEMPLATES = {
 /** Quel modèle pour cette relance ? */
 export const quoteTemplateKind = (due) => {
     if (due?.resumed) return 'resume';
+    // Devis rouvert par le client après expiration : on propose de l'adapter.
+    if (due?.reopened) return 'middle';
     if (due?.isLast && due.index > 0) return 'last';
     return due?.index === 0 ? 'first' : 'middle';
 };
@@ -263,7 +265,7 @@ export const quoteTemplate = (kind, settings) => {
  * proposition d'échange, puis message de clôture (ou reprise d'un projet
  * reporté). Texte : modèle de l'artisan s'il en a écrit un.
  */
-export const buildQuoteFollowUpEmail = (quote, due, { client, profile, link, settings, now = new Date() } = {}) => {
+export const buildQuoteFollowUpEmail = (quote, due, { client, profile, link, settings, now = new Date(), overrides = {} } = {}) => {
     const vars = {
         client: clientGreetingName(client?.name, 'fr', client?.civility) || '',
         devis: quoteLabel(quote),
@@ -273,12 +275,43 @@ export const buildQuoteFollowUpEmail = (quote, due, { client, profile, link, set
         telephone: profile?.phone || '',
         validite: quote.valid_until && dayNumber(quote.valid_until) >= dayNumber(now) ? formatDate(quote.valid_until) : '',
         entreprise: profile?.company_name || profile?.full_name || '',
+        ...overrides,
     };
     const tpl = quoteTemplate(quoteTemplateKind(due), settings);
     return {
         subject: renderTemplate(tpl.subject, vars, QUOTE_OPTIONAL),
         body: `${renderTemplate(tpl.body, vars, QUOTE_OPTIONAL)}\n\n${signatureLines(profile)}`,
     };
+};
+
+/** « « A » », « « A » et « B » », « « A », « B » et « C » ». */
+const joinLabels = (labels) => (labels.length <= 1 ? labels.join('')
+    : `${labels.slice(0, -1).join(', ')} et ${labels[labels.length - 1]}`);
+
+/**
+ * Relance préparée à la main (suggestions du tableau de bord, centre de
+ * relance) : même modèle que le pilote, pour l'étape choisie par l'artisan.
+ * Plusieurs devis du même client → un seul mail qui les cite tous.
+ */
+export const buildManualQuoteFollowUp = (quotes, {
+    stepIndex = 0, isLast = false, reopened = false, client, profile, settings, appUrl = '', now = new Date(),
+} = {}) => {
+    const list = (Array.isArray(quotes) ? quotes : [quotes]).filter(Boolean);
+    const first = list[0];
+    if (!first) return { subject: '', body: '' };
+    const snoozed = dayNumber(first.relance_snoozed_until);
+    const last = dayNumber(first.last_followup_at);
+    const resumed = !reopened && Boolean(first.relance_postponed) && snoozed != null
+        && snoozed <= dayNumber(now) && (last == null || last < snoozed);
+    const due = { index: stepIndex, isLast: isLast && stepIndex > 0, reopened, resumed };
+    const single = list.length === 1;
+    const link = single && appUrl && first.public_token ? `${appUrl.replace(/\/$/, '')}/q/${first.public_token}` : '';
+    const overrides = single ? {} : {
+        devis: joinLabels(list.map(quoteLabel)),
+        montant: formatPrice(list.reduce((sum, q) => sum + (Number(q.total_ttc) || 0), 0)),
+        validite: '',
+    };
+    return buildQuoteFollowUpEmail(first, due, { client, profile, link, settings, now, overrides });
 };
 
 // ── 2. Rappel des factures impayées ──────────────────────────────────────────
