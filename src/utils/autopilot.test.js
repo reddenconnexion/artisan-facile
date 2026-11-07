@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     parisClock, isSendingWindow, isSummaryHour, dueQuoteFollowUp, buildQuoteFollowUpEmail,
     dueInvoiceReminder, dueReviewRequest, buildReviewRequestEmail, planAutopilotRun,
-    dueReviewAfterWork, planReviewNow, nextSendTime, sendTimeLabel, applyDraft,
+    dueReviewAfterWork, planReviewNow, renderTemplate, quoteTemplateKind, DEFAULT_QUOTE_TEMPLATES, nextSendTime, sendTimeLabel, applyDraft,
     buildEveningSummary, summarizeActions, readAutopilotSettings, actionKey,
     DEFAULT_FOLLOW_UP_STEPS, MAX_EMAILS_PER_DAY,
 } from './autopilot';
@@ -197,6 +197,54 @@ describe('avis Google à la fin du chantier', () => {
         expect(planReviewNow({ ...base, doc: done({ clients: client(10, { autopilot_paused: true }) }) })).toEqual({ skipped: 'client_paused' });
         expect(planReviewNow({ ...base, doc: done({ clients: client(10, { email: '' }) }) })).toEqual({ skipped: 'no_email' });
         expect(planReviewNow({ ...base, now: new Date('2026-11-10T21:30:00Z') })).toEqual({ skipped: 'night' }); // 22 h 30
+    });
+});
+
+describe('modèles de relance de devis', () => {
+    const q = quote();
+
+    it('une ligne au repère facultatif vide disparaît entière', () => {
+        const out = renderTemplate('Bonjour {client},\n\nMon numéro : {telephone}\n\nMerci.', { client: '', telephone: '' }, ['telephone']);
+        expect(out).toBe('Bonjour,\n\nMerci.');
+    });
+
+    it('le bon modèle à chaque moment', () => {
+        expect(quoteTemplateKind({ index: 0 })).toBe('first');
+        expect(quoteTemplateKind({ index: 1, isLast: false })).toBe('middle');
+        expect(quoteTemplateKind({ index: 3, isLast: true })).toBe('last');
+        expect(quoteTemplateKind({ index: 0, resumed: true })).toBe('resume');
+    });
+
+    it('sans lien ni téléphone, ni validité : pas de ligne orpheline', () => {
+        const { body } = buildQuoteFollowUpEmail(q, { index: 1 }, { client: q.clients, profile: { full_name: 'Denis' } });
+        expect(body).not.toContain('Mon numéro');
+        expect(body).not.toContain('en ligne ici');
+        expect(body).not.toContain('valable');
+        expect(body).toContain('adapter la proposition');
+    });
+
+    it('le modèle de l\'artisan remplace celui de l\'appli, pour ce moment seulement', () => {
+        const settings = { quote_templates: { first: { subject: 'Alors, {client} ?', body: 'Bonjour {client}, vous avez vu mon devis {devis} de {montant} ? {lien}' } } };
+        const first = buildQuoteFollowUpEmail(q, { index: 0 }, { client: q.clients, profile, link: 'https://x/q/1', settings });
+        expect(first.subject).toBe('Alors, Mme Lafitte ?');
+        expect(first.body).toMatch(/^Bonjour Mme Lafitte, vous avez vu mon devis « Mise aux normes tableau » de 1\s800,00\s€ \? https:\/\/x\/q\/1/);
+        expect(first.body).toContain('\n\n-- \nRed Den Connexion');
+        const middle = buildQuoteFollowUpEmail(q, { index: 1 }, { client: q.clients, profile, settings });
+        expect(middle.body).toContain('adapter la proposition');
+    });
+
+    it('le pilote utilise les modèles de l\'artisan', () => {
+        const settings = { enabled: true, quote_templates: { first: { body: 'Mon texte pour {devis}' } } };
+        const { actions } = planAutopilotRun({ settings, profile, docs: [quote()], now: NOW });
+        expect(actions[0].body).toMatch(/^Mon texte pour « Mise aux normes tableau »/);
+        expect(actions[0].subject).toBe('Votre devis « Mise aux normes tableau »'); // objet de l'appli conservé
+    });
+
+    it('tous les modèles par défaut n\'utilisent que des repères connus', () => {
+        for (const { subject, body } of Object.values(DEFAULT_QUOTE_TEMPLATES)) {
+            const tags = `${subject} ${body}`.match(/\{(\w+)\}/g) || [];
+            tags.forEach((t) => expect(['{client}', '{devis}', '{montant}', '{date}', '{lien}', '{telephone}', '{validite}', '{entreprise}']).toContain(t));
+        }
     });
 });
 
