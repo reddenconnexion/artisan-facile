@@ -12,6 +12,7 @@ import { usePlanLimits } from '../hooks/usePlanLimits';
 import { formatCurrencyRounded } from '../utils/format';
 import { TRIAL_DAYS } from '../utils/founderOffer';
 import FollowUpPostpone from '../components/FollowUpPostpone';
+import ReviewTemplateEditor from '../components/ReviewTemplateEditor';
 
 const KINDS = {
     quote_followup: { icon: FileText, label: 'Relance de devis', color: 'text-blue-600 dark:text-blue-400' },
@@ -191,7 +192,7 @@ const SentMail = ({ row }) => {
 const Autopilot = () => {
     const navigate = useNavigate();
     const { isPro, loading: planLoading } = usePlanLimits();
-    const { settings, preview, recent, loading, reload, saveDraft, holdDraft, resetDraft } = useAutopilot();
+    const { settings, save, profile, preview, recent, loading, reload, saveDraft, holdDraft, resetDraft } = useAutopilot();
 
     if (planLoading || loading || !preview) {
         return (
@@ -272,9 +273,15 @@ const Autopilot = () => {
                         ))}
                     </ul>
                 )}
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Les demandes d'avis Google partent aussi quand vous terminez un chantier et quittez les lieux (après « Je repars » si vous pointez).
-                </p>
+                <div className={`${card} p-3 mt-3`}>
+                    <p className="text-sm text-gray-700 dark:text-gray-200 flex items-start gap-2">
+                        <Star size={15} className="text-amber-500 shrink-0 mt-0.5" />
+                        <span>Les demandes d'avis Google partent quand vous terminez un chantier et quittez les lieux (après « Je repars » si vous pointez), avec votre message :</span>
+                    </p>
+                    {isPro ? (
+                        <div className="ml-6"><ReviewTemplateEditor settings={settings} save={save} profile={profile} /></div>
+                    ) : null}
+                </div>
             </section>
 
             {preview.postponed?.length > 0 && (

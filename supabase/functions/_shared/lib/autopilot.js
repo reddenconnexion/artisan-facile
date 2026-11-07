@@ -282,17 +282,45 @@ export const isReviewNowHour = (now = new Date()) => {
     return hour >= REVIEW_NOW_START_HOUR && hour < REVIEW_NOW_END_HOUR;
 };
 
-export const buildReviewRequestEmail = (invoice, { client, profile, reviewUrl } = {}) => {
-    const work = invoice.title ? ` pour « ${invoice.title} »` : '';
-    const who = profile?.company_name || profile?.full_name || 'votre artisan';
+// Modèle de la demande d'avis, modifiable par l'artisan (réglages du pilote :
+// review_subject / review_body). Repères remplacés à l'envoi :
+//   {client}     → « Mme Lafitte » (formule de politesse de la fiche client)
+//   {chantier}   → « Pose de prises extérieures » (intitulé du devis)
+//   {lien}       → le lien d'avis Google de l'artisan
+//   {entreprise} → le nom de l'entreprise
+// La signature est ajoutée à la fin, comme pour tous les mails.
+export const REVIEW_PLACEHOLDERS = ['{client}', '{chantier}', '{lien}', '{entreprise}'];
+
+export const DEFAULT_REVIEW_SUBJECT = 'Merci pour votre confiance - {entreprise}';
+export const DEFAULT_REVIEW_BODY = 'Bonjour {client},\n\n' +
+    "Merci encore de m'avoir fait confiance pour {chantier}. J'espère que tout fonctionne parfaitement.\n\n" +
+    "Si vous êtes satisfait, un avis Google m'aiderait beaucoup : pour un artisan, c'est le meilleur moyen de se faire connaître près de chez vous. " +
+    "Cela prend moins d'une minute :\n{lien}\n\n" +
+    "Et si quelque chose ne va pas, dites-le moi simplement en répondant à ce message : je reviens.";
+
+const fillTemplate = (text, vars) => String(text)
+    .replace(/\{client\}/g, vars.client)
+    .replace(/\{chantier\}/g, vars.chantier)
+    .replace(/\{lien\}/g, vars.lien)
+    .replace(/\{entreprise\}/g, vars.entreprise)
+    // « Bonjour , » quand la fiche client n'a pas de nom.
+    .replace(/[ \t]+([,.])/g, '$1');
+
+export const buildReviewRequestEmail = (invoice, { client, profile, reviewUrl, settings } = {}) => {
+    const cfg = readAutopilotSettings(settings);
+    const vars = {
+        client: clientGreetingName(client?.name, 'fr', client?.civility) || '',
+        chantier: invoice.title ? `« ${invoice.title} »` : 'vos travaux',
+        lien: reviewUrl || '',
+        entreprise: profile?.company_name || profile?.full_name || 'votre artisan',
+    };
+    const subjectTpl = String(cfg.review_subject || '').trim() || DEFAULT_REVIEW_SUBJECT;
+    let bodyTpl = String(cfg.review_body || '').trim() || DEFAULT_REVIEW_BODY;
+    // Le lien est la raison d'être du mail : s'il a été effacé du modèle, on le remet.
+    if (!bodyTpl.includes('{lien}')) bodyTpl += '\n\n{lien}';
     return {
-        subject: `Merci pour votre confiance - ${who}`,
-        body: `${greetingLine(client)}\n\n` +
-            `Merci encore de m'avoir fait confiance${work}. J'espère que tout fonctionne parfaitement.\n\n` +
-            `Si vous êtes satisfait, un avis Google m'aiderait beaucoup : pour un artisan, c'est le meilleur moyen de se faire connaître près de chez vous. ` +
-            `Cela prend moins d'une minute :\n${reviewUrl}\n\n` +
-            `Et si quelque chose ne va pas, dites-le moi simplement en répondant à ce message : je reviens.\n\n` +
-            signatureLines(profile),
+        subject: fillTemplate(subjectTpl, vars),
+        body: `${fillTemplate(bodyTpl, vars)}\n\n${signatureLines(profile)}`,
     };
 };
 
@@ -422,7 +450,7 @@ export const planAutopilotRun = ({
             if (doneKeys.has(key)) continue;
             const client = reachable(doc);
             if (!client) continue;
-            push(reviewAction(doc, { client, profile, reviewUrl, key }));
+            push(reviewAction(doc, { client, profile, reviewUrl, key, settings: cfg }));
             asked.add(doc.client_id);
         }
     }
@@ -430,8 +458,8 @@ export const planAutopilotRun = ({
     return { actions, needsArtisan };
 };
 
-const reviewAction = (doc, { client, profile, reviewUrl, key }) => {
-    const { subject, body } = buildReviewRequestEmail(doc, { client, profile, reviewUrl });
+const reviewAction = (doc, { client, profile, reviewUrl, key, settings }) => {
+    const { subject, body } = buildReviewRequestEmail(doc, { client, profile, reviewUrl, settings });
     return { kind: 'review_request', key, quote_id: doc.id, client_id: doc.client_id, step: 1, to: client.email.trim(), subject, body, amount: Number(doc.total_ttc) || 0, label: "Demande d'avis" };
 };
 
@@ -452,7 +480,7 @@ export const planReviewNow = ({ settings, profile, doc, reviewedClients = new Se
     if (client?.autopilot_paused) return { skipped: 'client_paused' };
     if (!client || !isValidEmail(client.email)) return { skipped: 'no_email' };
     if (!isReviewNowHour(now)) return { skipped: 'night' };
-    const action = applyDraft(reviewAction(doc, { client, profile, reviewUrl, key: actionKey('review_request', doc.id, 1) }), drafts);
+    const action = applyDraft(reviewAction(doc, { client, profile, reviewUrl, key: actionKey('review_request', doc.id, 1), settings: cfg }), drafts);
     if (action.skipped) return { skipped: 'held_by_artisan' };
     return { action };
 };
