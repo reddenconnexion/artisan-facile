@@ -15,6 +15,13 @@ import { isAmendmentRow } from './amendmentIndex';
 
 const CLOSING_TITLE_RE = /cl[oô]ture/i;
 
+// Statuts d'une facture déjà émise (numérotée, hors brouillon et hors
+// annulation). Une facture envoyée par mail passe en 'sent', une facture issue
+// d'un devis converti reste 'accepted' : toutes deux sont bien émises. S'en
+// tenir à billed/paid faisait réapparaître « à facturer » un avenant pourtant
+// repris dans une clôture envoyée et pas encore payée.
+export const ISSUED_INVOICE_STATUSES = ['sent', 'accepted', 'billed', 'paid'];
+
 // Millisecondes d'une date ISO/Date, ou null si inexploitable.
 const toMs = (v) => {
     if (!v) return null;
@@ -22,10 +29,10 @@ const toMs = (v) => {
     return Number.isFinite(t) ? t : null;
 };
 
-// Une ligne `quotes` est-elle une facture de clôture déjà émise (billed/paid) ?
+// Une ligne `quotes` est-elle une facture de clôture déjà émise ?
 export const isClosingInvoiceRow = (inv) =>
     inv?.type === 'invoice' &&
-    ['billed', 'paid'].includes(inv?.status) &&
+    ISSUED_INVOICE_STATUSES.includes(inv?.status) &&
     CLOSING_TITLE_RE.test(inv?.title || '');
 
 // Instant où l'avenant est devenu facturable (sa signature). C'est ce que la
