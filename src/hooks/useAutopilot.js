@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile, useInvalidateCache } from './useDataCache';
+import { isPostponedNow } from '../utils/followUpPostpone';
 import {
     planAutopilotRun, readAutopilotSettings, summarizeActions, parisClock, nextSendTime, sendTimeLabel, MAX_EMAILS_PER_DAY,
 } from '../utils/autopilot';
@@ -13,7 +14,7 @@ const fetchAutopilotData = async (userId, profile) => {
     const since = new Date(Date.now() - 400 * DAY_MS).toISOString().slice(0, 10);
     const [docsRes, logRes, reviewsRes, keysRes, draftsRes] = await Promise.all([
         supabase.from('quotes')
-            .select('id, type, status, date, created_at, valid_until, total_ttc, title, client_id, archived_at, signed_at, paid_at, parent_id, relance_snoozed_until, follow_up_count, last_followup_at, public_token, invoice_number, quote_number, work_stage, work_completed_at, clients (id, name, email, civility, autopilot_paused, siren, tva_intracom)')
+            .select('id, type, status, date, created_at, valid_until, total_ttc, title, client_id, archived_at, signed_at, paid_at, parent_id, relance_snoozed_until, relance_postponed, follow_up_count, last_followup_at, public_token, invoice_number, quote_number, work_stage, work_completed_at, clients (id, name, email, civility, autopilot_paused, siren, tva_intracom)')
             .eq('user_id', userId)
             .not('status', 'in', '(draft,cancelled)')
             .gte('date', since),
@@ -74,8 +75,13 @@ const fetchAutopilotData = async (userId, profile) => {
         return { ...item, when: null, whenLabel: 'un jour suivant (15 mails par jour au plus)' };
     });
     const active = actions.filter((a) => !a.skipped);
+    // Projets reportés par le client : relances suspendues jusqu'à la reprise.
+    const postponed = docs
+        .filter((d) => (d.type || 'quote') !== 'invoice' && ['draft', 'sent'].includes(d.status) && !d.archived_at && isPostponedNow(d))
+        .sort((a, b) => new Date(a.relance_snoozed_until) - new Date(b.relance_snoozed_until))
+        .map((d) => ({ id: d.id, relance_postponed: true, relance_snoozed_until: d.relance_snoozed_until, title: d.title, amount: Number(d.total_ttc) || 0, client_name: d.clients?.name || '' }));
     return {
-        preview: { ...summarizeActions(active), actions: active, needsArtisan, queue },
+        preview: { ...summarizeActions(active), actions: active, needsArtisan, queue, postponed },
         // Table absente tant que la migration n'est pas passée : journal vide.
         recent: logRes.error ? [] : (logRes.data || []),
     };

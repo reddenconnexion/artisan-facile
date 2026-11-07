@@ -38,6 +38,7 @@ import { useAvenantLogic } from '../hooks/useAvenantLogic';
 import { useQuoteSignature } from '../hooks/useQuoteSignature';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import QuoteViewHistory from '../components/QuoteViewHistory';
+import FollowUpPostpone from '../components/FollowUpPostpone';
 import AITrialOfferModal from '../components/AITrialOfferModal';
 import AITrialComparisonModal from '../components/AITrialComparisonModal';
 import DevisEmailModal from '../components/DevisEmailModal';
@@ -2127,6 +2128,11 @@ const DevisForm = () => {
             {/* Progression (mobile) : où en est la saisie sur chantier */}
             {!formData.is_external && !isLocked && (
                 <DevisProgress steps={progressSteps} />
+            )}
+
+            {/* Projet reporté par le client : relances suspendues jusqu'à une date */}
+            {id && id !== 'new' && formData.type !== 'invoice' && ['draft', 'sent'].includes(formData.status) && (
+                <FollowUpPostpone quote={{ id }} />
             )}
 
             <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-8 space-y-8">

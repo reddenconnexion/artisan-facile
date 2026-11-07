@@ -128,6 +128,38 @@ describe('demande d\'avis', () => {
     });
 });
 
+describe('projet reporté par le client', () => {
+    // Devis envoyé en septembre, valable 1 mois, client : « ce sera pour novembre ».
+    const later = (extra) => quote({ date: '2026-09-10', valid_until: '2026-10-10', relance_postponed: true, relance_snoozed_until: '2026-11-10T06:00:00Z', ...extra });
+
+    it('rien avant la date de reprise', () => {
+        expect(dueQuoteFollowUp(later({ relance_snoozed_until: '2026-11-20T06:00:00Z' }), DEFAULT_FOLLOW_UP_STEPS, NOW)).toBeNull();
+    });
+
+    it('à la date de reprise : mail de reprise, malgré l\'âge et l\'expiration du devis', () => {
+        const due = dueQuoteFollowUp(later(), DEFAULT_FOLLOW_UP_STEPS, NOW);
+        expect(due).toMatchObject({ resumed: true, nextCount: 1 });
+        const { body } = buildQuoteFollowUpEmail(later(), due, { client: client(10), profile });
+        expect(body).toContain('Comme convenu');
+        expect(body).toContain('mettre le devis à jour');
+    });
+
+    it('après le mail de reprise, la séquence normale reprend', () => {
+        // Devis de septembre, expiré : la séquence continue quand même après la reprise.
+        const q = later({ follow_up_count: 1, last_followup_at: '2026-11-10T08:05:00Z' });
+        expect(dueQuoteFollowUp(q, DEFAULT_FOLLOW_UP_STEPS, NOW)).toBeNull(); // 2e étape à J+7 de la reprise
+        const next = dueQuoteFollowUp(q, DEFAULT_FOLLOW_UP_STEPS, new Date('2026-11-17T09:00:00Z'));
+        expect(next).toMatchObject({ index: 1, nextCount: 2 });
+        expect(next.resumed).toBeUndefined();
+    });
+
+    it('un report court (sans « projet reporté ») ne change pas le texte', () => {
+        const q = quote({ date: '2026-11-01', relance_snoozed_until: '2026-11-09T06:00:00Z' });
+        expect(dueQuoteFollowUp(q, DEFAULT_FOLLOW_UP_STEPS, NOW)).toMatchObject({ index: 0 });
+        expect(dueQuoteFollowUp(q, DEFAULT_FOLLOW_UP_STEPS, NOW).resumed).toBeUndefined();
+    });
+});
+
 describe('avis Google à la fin du chantier', () => {
     const done = (extra) => quote({ status: 'accepted', work_stage: 'completed', work_completed_at: '2026-11-10T04:00:00Z', ...extra });
 
