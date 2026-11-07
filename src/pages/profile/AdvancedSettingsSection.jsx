@@ -1,4 +1,6 @@
-import { ChevronDown, RotateCcw } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ChevronDown, RotateCcw, Crown, Check, ChevronRight } from 'lucide-react';
+import { usePlanLimits } from '../../hooks/usePlanLimits';
 import { DEFAULT_QUOTE_PROMPT } from '../../utils/aiService';
 import { coefficientFromCatalog } from '../../utils/priceLibraryCsv';
 
@@ -20,6 +22,7 @@ const AdvancedSettingsSection = ({
     updateProfile,
     loading,
 }) => {
+    const { isPro, loading: planLoading } = usePlanLimits();
     return (
         <>
             <div className="mt-8">
@@ -40,8 +43,54 @@ const AdvancedSettingsSection = ({
                         Intelligence Artificielle
                     </h3>
                     <p className="text-sm text-purple-800 dark:text-purple-300 mb-6">
-                        Configurez votre clé API pour activer les fonctionnalités d'assistant intelligent (génération de devis automatique, etc.).
+                        L'assistant intelligent rédige vos devis, transcrit vos mémos vocaux et vous fait gagner du temps sur la paperasse.
                     </p>
+
+                    {!planLoading && (isPro ? (
+                        <div className="max-w-md mb-6 flex items-start gap-3 p-4 rounded-xl bg-white dark:bg-gray-900 border border-green-200 dark:border-green-800/50">
+                            <Check className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white">IA illimitée incluse dans votre abonnement Pro</p>
+                                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                    Rien à configurer : l'IA fonctionne déjà. La clé API ci-dessous est facultative et réservée aux utilisateurs avancés.
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="max-w-md mb-6 rounded-xl overflow-hidden border border-violet-300 dark:border-violet-700 bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-md">
+                            <div className="p-5">
+                                <p className="flex items-center gap-2 text-base font-bold">
+                                    <Crown className="w-5 h-5 text-yellow-300" />
+                                    L'IA en illimité, sans prise de tête
+                                </p>
+                                <p className="text-sm text-violet-100 mt-2">
+                                    Les « clés API », c'est pas votre métier. Avec l'abonnement Pro, l'IA marche directement : aucune clé à créer, aucun compte OpenAI ou Google, aucune manipulation.
+                                </p>
+                                <ul className="mt-3 space-y-1.5 text-sm">
+                                    {[
+                                        'Devis générés par l\'IA en illimité',
+                                        'Mémos vocaux transcrits sans limite',
+                                        'Rien à installer ni à paramétrer',
+                                    ].map(item => (
+                                        <li key={item} className="flex items-center gap-2">
+                                            <Check className="w-4 h-4 text-green-300 shrink-0" />
+                                            {item}
+                                        </li>
+                                    ))}
+                                </ul>
+                                <Link
+                                    to="/app/subscription"
+                                    className="mt-4 flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-white text-violet-700 font-semibold rounded-lg hover:bg-violet-50 transition-colors text-sm"
+                                >
+                                    Passer Pro — 14,99 € / mois
+                                    <ChevronRight className="w-4 h-4" />
+                                </Link>
+                            </div>
+                            <p className="px-5 py-2 bg-black/15 text-xs text-violet-100">
+                                Vous préférez utiliser votre propre clé ? C'est possible juste en dessous.
+                            </p>
+                        </div>
+                    ))}
 
                     <div className="max-w-md space-y-4">
                         <div>
@@ -77,6 +126,7 @@ const AdvancedSettingsSection = ({
                         <div>
                             <label className="block text-sm font-medium text-purple-900 dark:text-purple-200 mb-2">
                                 Clé API ({(!formData.ai_provider || formData.ai_provider === 'openai') ? 'OpenAI' : 'Gemini'})
+                                <span className="ml-1 font-normal text-purple-600 dark:text-purple-400">— facultatif, utilisateurs avancés</span>
                             </label>
                             {apiKeyConfigured && !apiKeyInput ? (
                                 <div className="flex items-center gap-2">
