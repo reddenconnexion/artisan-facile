@@ -124,6 +124,9 @@ const AutopilotSettings = () => {
                         )}
                     </span>
                 </p>
+                <p>
+                    <Link to="/app/pilote" className="underline font-medium">Voir les mails prévus</Link> : vous pouvez les relire, les modifier ou les retenir avant leur départ.
+                </p>
                 <p>Un seul mail par client et par jour. Pour ne jamais relancer un client, ouvrez sa fiche et décochez « Relances automatiques ».</p>
                 {failures.length > 0 && (
                     <p className="flex items-start gap-2 text-red-600 dark:text-red-400">

@@ -79,6 +79,33 @@ export const isSendingWindow = (now = new Date()) => {
     return SEND_DAYS.includes(weekday) && hour >= SEND_START_HOUR && hour < SEND_END_HOUR;
 };
 
+/**
+ * Prochain passage de l'envoi horaire (h05) dans la plage d'envoi.
+ * Les fuseaux de Paris sont décalés d'heures entières : h05 UTC = h05 Paris.
+ */
+export const nextSendTime = (now = new Date()) => {
+    const t = new Date(now.getTime());
+    t.setUTCSeconds(0, 0);
+    if (t.getUTCMinutes() >= 5 || t.getTime() < now.getTime()) t.setUTCHours(t.getUTCHours() + 1);
+    t.setUTCMinutes(5);
+    for (let i = 0; i < 8 * 24; i++) {
+        if (isSendingWindow(t)) return t;
+        t.setUTCHours(t.getUTCHours() + 1);
+    }
+    return t;
+};
+
+const WEEKDAY_NAMES = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+
+/** « aujourd'hui vers 14 h 05 », « demain vers 9 h 05 », « lundi vers 9 h 05 ». */
+export const sendTimeLabel = (when, now = new Date()) => {
+    const a = parisClock(when);
+    const b = parisClock(now);
+    const days = Math.round((Date.parse(`${a.dateKey}T00:00:00Z`) - Date.parse(`${b.dateKey}T00:00:00Z`)) / DAY_MS);
+    const day = days === 0 ? "aujourd'hui" : days === 1 ? 'demain' : WEEKDAY_NAMES[a.weekday];
+    return `${day} vers ${a.hour} h 05`;
+};
+
 export const isSummaryHour = (now = new Date()) => {
     const { hour, weekday } = parisClock(now);
     return SEND_DAYS.includes(weekday) && hour === SUMMARY_HOUR;
@@ -253,6 +280,29 @@ export const buildReviewRequestEmail = (invoice, { client, profile, reviewUrl } 
 
 // ── Plan d'une exécution ─────────────────────────────────────────────────────
 
+/**
+ * Retouches de l'artisan sur les mails prévus (table autopilot_drafts) :
+ * texte modifié, ou mail retenu (« Ne pas envoyer »). Clé : action_key.
+ */
+const toDraftMap = (drafts) => {
+    if (drafts instanceof Map) return drafts;
+    return new Map((Array.isArray(drafts) ? drafts : []).filter((d) => d?.action_key).map((d) => [d.action_key, d]));
+};
+
+export const applyDraft = (action, drafts) => {
+    const d = toDraftMap(drafts).get(action.key);
+    if (!d) return action;
+    const subject = String(d.subject || '').trim();
+    const body = String(d.body || '').trim();
+    return {
+        ...action,
+        subject: subject || action.subject,
+        body: body || action.body,
+        edited: Boolean(subject || body),
+        skipped: Boolean(d.skipped),
+    };
+};
+
 /** Clé d'unicité d'une action (une relance donnée n'est envoyée qu'une fois). */
 export const actionKey = (kind, refId, step) => `${kind}:${refId}:${step}`;
 
@@ -271,11 +321,12 @@ export const actionKey = (kind, refId, step) => `${kind}:${refId}:${step}`;
  * @param {string} [p.appUrl]         adresse de l'appli (liens de signature)
  * @param {Date} [p.now]
  * @param {boolean} [p.preview]       aperçu : ignore l'interrupteur et le plafond
+ * @param {object[]|Map<string, object>} [p.drafts] retouches de l'artisan (autopilot_drafts)
  * @returns {{ actions: object[], needsArtisan: object[] }}
  */
 export const planAutopilotRun = ({
     settings, profile, docs, steps, doneKeys = new Set(), contactedToday = new Set(),
-    reviewedClients = new Set(), sentToday = 0, appUrl = '', now = new Date(), preview = false,
+    reviewedClients = new Set(), sentToday = 0, appUrl = '', now = new Date(), preview = false, drafts = [],
 }) => {
     const cfg = readAutopilotSettings(settings);
     const actions = [];
@@ -298,10 +349,14 @@ export const planAutopilotRun = ({
     };
     const linkFor = (doc) => (appUrl && doc.public_token ? `${appUrl.replace(/\/$/, '')}/q/${doc.public_token}` : '');
 
-    const push = (action) => {
+    const draftByKey = toDraftMap(drafts);
+    const push = (raw) => {
         if (actions.length >= budget) return;
+        const action = applyDraft(raw, draftByKey);
+        // Mail retenu par l'artisan : il ne part pas (l'aperçu le montre barré).
+        if (action.skipped && !preview) return;
         actions.push(action);
-        contacted.add(action.client_id);
+        if (!action.skipped) contacted.add(action.client_id);
     };
 
     // L'argent dû d'abord, puis les devis, puis les avis.
@@ -365,9 +420,10 @@ const reviewAction = (doc, { client, profile, reviewUrl, key }) => {
 /**
  * Demande d'avis immédiate, au moment où l'artisan termine le chantier et
  * quitte les lieux. Renvoie l'e-mail à envoyer, ou la raison de ne pas le faire.
- * @returns {{ action: object } | { skipped: 'pilote_off'|'no_review_link'|'not_finished'|'already_asked'|'client_paused'|'no_email'|'night' }}
+ * @param {{ settings: object, profile: object, doc: object, reviewedClients?: Set<*>, now?: Date, drafts?: object[]|Map<string, object> }} p
+ * @returns {{ action: object } | { skipped: 'pilote_off'|'no_review_link'|'not_finished'|'already_asked'|'client_paused'|'no_email'|'night'|'held_by_artisan' }}
  */
-export const planReviewNow = ({ settings, profile, doc, reviewedClients = new Set(), now = new Date() }) => {
+export const planReviewNow = ({ settings, profile, doc, reviewedClients = new Set(), now = new Date(), drafts = [] }) => {
     const cfg = readAutopilotSettings(settings);
     if (!cfg.enabled || !cfg.reviews) return { skipped: 'pilote_off' };
     const reviewUrl = String(profile?.google_review_url || '').trim();
@@ -378,7 +434,9 @@ export const planReviewNow = ({ settings, profile, doc, reviewedClients = new Se
     if (client?.autopilot_paused) return { skipped: 'client_paused' };
     if (!client || !isValidEmail(client.email)) return { skipped: 'no_email' };
     if (!isReviewNowHour(now)) return { skipped: 'night' };
-    return { action: reviewAction(doc, { client, profile, reviewUrl, key: actionKey('review_request', doc.id, 1) }) };
+    const action = applyDraft(reviewAction(doc, { client, profile, reviewUrl, key: actionKey('review_request', doc.id, 1) }), drafts);
+    if (action.skipped) return { skipped: 'held_by_artisan' };
+    return { action };
 };
 
 // ── Résumés ──────────────────────────────────────────────────────────────────

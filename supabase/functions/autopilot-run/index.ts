@@ -61,7 +61,7 @@ async function secretsMatch(a: string, b: string): Promise<boolean> {
 type Profile = Record<string, any>;
 type Action = {
     kind: string; key: string; quote_id: number; client_id: number; step: number;
-    to: string; subject: string; body: string; amount: number; label: string;
+    to: string; subject: string; body: string; amount: number; label: string; edited?: boolean;
 };
 
 // ── Envoi d'un e-mail au nom de l'artisan ────────────────────────────────────
@@ -208,10 +208,11 @@ async function sendActions(admin: SupabaseClient, profile: Profile, actions: Act
 
 async function reviewNow(admin: SupabaseClient, userId: string, quoteId: unknown, now: Date) {
     if (quoteId == null) return json({ error: 'quote_id requis' }, 400);
-    const [profileRes, docRes, reviewsRes] = await Promise.all([
+    const [profileRes, docRes, reviewsRes, draftsRes] = await Promise.all([
         admin.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).single(),
         admin.from('quotes').select(`${DOC_COLUMNS}, clients (${CLIENT_COLUMNS})`).eq('id', quoteId).eq('user_id', userId).maybeSingle(),
         admin.from('autopilot_actions').select('client_id').eq('user_id', userId).eq('kind', 'review_request').eq('status', 'sent'),
+        admin.from('autopilot_drafts').select('action_key, subject, body, skipped').eq('user_id', userId),
     ]);
     const profile = profileRes.data;
     if (!profile || !['pro', 'owner'].includes(profile.plan)) return json({ status: 'skipped', reason: 'not_pro' });
@@ -219,7 +220,7 @@ async function reviewNow(admin: SupabaseClient, userId: string, quoteId: unknown
 
     const plan = planReviewNow({
         settings: profile.autopilot_settings, profile, doc: docRes.data,
-        reviewedClients: new Set((reviewsRes.data ?? []).map((r) => r.client_id)), now,
+        reviewedClients: new Set((reviewsRes.data ?? []).map((r) => r.client_id)), now, drafts: draftsRes.data ?? [],
     }) as { action?: Action; skipped?: string };
     if (!plan.action) return json({ status: 'skipped', reason: plan.skipped });
 
@@ -240,7 +241,7 @@ async function runForUser(admin: SupabaseClient, profile: Profile, opts: {
     const result = { user_id: profile.id, sent: 0, failed: 0, planned: [] as unknown[], needsArtisan: 0, summary: false, skipped: '' };
 
     const since = new Date(now.getTime() - 400 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-    const [docsRes, logRes, reviewsRes] = await Promise.all([
+    const [docsRes, logRes, reviewsRes, draftsRes] = await Promise.all([
         admin.from('quotes')
             .select(`${DOC_COLUMNS}, clients (${CLIENT_COLUMNS})`)
             .eq('user_id', profile.id)
@@ -255,6 +256,7 @@ async function runForUser(admin: SupabaseClient, profile: Profile, opts: {
             .eq('user_id', profile.id)
             .eq('kind', 'review_request')
             .eq('status', 'sent'),
+        admin.from('autopilot_drafts').select('action_key, subject, body, skipped').eq('user_id', profile.id),
     ]);
     if (docsRes.error) throw new Error(`lecture des devis : ${docsRes.error.message}`);
     if (logRes.error) throw new Error(`lecture du journal : ${logRes.error.message}`);
@@ -269,13 +271,13 @@ async function runForUser(admin: SupabaseClient, profile: Profile, opts: {
 
     const { actions, needsArtisan } = planAutopilotRun({
         settings, profile, docs: docsRes.data ?? [], steps: profile.follow_up_settings?.steps,
-        doneKeys, contactedToday, reviewedClients,
+        doneKeys, contactedToday, reviewedClients, drafts: draftsRes.data ?? [],
         sentToday: todayRows.filter((r) => r.status === 'sent').length, appUrl, now,
     }) as { actions: Action[]; needsArtisan: object[] };
     result.needsArtisan = needsArtisan.length;
 
     if (dryRun) {
-        result.planned = actions.map(({ kind, quote_id, to, subject, label }) => ({ kind, quote_id, to, subject, label }));
+        result.planned = actions.map(({ kind, quote_id, to, subject, label, edited }) => ({ kind, quote_id, to, subject, label, edited: !!edited }));
         return result;
     }
 

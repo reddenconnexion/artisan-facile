@@ -117,10 +117,10 @@ const AutopilotCard = () => {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => navigate('/app/subscription#pilote')}
+                                onClick={() => navigate('/app/pilote')}
                                 className="px-3.5 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30"
                             >
-                                Régler
+                                Voir les mails prévus
                             </button>
                         </div>
                     </div>
@@ -133,7 +133,7 @@ const AutopilotCard = () => {
         <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl border border-green-200/70 dark:border-green-800/40 shadow-sm overflow-hidden">
             <button
                 type="button"
-                onClick={() => navigate('/app/subscription#pilote')}
+                onClick={() => navigate('/app/pilote')}
                 className="w-full px-5 py-3.5 flex items-center justify-between gap-2 bg-green-50 dark:bg-green-900/20 text-left"
             >
                 <span className="flex items-center gap-2.5 min-w-0">
@@ -175,9 +175,9 @@ const AutopilotCard = () => {
                     </>
                 )}
                 {pending && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                        Prochaines relances prévues : {pending}.
-                    </p>
+                    <button type="button" onClick={() => navigate('/app/pilote')} className="mt-3 text-xs text-left text-blue-600 dark:text-blue-400 hover:underline">
+                        Prochains mails : {pending}. Les relire ou les modifier →
+                    </button>
                 )}
             </div>
         </div>
