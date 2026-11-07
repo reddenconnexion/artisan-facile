@@ -6,7 +6,8 @@
 //   2. Rappeler les factures en retard (rappel amiable puis 2e rappel). La
 //      mise en demeure n'est jamais envoyée seule : elle est signalée à
 //      l'artisan, qui décide.
-//   3. Demander un avis Google quelques jours après le paiement.
+//   3. Demander un avis Google à la fin du chantier, quand l'artisan quitte
+//      les lieux (après son pointage).
 //   4. Résumer la journée le soir (notification).
 //
 // Logique pure, sans accès réseau : la même source sert l'Edge Function
@@ -194,15 +195,46 @@ export const dueInvoiceReminder = (invoice, billedIds = new Set(), now = new Dat
 };
 
 // ── 3. Demande d'avis Google ─────────────────────────────────────────────────
+//
+// Le bon moment : le chantier terminé, quand l'artisan quitte les lieux, après
+// avoir fermé son pointage s'il en avait ouvert un. L'appli envoie alors la
+// demande tout de suite (planReviewNow, appelé par l'appli). Si le téléphone
+// n'avait pas de réseau, l'envoi horaire rattrape la demande de 3 h à 7 jours
+// après la fin du chantier. Pour un travail jamais marqué « terminé »
+// (dépannage facturé directement), la facture payée sert de repère.
+
+export const REVIEW_CATCH_UP_HOURS = 3;
+export const REVIEW_CATCH_UP_DAYS = 7;
+// Pas de mail au client en pleine nuit : hors de 8 h – 21 h, la demande
+// immédiate est laissée au rattrapage du lendemain.
+export const REVIEW_NOW_START_HOUR = 8;
+export const REVIEW_NOW_END_HOUR = 21;
 
 const PARTIAL_INVOICE_RE = /acompte|situation/i;
+const HOUR_MS = 3600 * 1000;
 
-/** Facture payée récemment qui appelle une demande d'avis. */
+/** Chantier marqué « terminé » par l'artisan. */
+export const isChantierFinished = (doc) => doc?.work_stage === 'completed';
+
+/** Rattrapage : chantier terminé depuis 3 h à 7 jours. */
+export const dueReviewAfterWork = (doc, now = new Date()) => {
+    if (!isChantierFinished(doc) || !doc.work_completed_at) return false;
+    const hours = (now.getTime() - new Date(doc.work_completed_at).getTime()) / HOUR_MS;
+    return hours >= REVIEW_CATCH_UP_HOURS && hours <= REVIEW_CATCH_UP_DAYS * 24;
+};
+
+/** Repère de secours : facture payée récemment (travail jamais marqué terminé). */
 export const dueReviewRequest = (invoice, now = new Date()) => {
     if (!invoice || invoice.type !== 'invoice' || invoice.status !== 'paid' || !invoice.paid_at) return false;
     if (PARTIAL_INVOICE_RE.test(invoice.title || '')) return false; // chantier pas terminé
     const days = dayNumber(now) - dayNumber(invoice.paid_at);
     return days >= REVIEW_DELAY_DAYS && days <= REVIEW_MAX_DAYS;
+};
+
+/** La demande immédiate peut-elle partir à cette heure-ci ? */
+export const isReviewNowHour = (now = new Date()) => {
+    const { hour } = parisClock(now);
+    return hour >= REVIEW_NOW_START_HOUR && hour < REVIEW_NOW_END_HOUR;
 };
 
 export const buildReviewRequestEmail = (invoice, { client, profile, reviewUrl } = {}) => {
@@ -304,18 +336,49 @@ export const planAutopilotRun = ({
     }
 
     if (cfg.reviews && reviewUrl) {
+        // Un chantier terminé décide seul de sa demande d'avis : sa facture
+        // payée ne sert plus de repère (sinon, rattrapage manqué = demande
+        // tardive au paiement).
+        const finishedIds = new Set(list.filter(isChantierFinished).map((d) => d.id));
+        const asked = new Set(reviewedClients);
         for (const doc of list) {
-            if (!dueReviewRequest(doc, now) || reviewedClients.has(doc.client_id)) continue;
+            const afterWork = dueReviewAfterWork(doc, now);
+            const afterPayment = !afterWork && !isChantierFinished(doc) && !finishedIds.has(doc.parent_id) && dueReviewRequest(doc, now);
+            if ((!afterWork && !afterPayment) || asked.has(doc.client_id)) continue;
             const key = actionKey('review_request', doc.id, 1);
             if (doneKeys.has(key)) continue;
             const client = reachable(doc);
             if (!client) continue;
-            const { subject, body } = buildReviewRequestEmail(doc, { client, profile, reviewUrl });
-            push({ kind: 'review_request', key, quote_id: doc.id, client_id: doc.client_id, step: 1, to: client.email.trim(), subject, body, amount: Number(doc.total_ttc) || 0, label: "Demande d'avis" });
+            push(reviewAction(doc, { client, profile, reviewUrl, key }));
+            asked.add(doc.client_id);
         }
     }
 
     return { actions, needsArtisan };
+};
+
+const reviewAction = (doc, { client, profile, reviewUrl, key }) => {
+    const { subject, body } = buildReviewRequestEmail(doc, { client, profile, reviewUrl });
+    return { kind: 'review_request', key, quote_id: doc.id, client_id: doc.client_id, step: 1, to: client.email.trim(), subject, body, amount: Number(doc.total_ttc) || 0, label: "Demande d'avis" };
+};
+
+/**
+ * Demande d'avis immédiate, au moment où l'artisan termine le chantier et
+ * quitte les lieux. Renvoie l'e-mail à envoyer, ou la raison de ne pas le faire.
+ * @returns {{ action: object } | { skipped: 'pilote_off'|'no_review_link'|'not_finished'|'already_asked'|'client_paused'|'no_email'|'night' }}
+ */
+export const planReviewNow = ({ settings, profile, doc, reviewedClients = new Set(), now = new Date() }) => {
+    const cfg = readAutopilotSettings(settings);
+    if (!cfg.enabled || !cfg.reviews) return { skipped: 'pilote_off' };
+    const reviewUrl = String(profile?.google_review_url || '').trim();
+    if (!reviewUrl) return { skipped: 'no_review_link' };
+    if (!isChantierFinished(doc)) return { skipped: 'not_finished' };
+    if (reviewedClients.has(doc.client_id)) return { skipped: 'already_asked' };
+    const client = doc.clients;
+    if (client?.autopilot_paused) return { skipped: 'client_paused' };
+    if (!client || !isValidEmail(client.email)) return { skipped: 'no_email' };
+    if (!isReviewNowHour(now)) return { skipped: 'night' };
+    return { action: reviewAction(doc, { client, profile, reviewUrl, key: actionKey('review_request', doc.id, 1) }) };
 };
 
 // ── Résumés ──────────────────────────────────────────────────────────────────

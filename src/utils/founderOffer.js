@@ -117,7 +117,7 @@ export const PRO_BENEFITS = [
         key: 'reviews',
         pro: "Demandé automatiquement",
         title: 'Des avis Google sans rien demander',
-        text: "Deux jours après le paiement, votre client reçoit un mot de remerciement avec votre lien d'avis Google.",
+        text: "Chantier terminé, vous repartez : votre client reçoit aussitôt un mot de remerciement avec votre lien d'avis Google, au moment où il est le plus content.",
         free: 'À demander vous-même',
     },
     {

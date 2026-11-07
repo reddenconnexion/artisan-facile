@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     parisClock, isSendingWindow, isSummaryHour, dueQuoteFollowUp, buildQuoteFollowUpEmail,
     dueInvoiceReminder, dueReviewRequest, buildReviewRequestEmail, planAutopilotRun,
+    dueReviewAfterWork, planReviewNow,
     buildEveningSummary, summarizeActions, readAutopilotSettings, actionKey,
     DEFAULT_FOLLOW_UP_STEPS, MAX_EMAILS_PER_DAY,
 } from './autopilot';
@@ -124,6 +125,46 @@ describe('demande d\'avis', () => {
     it('contient le lien d\'avis', () => {
         const { body } = buildReviewRequestEmail(paid(), { client: client(20), profile, reviewUrl: profile.google_review_url });
         expect(body).toContain(profile.google_review_url);
+    });
+});
+
+describe('avis Google à la fin du chantier', () => {
+    const done = (extra) => quote({ status: 'accepted', work_stage: 'completed', work_completed_at: '2026-11-10T04:00:00Z', ...extra });
+
+    it('rattrapage de 3 h à 7 jours après la fin du chantier', () => {
+        expect(dueReviewAfterWork(done(), NOW)).toBe(true); // 5 h
+        expect(dueReviewAfterWork(done({ work_completed_at: '2026-11-10T07:30:00Z' }), NOW)).toBe(false); // 1 h 30
+        expect(dueReviewAfterWork(done({ work_completed_at: '2026-11-01T07:30:00Z' }), NOW)).toBe(false); // 9 jours
+        expect(dueReviewAfterWork(done({ work_completed_at: null }), NOW)).toBe(false); // terminé avant la fonction
+        expect(dueReviewAfterWork(done({ work_stage: 'in_progress' }), NOW)).toBe(false);
+    });
+
+    it('le pilote rattrape le chantier terminé ; sa facture payée ne relance pas une 2e demande', () => {
+        const docs = [
+            done({ id: 1 }),
+            invoice({ id: 2, parent_id: 1, status: 'paid', paid_at: '2026-11-06T10:00:00Z', client_id: 10, clients: client(10) }),
+        ];
+        const { actions } = planAutopilotRun({ settings: { enabled: true, quotes: false, invoices: false }, profile, docs, now: NOW });
+        expect(actions.map(a => [a.kind, a.quote_id])).toEqual([['review_request', 1]]);
+
+        const late = [done({ id: 1, work_completed_at: '2026-10-01T10:00:00Z' }), docs[1]];
+        expect(planAutopilotRun({ settings: { enabled: true, quotes: false, invoices: false }, profile, docs: late, now: NOW }).actions).toEqual([]);
+    });
+
+    it('demande immédiate en quittant le chantier', () => {
+        const base = { settings: { enabled: true }, profile, doc: done(), now: NOW };
+        const { action } = planReviewNow(base);
+        expect(action).toMatchObject({ kind: 'review_request', quote_id: 1, key: 'review_request:1:1', to: 'client10@exemple.fr' });
+        expect(action.body).toContain(profile.google_review_url);
+
+        expect(planReviewNow({ ...base, settings: {} })).toEqual({ skipped: 'pilote_off' });
+        expect(planReviewNow({ ...base, settings: { enabled: true, reviews: false } })).toEqual({ skipped: 'pilote_off' });
+        expect(planReviewNow({ ...base, profile: { ...profile, google_review_url: '' } })).toEqual({ skipped: 'no_review_link' });
+        expect(planReviewNow({ ...base, doc: done({ work_stage: 'in_progress' }) })).toEqual({ skipped: 'not_finished' });
+        expect(planReviewNow({ ...base, reviewedClients: new Set([10]) })).toEqual({ skipped: 'already_asked' });
+        expect(planReviewNow({ ...base, doc: done({ clients: client(10, { autopilot_paused: true }) }) })).toEqual({ skipped: 'client_paused' });
+        expect(planReviewNow({ ...base, doc: done({ clients: client(10, { email: '' }) }) })).toEqual({ skipped: 'no_email' });
+        expect(planReviewNow({ ...base, now: new Date('2026-11-10T21:30:00Z') })).toEqual({ skipped: 'night' }); // 22 h 30
     });
 });
 

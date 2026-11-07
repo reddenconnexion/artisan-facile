@@ -20,6 +20,7 @@ import AffaireOrders from '../components/AffaireOrders';
 import { useDepositActions } from './devis-form/useDepositActions';
 import { usePaymentMethodPrompt } from '../hooks/usePaymentMethodPrompt';
 import { usePaymentReceivedEmail } from '../hooks/usePaymentReceivedEmail';
+import { announceReviewResult, requestReviewAtWorkEnd } from '../utils/reviewAtWorkEnd';
 
 const STATUS_LABELS = {
     draft: 'Brouillon',
@@ -196,6 +197,9 @@ const Affaire = () => {
                     toast.success(action.stage === 'completed' ? 'Chantier terminé' : 'Chantier démarré');
                     invalidateQuotes();
                     await load();
+                    if (action.stage === 'completed') {
+                        announceReviewResult(await requestReviewAtWorkEnd(quote.id));
+                    }
                 } catch (error) {
                     console.error('Error updating work stage:', error);
                     toast.error("Impossible de mettre à jour le chantier.");

@@ -5,7 +5,8 @@
 //
 //   • Du lundi au vendredi, 9 h – 18 h (Paris) : relance des devis non signés,
 //     rappel des factures en retard (amiable puis 2e rappel ; la mise en
-//     demeure reste à l'artisan), demande d'avis Google après paiement.
+//     demeure reste à l'artisan), rattrapage des demandes d'avis Google
+//     (chantier terminé depuis 3 h à 7 jours, téléphone resté sans réseau).
 //   • À 18 h : résumé de la journée en notification.
 //
 // Les règles (qui, quand, quel texte) vivent dans _shared/lib/autopilot.js,
@@ -19,6 +20,10 @@
 //   { "force": true }    → ignore la plage horaire (tests)
 //   { "user_id": "…" }   → un seul artisan
 //
+// L'appli l'appelle aussi avec le JWT de l'artisan, sans x-cron-secret :
+//   { "action": "review_now", "quote_id": 123 } → demande d'avis Google au
+//   moment où l'artisan termine le chantier et quitte les lieux.
+//
 // Envoi : depuis l'adresse pro de l'artisan quand son SMTP est configuré,
 // sinon via Resend au nom de son entreprise, réponses dirigées vers lui.
 
@@ -26,10 +31,10 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import webpush from 'npm:web-push@3';
 import { readSecret } from '../_shared/vault.ts';
-import { corsHeadersWith, corsPreflight, json as jsonResponse } from '../_shared/http.ts';
+import { corsHeadersWith, corsPreflight, json as jsonResponse, requireUser } from '../_shared/http.ts';
 import { buildHtmlSignature, injectTrackingPixel, splitBodyAndSignature, textToHtml, toAsciiSubject } from '../_shared/email.ts';
 import {
-    planAutopilotRun, buildEveningSummary, readAutopilotSettings, parisClock,
+    planAutopilotRun, planReviewNow, buildEveningSummary, readAutopilotSettings, parisClock,
     isSendingWindow, isSummaryHour, isValidEmail,
 } from '../_shared/lib/autopilot.js';
 
@@ -38,6 +43,7 @@ const json = (body: unknown, status = 200) => jsonResponse(body, status, corsHea
 
 const PROFILE_COLUMNS = 'id, plan, autopilot_settings, follow_up_settings, smtp_config, full_name, company_name, phone, professional_email, website, logo_url, google_review_url, email_signature_html, iban';
 const CLIENT_COLUMNS = 'id, name, email, civility, autopilot_paused, siren, tva_intracom';
+const DOC_COLUMNS = 'id, type, status, date, created_at, valid_until, total_ttc, title, client_id, archived_at, signed_at, paid_at, parent_id, relance_snoozed_until, follow_up_count, last_followup_at, public_token, invoice_number, quote_number, work_stage, work_completed_at';
 const KIND_LABELS: Record<string, string> = {
     quote_followup: 'Relance automatique du devis',
     invoice_reminder: 'Rappel automatique de facture',
@@ -133,6 +139,96 @@ async function sendPush(admin: SupabaseClient, userId: string, payload: Record<s
     return delivered;
 }
 
+// ── Envoi d'une liste d'e-mails, avec verrou et suivi ───────────────────────
+
+async function sendActions(admin: SupabaseClient, profile: Profile, actions: Action[], today: string) {
+    const out = { sent: 0, failed: 0, skipped: '', sentNow: [] as { kind: string; amount: number }[] };
+    const replyTo = isValidEmail(profile.professional_email) ? profile.professional_email
+        : (await admin.auth.admin.getUserById(profile.id)).data?.user?.email ?? null;
+    const sender = await makeSender(profile, replyTo);
+    if (!sender) {
+        out.skipped = "aucun moyen d'envoi (SMTP ou Resend + adresse de réponse)";
+        return out;
+    }
+    const htmlSig = buildHtmlSignature(profile);
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    try {
+        for (const a of actions) {
+            // Verrou : l'index unique empêche un doublon si deux exécutions se chevauchent.
+            const { data: claim, error: claimErr } = await admin.from('autopilot_actions').insert({
+                user_id: profile.id, kind: a.kind, action_key: a.key, quote_id: a.quote_id, client_id: a.client_id,
+                step: a.step, label: a.label, recipient: a.to, subject: a.subject, body: a.body, amount: a.amount,
+                channel: sender.channel, status: 'sent', day: today,
+            }).select('id').single();
+            if (claimErr || !claim) continue; // déjà envoyé par une autre exécution
+
+            try {
+                const { data: sendRow } = await admin.from('email_sends').insert({
+                    user_id: profile.id, quote_id: a.quote_id, client_id: a.client_id, recipient_email: a.to, subject: a.subject,
+                }).select('tracking_token').single();
+                const { body: bodyWithoutSig } = splitBodyAndSignature(a.body);
+                let html = textToHtml(bodyWithoutSig) + htmlSig;
+                if (sendRow?.tracking_token) {
+                    html = injectTrackingPixel(html, `${supabaseUrl}/functions/v1/track-email-open?t=${sendRow.tracking_token}`);
+                }
+                await sender.send({ to: a.to, subject: a.subject, text: a.body, html });
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                console.error(`autopilot ${profile.id} ${a.key} :`, message);
+                await admin.from('autopilot_actions').update({ status: 'failed', error: message.slice(0, 500) }).eq('id', claim.id);
+                out.failed++;
+                continue;
+            }
+
+            out.sent++;
+            out.sentNow.push({ kind: a.kind, amount: a.amount });
+            const at = new Date().toISOString();
+            // Même suivi qu'une relance manuelle : compteur du devis,
+            // historique des relances, fil du client.
+            if (a.kind !== 'review_request') {
+                await admin.from('quote_follow_ups').insert({
+                    quote_id: a.quote_id, user_id: profile.id, follow_up_number: a.step, content: a.body, method: 'email',
+                });
+                await admin.from('quotes').update({ last_followup_at: at, follow_up_count: a.step }).eq('id', a.quote_id).eq('user_id', profile.id);
+            }
+            if (a.client_id) {
+                await admin.from('client_interactions').insert({
+                    user_id: profile.id, client_id: a.client_id, type: 'email', date: at,
+                    details: `${KIND_LABELS[a.kind] ?? 'Envoi automatique'} : ${a.label}`,
+                });
+            }
+        }
+    } finally {
+        await sender.close();
+    }
+    return out;
+}
+
+// ── Demande d'avis au départ du chantier (appelée par l'appli) ──────────────
+
+async function reviewNow(admin: SupabaseClient, userId: string, quoteId: unknown, now: Date) {
+    if (quoteId == null) return json({ error: 'quote_id requis' }, 400);
+    const [profileRes, docRes, reviewsRes] = await Promise.all([
+        admin.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).single(),
+        admin.from('quotes').select(`${DOC_COLUMNS}, clients (${CLIENT_COLUMNS})`).eq('id', quoteId).eq('user_id', userId).maybeSingle(),
+        admin.from('autopilot_actions').select('client_id').eq('user_id', userId).eq('kind', 'review_request').eq('status', 'sent'),
+    ]);
+    const profile = profileRes.data;
+    if (!profile || !['pro', 'owner'].includes(profile.plan)) return json({ status: 'skipped', reason: 'not_pro' });
+    if (!docRes.data) return json({ error: 'Chantier introuvable' }, 404);
+
+    const plan = planReviewNow({
+        settings: profile.autopilot_settings, profile, doc: docRes.data,
+        reviewedClients: new Set((reviewsRes.data ?? []).map((r) => r.client_id)), now,
+    }) as { action?: Action; skipped?: string };
+    if (!plan.action) return json({ status: 'skipped', reason: plan.skipped });
+
+    const out = await sendActions(admin, profile, [plan.action], parisClock(now).dateKey);
+    if (out.sent) return json({ status: 'sent', to: plan.action.to });
+    if (out.failed) return json({ status: 'failed' }, 502);
+    return json({ status: 'skipped', reason: out.skipped || 'already_sent' });
+}
+
 // ── Un artisan ───────────────────────────────────────────────────────────────
 
 async function runForUser(admin: SupabaseClient, profile: Profile, opts: {
@@ -146,7 +242,7 @@ async function runForUser(admin: SupabaseClient, profile: Profile, opts: {
     const since = new Date(now.getTime() - 400 * 24 * 3600 * 1000).toISOString().slice(0, 10);
     const [docsRes, logRes, reviewsRes] = await Promise.all([
         admin.from('quotes')
-            .select(`id, type, status, date, created_at, valid_until, total_ttc, title, client_id, archived_at, signed_at, paid_at, parent_id, relance_snoozed_until, follow_up_count, last_followup_at, public_token, invoice_number, quote_number, clients (${CLIENT_COLUMNS})`)
+            .select(`${DOC_COLUMNS}, clients (${CLIENT_COLUMNS})`)
             .eq('user_id', profile.id)
             .not('status', 'in', '(draft,cancelled)')
             .gte('date', since),
@@ -183,66 +279,13 @@ async function runForUser(admin: SupabaseClient, profile: Profile, opts: {
         return result;
     }
 
-    const sentNow: { kind: string; amount: number }[] = [];
+    let sentNow: { kind: string; amount: number }[] = [];
     if (sendNow && actions.length > 0) {
-        const replyTo = isValidEmail(profile.professional_email) ? profile.professional_email
-            : (await admin.auth.admin.getUserById(profile.id)).data?.user?.email ?? null;
-        const sender = await makeSender(profile, replyTo);
-        if (!sender) {
-            result.skipped = "aucun moyen d'envoi (SMTP ou Resend + adresse de réponse)";
-        } else {
-            const htmlSig = buildHtmlSignature(profile);
-            const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-            try {
-                for (const a of actions) {
-                    // Verrou : l'index unique empêche un doublon si deux exécutions se chevauchent.
-                    const { data: claim, error: claimErr } = await admin.from('autopilot_actions').insert({
-                        user_id: profile.id, kind: a.kind, action_key: a.key, quote_id: a.quote_id, client_id: a.client_id,
-                        step: a.step, label: a.label, recipient: a.to, subject: a.subject, body: a.body, amount: a.amount,
-                        channel: sender.channel, status: 'sent', day: today,
-                    }).select('id').single();
-                    if (claimErr || !claim) continue; // déjà envoyé par une autre exécution
-
-                    try {
-                        const { data: sendRow } = await admin.from('email_sends').insert({
-                            user_id: profile.id, quote_id: a.quote_id, client_id: a.client_id, recipient_email: a.to, subject: a.subject,
-                        }).select('tracking_token').single();
-                        const { body: bodyWithoutSig } = splitBodyAndSignature(a.body);
-                        let html = textToHtml(bodyWithoutSig) + htmlSig;
-                        if (sendRow?.tracking_token) {
-                            html = injectTrackingPixel(html, `${supabaseUrl}/functions/v1/track-email-open?t=${sendRow.tracking_token}`);
-                        }
-                        await sender.send({ to: a.to, subject: a.subject, text: a.body, html });
-                    } catch (err) {
-                        const message = err instanceof Error ? err.message : String(err);
-                        console.error(`autopilot ${profile.id} ${a.key} :`, message);
-                        await admin.from('autopilot_actions').update({ status: 'failed', error: message.slice(0, 500) }).eq('id', claim.id);
-                        result.failed++;
-                        continue;
-                    }
-
-                    result.sent++;
-                    sentNow.push({ kind: a.kind, amount: a.amount });
-                    const at = new Date().toISOString();
-                    // Même suivi qu'une relance manuelle : compteur du devis,
-                    // historique des relances, fil du client.
-                    if (a.kind !== 'review_request') {
-                        await admin.from('quote_follow_ups').insert({
-                            quote_id: a.quote_id, user_id: profile.id, follow_up_number: a.step, content: a.body, method: 'email',
-                        });
-                        await admin.from('quotes').update({ last_followup_at: at, follow_up_count: a.step }).eq('id', a.quote_id).eq('user_id', profile.id);
-                    }
-                    if (a.client_id) {
-                        await admin.from('client_interactions').insert({
-                            user_id: profile.id, client_id: a.client_id, type: 'email', date: at,
-                            details: `${KIND_LABELS[a.kind] ?? 'Envoi automatique'} : ${a.label}`,
-                        });
-                    }
-                }
-            } finally {
-                await sender.close();
-            }
-        }
+        const out = await sendActions(admin, profile, actions, today);
+        result.sent = out.sent;
+        result.failed = out.failed;
+        result.skipped = out.skipped;
+        sentNow = out.sentNow;
     }
 
     if (summaryNow && settings.summary) {
@@ -281,6 +324,22 @@ Deno.serve(async (req) => {
     const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
     const cronSecret = Deno.env.get('CRON_SECRET');
     const provided = req.headers.get('x-cron-secret') ?? '';
+
+    // Appli : demande d'avis au moment où l'artisan termine le chantier.
+    if (!provided) {
+        const auth = await requireUser(req, { headers: corsHeaders });
+        if (auth.response) return auth.response;
+        const payload = await req.json().catch(() => ({}));
+        if (payload?.action !== 'review_now') return json({ error: 'Action inconnue' }, 400);
+        try {
+            return await reviewNow(admin, auth.user.id, payload.quote_id, new Date());
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error('autopilot review_now :', message);
+            return json({ error: message }, 500);
+        }
+    }
+
     let authorized = false;
     if (provided && cronSecret) authorized = await secretsMatch(provided, cronSecret);
     if (provided && !authorized) {

@@ -19,6 +19,7 @@ import { UrgencyBadge } from '../components/ui';
 import { formatDate } from '../utils/format';
 import { useChantierMargins } from '../hooks/useChantierMargins';
 import { MarginBadge, MarginAlertBanner } from '../components/ChantierMargin';
+import { askReviewAfterUndoDelay } from '../utils/reviewAtWorkEnd';
 
 const WorksitePilot = () => {
     const navigate = useNavigate();
@@ -163,6 +164,7 @@ const WorksitePilot = () => {
                         ? { label: 'Annuler', onClick: () => updateStage(quoteId, previousStage, { silent: true }) }
                         : undefined,
                 });
+                if (newStage === 'completed') askReviewAfterUndoDelay(quoteId);
             }
         } catch (error) {
             console.error('Error updating stage:', error);
