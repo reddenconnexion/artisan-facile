@@ -20,6 +20,18 @@ import { classifyEmailSendResponse, EMAIL_SEND_CLOCK_MARGIN_MS } from './emailSe
  * @param {{ to: string, subject: string, text: string, html?: string, quote_id?: number|string|null, client_id?: number|string|null, attachments?: object[] }} payload
  * @returns {Promise<{ status: 'sent' | 'probably_sent' | 'failed', error: string | null }>}
  */
+/**
+ * L'artisan envoie depuis sa propre adresse (SMTP configuré dans son profil).
+ * Sinon l'appli envoie à son nom depuis l'adresse de la plateforme, et les
+ * réponses du client arrivent chez lui : l'envoi direct marche dans les deux cas.
+ */
+export const sendsFromOwnAddress = (profile) =>
+    Boolean(profile?.smtp_config?.host && profile?.smtp_config?.from_email);
+
+/** Texte du toast pendant l'envoi. */
+export const sendingLabel = (profile, what = 'Envoi') =>
+    sendsFromOwnAddress(profile) ? `${what} depuis votre adresse pro…` : `${what} en cours…`;
+
 export const sendDocumentEmail = async (payload) => {
     const startedAt = Date.now();
     let outcome = 'unknown';

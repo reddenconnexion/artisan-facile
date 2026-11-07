@@ -9,7 +9,7 @@ import { blobToBase64 } from '../../utils/mediaConverters';
 import { formatDate } from '../../utils/format';
 import { buildInvoiceEmailIntro, invoiceEmailKind, invoiceEmailProjectName, invoiceEmailSubjectPrefix } from '../../utils/invoiceEmail';
 import { buildDocumentEmailHtml } from './quoteEmailHtml';
-import { sendDocumentEmail, probablySentMessage } from '../../utils/sendDocumentEmail';
+import { sendDocumentEmail, probablySentMessage, sendingLabel, sendsFromOwnAddress } from '../../utils/sendDocumentEmail';
 
 /**
  * Envoi du document au client : préparation du mail (fr / en, lien de
@@ -539,7 +539,7 @@ export const useQuoteEmail = ({
         // (ex : devis adressé à un tuteur/mandataire au nom du client protégé).
         const recipientEmail = (overrideEmail ?? emailPreview.email)?.trim() || '';
 
-        const smtpConfigured = !!userProfile?.smtp_config?.host && !!userProfile?.smtp_config?.from_email;
+        const smtpConfigured = sendsFromOwnAddress(userProfile);
         const mailtoUrl = `mailto:${recipientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
         // Sans destinataire, l'envoi pro basculait en silence sur le client mail
@@ -554,9 +554,10 @@ export const useQuoteEmail = ({
         } else if (isTestMode) {
             captureEmail({ email: recipientEmail, subject, body });
             toast.success('📬 Email capturé dans l\'inbox test', { duration: 4000 });
-        } else if (smtpConfigured && recipientEmail) {
-            // Envoi direct depuis l'adresse pro de l'artisan via Edge Function
-            const sendingToast = toast.loading('Envoi en cours depuis votre adresse pro...');
+        } else if (recipientEmail) {
+            // Envoi direct via Edge Function : depuis l'adresse pro de l'artisan
+            // (SMTP), sinon depuis l'adresse de l'appli à son nom (réponses vers lui).
+            const sendingToast = toast.loading(sendingLabel(userProfile));
             // Version HTML où le lien du document devient un bouton (« Signer »
             // pour un devis, « Voir ma facture » sinon). Le texte brut (avec l'URL) reste
             // le fallback pour les clients mail sans HTML. Le lien du portail
@@ -793,5 +794,8 @@ export const useQuoteEmail = ({
         handleNotifyWithdrawal,
         handleSendQuoteEmail,
         handleConfirmSendEmail,
+        // Devis transmis hors de l'appli (PDF téléchargé puis envoyé par
+        // l'artisan) : même passage en « envoyé » et même archive qu'un envoi.
+        markQuoteSent: archiveSentVersion,
     };
 };

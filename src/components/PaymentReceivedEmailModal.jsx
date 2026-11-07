@@ -117,13 +117,12 @@ const PaymentReceivedEmailModal = ({ invoiceId, kind = 'deposit', onClose }) => 
 
     const handleSend = async () => {
         const recipient = to.trim();
-        const smtpConfigured = !!userProfile?.smtp_config?.host && !!userProfile?.smtp_config?.from_email;
         const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
         if (isTestMode) {
             captureEmail({ email: recipient, subject, body });
             toast.success("📬 Email capturé dans l'inbox test", { duration: 4000 });
-        } else if (smtpConfigured && recipient) {
+        } else if (recipient) {
             setSending(true);
             const { status, error } = await sendDocumentEmail({
                 to: recipient,
@@ -157,8 +156,6 @@ const PaymentReceivedEmailModal = ({ invoiceId, kind = 'deposit', onClose }) => 
             toast.error('Copie impossible : sélectionnez le texte à la main.');
         }
     };
-
-    const smtpConfigured = !!userProfile?.smtp_config?.host && !!userProfile?.smtp_config?.from_email;
 
     return (
         <div
@@ -235,7 +232,7 @@ const PaymentReceivedEmailModal = ({ invoiceId, kind = 'deposit', onClose }) => 
                             </button>
                             <button type="button" onClick={handleSend} disabled={sending} className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl disabled:opacity-60">
                                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-                                {smtpConfigured || isTestMode ? 'Envoyer' : 'Ouvrir dans ma messagerie'}
+                                {to.trim() || isTestMode ? 'Envoyer' : 'Ouvrir dans ma messagerie'}
                             </button>
                         </div>
                     </>

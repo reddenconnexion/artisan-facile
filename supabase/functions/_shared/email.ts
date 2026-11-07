@@ -115,3 +115,47 @@ export function buildHtmlSignature(profile: Record<string, unknown>): string {
   </tr>
 </table>`;
 }
+
+// ── Envoi par la plateforme (Resend) au nom de l'artisan ─────────────────────
+// Utilisé quand l'artisan n'a pas configuré son SMTP : l'expéditeur est
+// « Entreprise <adresse de la plateforme> » (domaine vérifié chez Resend) et
+// les réponses du client vont à l'artisan (Reply-To).
+
+/** Adresse d'expédition de la plateforme (domaine vérifié chez Resend). */
+export function platformFromAddress(): string {
+    return Deno.env.get('AUTOPILOT_EMAIL_FROM')
+        || (Deno.env.get('EMAIL_FROM') ?? '').match(/<([^>]+)>/)?.[1]
+        || 'relances@artisanfacile.fr';
+}
+
+export async function sendViaPlatform(msg: {
+    apiKey: string;
+    displayName: string;
+    replyTo: string;
+    to: string[];
+    cc?: string[];
+    bcc?: string[];
+    subject: string;
+    text: string;
+    html: string;
+    attachments?: { filename: string; content: string }[];
+}): Promise<void> {
+    const name = msg.displayName.replace(/[<>"]/g, '').trim() || 'Votre artisan';
+    const payload: Record<string, unknown> = {
+        from: `${name} <${platformFromAddress()}>`,
+        to: msg.to,
+        reply_to: msg.replyTo,
+        subject: msg.subject,
+        text: msg.text,
+        html: msg.html,
+    };
+    if (msg.cc?.length) payload.cc = msg.cc;
+    if (msg.bcc?.length) payload.bcc = msg.bcc;
+    if (msg.attachments?.length) payload.attachments = msg.attachments;
+    const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${msg.apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Resend ${res.status} : ${(await res.text()).slice(0, 300)}`);
+}

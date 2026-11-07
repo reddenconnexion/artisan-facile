@@ -1,6 +1,6 @@
 import { CheckCircle, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import { sendDocumentEmail, probablySentMessage } from '../../utils/sendDocumentEmail';
+import { sendDocumentEmail, probablySentMessage, sendingLabel, sendsFromOwnAddress } from '../../utils/sendDocumentEmail';
 
 // Modal d'envoi de la facture (automatique à la clôture, ou renvoi) :
 // SMTP pro, inbox du mode test ou repli sur la messagerie (mailto:).
@@ -62,12 +62,11 @@ export const SendInvoiceModal = ({
                     </button>
                     <button
                         onClick={async () => {
-                            const smtpConfigured = !!userProfile?.smtp_config?.host && !!userProfile?.smtp_config?.from_email;
                             if (isTestMode) {
                                 captureEmail({ email: sendInvoiceModal.email, subject: sendInvoiceModal.subject, body: sendInvoiceModal.body });
                                 toast.success('📬 Email capturé dans l\'inbox test', { duration: 4000 });
-                            } else if (smtpConfigured && sendInvoiceModal.email) {
-                                const sendingToast = toast.loading('Envoi en cours depuis votre adresse pro...');
+                            } else if (sendInvoiceModal.email) {
+                                const sendingToast = toast.loading(sendingLabel(userProfile));
                                 const { status, error } = await sendDocumentEmail({
                                     to: sendInvoiceModal.email,
                                     subject: sendInvoiceModal.subject,
@@ -94,7 +93,7 @@ export const SendInvoiceModal = ({
                         className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-ios rounded-lg hover:bg-ios-dark transition-colors"
                     >
                         <Send className="w-4 h-4" />
-                        {userProfile?.smtp_config?.host ? 'Envoyer depuis mon mail pro' : 'Ouvrir dans la messagerie'}
+                        {sendsFromOwnAddress(userProfile) ? 'Envoyer depuis mon mail pro' : 'Envoyer'}
                     </button>
                 </div>
             </div>

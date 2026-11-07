@@ -6,6 +6,7 @@ import { generateDevisPDF } from '../utils/pdfGenerator';
 import { clientFacingItems } from '../utils/clientView';
 import { isIosLikeDevice, renderPdfBlobToPageImages } from '../utils/pdfPageImages';
 import { formatBytes } from '../utils/storageQuota';
+import { sendsFromOwnAddress } from '../utils/sendDocumentEmail';
 
 // Limites alignées sur celles de l'edge function `send-document-email`
 // (voir supabase/functions/send-document-email/index.ts).
@@ -37,10 +38,9 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
     const [activeTab, setActiveTab] = useState('pdf');
     const [attachments, setAttachments] = useState([]);
     const isIOS = isIosLikeDevice();
-    // Seul l'envoi direct (SMTP pro) sait transmettre une vraie pièce jointe :
-    // le fallback `mailto:` ouvre le client mail local sans pouvoir y joindre
-    // de fichier depuis le navigateur.
-    const canAttach = !!userProfile?.smtp_config?.host && !!userProfile?.smtp_config?.from_email;
+    // L'envoi direct passe toujours par le serveur (SMTP pro de l'artisan, ou
+    // adresse de l'appli à son nom) : les pièces jointes partent dans les deux cas.
+    const ownAddress = sendsFromOwnAddress(userProfile);
 
     // Synchronise l'état local quand le parent ouvre/ferme la modal
     useEffect(() => {
@@ -257,9 +257,9 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                                     placeholder="destinataire@email.fr"
                                     className="block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 text-sm focus:ring-blue-500 focus:border-blue-500"
                                 />
-                                {canAttach && !localPreview.email?.trim() && (
+                                {!localPreview.email?.trim() && (
                                     <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">
-                                        Ce client n'a pas d'adresse email : saisissez-la ici pour envoyer depuis votre mail pro.
+                                        Ce client n'a pas d'adresse email : saisissez-la ici, ou utilisez « Partager (SMS, WhatsApp…) ».
                                     </p>
                                 )}
                                 <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
@@ -306,19 +306,16 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Document joint {!canAttach && <span className="font-normal text-amber-600 dark:text-amber-400">(nécessite l'envoi pro)</span>}
+                                    Document joint
                                 </label>
                                 <label
-                                    className={`flex items-center justify-center gap-2 w-full px-3 py-2 border border-dashed rounded-lg text-sm ${canAttach
-                                        ? 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer'
-                                        : 'border-gray-200 dark:border-gray-800 text-gray-300 dark:text-gray-600 cursor-not-allowed'}`}
+                                    className="flex items-center justify-center gap-2 w-full px-3 py-2 border border-dashed rounded-lg text-sm border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                                 >
                                     <Paperclip className="w-4 h-4" />
                                     Joindre un document
                                     <input
                                         type="file"
                                         multiple
-                                        disabled={!canAttach}
                                         onChange={handleAttachmentChange}
                                         className="hidden"
                                     />
@@ -340,9 +337,9 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                                         ))}
                                     </ul>
                                 )}
-                                {!canAttach && (
+                                {!ownAddress && (
                                     <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                                        Configurez votre adresse mail pro dans votre profil pour pouvoir joindre un document (devis annexe, plan, photo…).
+                                        Le mail part de l'adresse de l'appli à votre nom ; les réponses du client arrivent dans votre boîte mail.
                                     </p>
                                 )}
                             </div>
@@ -376,10 +373,10 @@ const DevisEmailModal = ({ preview, onClose, onConfirm, formData, clients, userP
                         type="button"
                         onClick={() => onConfirm(localPreview.rawSubject, localPreview.rawBody, localPreview.email, attachments)}
                         className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center justify-center"
-                        title={userProfile?.smtp_config?.host ? `Envoi direct depuis ${userProfile.smtp_config.from_email}` : 'Ouvre votre client mail'}
+                        title={ownAddress ? `Envoi direct depuis ${userProfile.smtp_config.from_email}` : "Envoi direct à votre nom ; les réponses arrivent chez vous"}
                     >
                         <Send className="w-4 h-4 mr-2" />
-                        {userProfile?.smtp_config?.host ? 'Envoyer depuis mon mail pro' : 'Envoyer'}
+                        {ownAddress ? 'Envoyer depuis mon mail pro' : 'Envoyer'}
                     </button>
                 </div>
             </div>
