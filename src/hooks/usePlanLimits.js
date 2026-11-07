@@ -8,6 +8,7 @@ import { PLAN_LIMITS, getCurrentUsage } from '../utils/planLimits';
  */
 export const usePlanLimits = () => {
     const [plan, setPlan] = useState('free');
+    const [cancelAt, setCancelAt] = useState(null);
     const [usage, setUsage] = useState({ voice_memos_count: 0, ai_generations_count: 0 });
     const [loading, setLoading] = useState(true);
 
@@ -16,12 +17,13 @@ export const usePlanLimits = () => {
         if (!user) return;
 
         const [profileResult, usageData] = await Promise.all([
-            supabase.from('profiles').select('plan').eq('id', user.id).maybeSingle(),
+            supabase.from('profiles').select('plan, subscription_cancel_at').eq('id', user.id).maybeSingle(),
             getCurrentUsage(user.id),
         ]);
 
         const userPlan = profileResult.data?.plan || 'free';
         setPlan(userPlan);
+        setCancelAt(profileResult.data?.subscription_cancel_at ?? null);
         setUsage(usageData);
         setLoading(false);
     }, []);
@@ -42,6 +44,7 @@ export const usePlanLimits = () => {
 
     return {
         plan,
+        cancelAt,
         usage,
         loading,
         refresh,

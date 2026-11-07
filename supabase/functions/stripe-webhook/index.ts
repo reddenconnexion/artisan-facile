@@ -49,12 +49,19 @@ Deno.serve(async (req) => {
         const isActive = status === 'active' || status === 'trialing';
         const plan = isActive ? 'pro' : 'free';
 
+        // Résiliation programmée (fin de période ou date choisie) : Stripe
+        // renseigne cancel_at ; null si l'abonnement se renouvelle.
+        const cancelAt = isActive && subscription.cancel_at
+          ? new Date(subscription.cancel_at * 1000).toISOString()
+          : null;
+
         await supabaseAdmin
           .from('profiles')
           .update({
             plan,
             [subscriptionIdField]: subscription.id,
             [subscriptionStatusField]: status,
+            subscription_cancel_at: cancelAt,
           })
           .eq(customerIdField, customerId);
 
@@ -73,6 +80,7 @@ Deno.serve(async (req) => {
             plan: 'free',
             [subscriptionIdField]: null,
             [subscriptionStatusField]: 'cancelled',
+            subscription_cancel_at: null,
           })
           .eq(customerIdField, customerId);
 
