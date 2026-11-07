@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, Calendar, LogOut, Menu, X, Save, Box, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Sun, Moon, ShoppingCart, PanelLeftClose, PanelLeftOpen, Timer, Kanban, Truck } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Calendar, LogOut, Menu, X, Save, Box, ClipboardList, FlaskConical, Inbox, Calculator, Crown, Zap, ChevronDown, ChevronRight, Plus, MessageSquare, MessageSquarePlus, Search, Sun, Moon, ShoppingCart, PanelLeftClose, PanelLeftOpen, Timer, Kanban, Truck, Bot } from 'lucide-react';
 import VoiceRecorderButton from '../components/VoiceRecorderButton';
 import QuickCreateMenu from '../components/QuickCreateMenu';
 import SearchPalette from '../components/SearchPalette';
@@ -215,6 +215,7 @@ const Layout = () => {
       { name: "Aujourd'hui", href: '/app', icon: LayoutDashboard },
       { name: 'Clients', href: '/app/clients', icon: Users },
       { name: 'Chantiers', href: '/app/chantiers', icon: Kanban },
+      { name: 'Pilote automatique', href: '/app/pilote', icon: Bot },
       // L'agenda est le pendant du pilotage chantiers (le planning y puise ses
       // RDV) : on le garde voisin, en premier niveau et visible pour tous les
       // profils — planifier ses interventions est une action quotidienne.

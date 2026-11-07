@@ -210,6 +210,7 @@ const InterventionReportForm = lazyWithRetry(() => import('./pages/InterventionR
 const ReceivedInvoices = lazyWithRetry(() => import('./pages/ReceivedInvoices'));
 const VoiceMemos = lazyWithRetry(() => import('./pages/VoiceMemos'));
 const Subscription = lazyWithRetry(() => import('./pages/Subscription'));
+const Autopilot = lazyWithRetry(() => import('./pages/Autopilot'));
 const Outils = lazyWithRetry(() => import('./pages/Outils'));
 const Ressources = lazyWithRetry(() => import('./pages/Ressources'));
 const EtiquettesTableau = lazyWithRetry(() => import('./pages/EtiquettesTableau'));
@@ -302,6 +303,7 @@ function App() {
                 <Route path="interventions/:id" element={<InterventionReportForm />} />
                 <Route path="voice-memos" element={<VoiceMemos />} />
                 <Route path="subscription" element={<Subscription />} />
+                <Route path="pilote" element={<Autopilot />} />
                 <Route path="outils" element={<Outils />} />
                 <Route path="ressources" element={<Ressources />} />
                 <Route path="etiquettes-tableau" element={<EtiquettesTableau />} />

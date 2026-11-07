@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     parisClock, isSendingWindow, isSummaryHour, dueQuoteFollowUp, buildQuoteFollowUpEmail,
     dueInvoiceReminder, dueReviewRequest, buildReviewRequestEmail, planAutopilotRun,
-    dueReviewAfterWork, planReviewNow,
+    dueReviewAfterWork, planReviewNow, nextSendTime, sendTimeLabel, applyDraft,
     buildEveningSummary, summarizeActions, readAutopilotSettings, actionKey,
     DEFAULT_FOLLOW_UP_STEPS, MAX_EMAILS_PER_DAY,
 } from './autopilot';
@@ -229,6 +229,49 @@ describe('plan d\'une exécution', () => {
         const { actions, needsArtisan } = planAutopilotRun({ ...base, docs });
         expect(actions).toEqual([]);
         expect(needsArtisan).toHaveLength(1);
+    });
+});
+
+describe('mails prévus : retouches de l\'artisan', () => {
+    const base = { settings: { enabled: true }, profile, now: NOW, docs: [quote()] };
+    const key = actionKey('quote_followup', 1, 1);
+
+    it('texte modifié : c\'est lui qui part', () => {
+        const { actions } = planAutopilotRun({ ...base, drafts: [{ action_key: key, subject: 'Mon sujet', body: 'Mon texte' }] });
+        expect(actions[0]).toMatchObject({ subject: 'Mon sujet', body: 'Mon texte', edited: true });
+    });
+
+    it('champ vidé : on garde le texte de l\'appli', () => {
+        const a = applyDraft({ key, subject: 'S', body: 'B' }, [{ action_key: key, subject: '  ', body: 'Nouveau' }]);
+        expect(a).toMatchObject({ subject: 'S', body: 'Nouveau' });
+    });
+
+    it('mail retenu : ne part pas, mais reste visible (barré) dans l\'aperçu', () => {
+        const drafts = [{ action_key: key, skipped: true }];
+        expect(planAutopilotRun({ ...base, drafts }).actions).toEqual([]);
+        expect(planAutopilotRun({ ...base, drafts, preview: true }).actions[0]).toMatchObject({ skipped: true });
+    });
+
+    it('demande d\'avis retenue', () => {
+        const doc = quote({ status: 'accepted', work_stage: 'completed' });
+        const drafts = [{ action_key: actionKey('review_request', 1, 1), skipped: true }];
+        expect(planReviewNow({ settings: { enabled: true }, profile, doc, now: NOW, drafts })).toEqual({ skipped: 'held_by_artisan' });
+    });
+});
+
+describe('heure du prochain envoi', () => {
+    it('dans la plage : prochain passage à h05', () => {
+        expect(nextSendTime(new Date('2026-11-10T09:00:00Z')).toISOString()).toBe('2026-11-10T09:05:00.000Z'); // 10 h → 10 h 05
+        expect(nextSendTime(new Date('2026-11-10T09:30:00Z')).toISOString()).toBe('2026-11-10T10:05:00.000Z');
+    });
+    it('hors plage : prochain jour ouvré à 9 h 05', () => {
+        expect(nextSendTime(new Date('2026-11-10T17:30:00Z')).toISOString()).toBe('2026-11-11T08:05:00.000Z'); // mardi 18 h 30 → mercredi 9 h 05
+        expect(nextSendTime(new Date('2026-11-07T10:00:00Z')).toISOString()).toBe('2026-11-09T08:05:00.000Z'); // samedi → lundi
+    });
+    it('en clair', () => {
+        expect(sendTimeLabel(new Date('2026-11-10T09:05:00Z'), NOW)).toBe("aujourd'hui vers 10 h 05");
+        expect(sendTimeLabel(new Date('2026-11-11T08:05:00Z'), NOW)).toBe('demain vers 9 h 05');
+        expect(sendTimeLabel(new Date('2026-11-09T08:05:00Z'), new Date('2026-11-07T10:00:00Z'))).toBe('lundi vers 9 h 05');
     });
 });
 
