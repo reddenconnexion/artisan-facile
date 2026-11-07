@@ -4,6 +4,7 @@ import { cwd } from 'node:process';
 import { describe, it, expect } from 'vitest';
 import {
     FOUNDER_SPOTS, TRIAL_DAYS, PRO_PRICES, formatEuros, proOffer, spotsLabel, trialNotice, founderVisioMailto,
+    founderVisioTel, founderVisioSms,
 } from './founderOffer';
 
 const NOW = new Date('2026-11-07T08:00:00Z');
@@ -79,5 +80,17 @@ describe('founderVisioMailto', () => {
         const url = founderVisioMailto({ name: 'Jean Dupont', company: 'Dupont Élec' });
         expect(url.startsWith('mailto:rotvener97@gmail.com?subject=')).toBe(true);
         expect(decodeURIComponent(url)).toContain('membre fondateur (Jean Dupont — Dupont Élec)');
+    });
+});
+
+describe('founderVisioTel / founderVisioSms', () => {
+    it('appel au format international', () => {
+        expect(founderVisioTel()).toBe('tel:+33695100823');
+    });
+
+    it('SMS prérempli, compatible iOS et Android', () => {
+        const url = founderVisioSms({ name: 'Jean Dupont' });
+        expect(url.startsWith('sms:+33695100823?&body=')).toBe(true);
+        expect(decodeURIComponent(url)).toContain('membre fondateur Artisan Facile (Jean Dupont)');
     });
 });

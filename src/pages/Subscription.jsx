@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
     Crown, Mic, Sparkles, Zap, CheckCircle, X, TrendingUp, BarChart2,
-    Loader2, ExternalLink, CreditCard, Mail
+    Loader2, ExternalLink, CreditCard
 } from 'lucide-react';
 import { usePlanLimits } from '../hooks/usePlanLimits';
 import { PLAN_LIMITS } from '../utils/planLimits';
@@ -11,10 +11,11 @@ import { toast } from 'sonner';
 import { formatDate } from '../utils/format';
 import { STRIPE_PORTAL_LOGIN_URL, portalLoginUrl } from '../utils/stripePortal';
 import { cancellationNotice } from '../utils/subscriptionStatus';
-import { proOffer, trialNotice, founderVisioMailto } from '../utils/founderOffer';
+import { proOffer, trialNotice } from '../utils/founderOffer';
 import { useFounderSpots } from '../hooks/useFounderSpots';
 import { useUserProfile } from '../hooks/useDataCache';
 import FounderOfferCard from '../components/FounderOfferCard';
+import FounderVisioContact from '../components/FounderVisioContact';
 
 const FEATURES = [
     {
@@ -92,7 +93,6 @@ const Subscription = () => {
     const proStatusText = cancelNotice
         || trialText
         || (isFounder ? 'Membre fondateur · tarif bloqué à vie' : 'Renouvellement automatique');
-    const visioMailto = founderVisioMailto({ name: profile?.full_name, company: profile?.company_name });
     const currentMonth = formatDate(new Date(), { month: 'long', year: 'numeric' });
 
     // Handle Stripe redirect callbacks
@@ -380,15 +380,7 @@ const Subscription = () => {
                                 : 'Toutes les fonctionnalités sont disponibles.'}
                     </p>
                     {isFounder && !cancelNotice && (
-                        <div className="mb-3">
-                            <a
-                                href={visioMailto}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors"
-                            >
-                                <Mail size={14} />
-                                Réserver ma visio de 30 min avec Denis
-                            </a>
-                        </div>
+                        <FounderVisioContact name={profile?.full_name} company={profile?.company_name} />
                     )}
                     <button
                         onClick={handleManageSubscription}
