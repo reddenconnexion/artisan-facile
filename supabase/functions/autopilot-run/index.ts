@@ -11,8 +11,10 @@
 // Les règles (qui, quand, quel texte) vivent dans _shared/lib/autopilot.js,
 // partagées avec l'appli. Ici : lecture des données, envoi, journal.
 //
-// Appel : pg_cron chaque heure, header `x-cron-secret: <CRON_SECRET>`
-// (verify_jwt désactivé dans config.toml). Corps optionnel :
+// Appel : pg_cron chaque heure, header `x-cron-secret` : le secret
+// `autopilot_cron_secret` du Vault (vérifié par la RPC
+// autopilot_cron_secret_matches) ou, à défaut, CRON_SECRET. verify_jwt est
+// désactivé dans config.toml. Corps optionnel :
 //   { "dry_run": true }  → renvoie ce qui partirait, sans rien envoyer
 //   { "force": true }    → ignore la plage horaire (tests)
 //   { "user_id": "…" }   → un seul artisan
@@ -276,11 +278,16 @@ Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return corsPreflight(corsHeaders);
     if (req.method !== 'POST') return json({ error: 'Méthode non autorisée' }, 405);
 
+    const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
     const cronSecret = Deno.env.get('CRON_SECRET');
-    const provided = req.headers.get('x-cron-secret');
-    if (!cronSecret || !provided || !(await secretsMatch(provided, cronSecret))) {
-        return json({ error: 'Non autorisé' }, 401);
+    const provided = req.headers.get('x-cron-secret') ?? '';
+    let authorized = false;
+    if (provided && cronSecret) authorized = await secretsMatch(provided, cronSecret);
+    if (provided && !authorized) {
+        const { data } = await admin.rpc('autopilot_cron_secret_matches', { p_secret: provided });
+        authorized = data === true;
     }
+    if (!authorized) return json({ error: 'Non autorisé' }, 401);
 
     const body = await req.json().catch(() => ({}));
     const now = new Date();
@@ -292,8 +299,9 @@ Deno.serve(async (req) => {
         return json({ skipped: 'hors plage horaire', paris: parisClock(now) });
     }
 
-    const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
-    const appUrl = Deno.env.get('APP_URL') || 'https://app.artisanfacile.fr';
+    // Domaine de production de l'appli (Vercel) : les liens de signature des
+    // relances pointent ici.
+    const appUrl = Deno.env.get('APP_URL') || 'https://artisanfacile.fr';
 
     let query = admin.from('profiles').select(PROFILE_COLUMNS)
         .in('plan', ['pro', 'owner'])
