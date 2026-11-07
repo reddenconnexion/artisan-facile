@@ -61,7 +61,7 @@ async function secretsMatch(a: string, b: string): Promise<boolean> {
 type Profile = Record<string, any>;
 type Action = {
     kind: string; key: string; quote_id: number; client_id: number; step: number;
-    to: string; subject: string; body: string; amount: number; label: string;
+    to: string; subject: string; body: string; amount: number; label: string; edited?: boolean;
 };
 
 // ── Envoi d'un e-mail au nom de l'artisan ────────────────────────────────────

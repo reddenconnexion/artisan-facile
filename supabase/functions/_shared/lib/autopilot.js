@@ -321,6 +321,7 @@ export const actionKey = (kind, refId, step) => `${kind}:${refId}:${step}`;
  * @param {string} [p.appUrl]         adresse de l'appli (liens de signature)
  * @param {Date} [p.now]
  * @param {boolean} [p.preview]       aperçu : ignore l'interrupteur et le plafond
+ * @param {object[]|Map<string, object>} [p.drafts] retouches de l'artisan (autopilot_drafts)
  * @returns {{ actions: object[], needsArtisan: object[] }}
  */
 export const planAutopilotRun = ({
@@ -419,7 +420,8 @@ const reviewAction = (doc, { client, profile, reviewUrl, key }) => {
 /**
  * Demande d'avis immédiate, au moment où l'artisan termine le chantier et
  * quitte les lieux. Renvoie l'e-mail à envoyer, ou la raison de ne pas le faire.
- * @returns {{ action: object } | { skipped: 'pilote_off'|'no_review_link'|'not_finished'|'already_asked'|'client_paused'|'no_email'|'night' }}
+ * @param {{ settings: object, profile: object, doc: object, reviewedClients?: Set<*>, now?: Date, drafts?: object[]|Map<string, object> }} p
+ * @returns {{ action: object } | { skipped: 'pilote_off'|'no_review_link'|'not_finished'|'already_asked'|'client_paused'|'no_email'|'night'|'held_by_artisan' }}
  */
 export const planReviewNow = ({ settings, profile, doc, reviewedClients = new Set(), now = new Date(), drafts = [] }) => {
     const cfg = readAutopilotSettings(settings);
