@@ -16,6 +16,9 @@
 import { clientGreetingName } from './clientGreeting.js';
 import { formatDate, formatPrice } from './format.js';
 import { idsBilledByChildren, invoiceReminderStatus, buildInvoiceReminderEmail, invoiceReference } from './unpaidInvoices.js';
+import { renderTemplate } from './mailTemplate.js';
+
+export { renderTemplate };
 
 export const AUTOPILOT_DEFAULTS = {
     enabled: false,
@@ -184,18 +187,6 @@ const quoteLabel = (quote) => (quote.title ? `« ${quote.title} »` : `n°${quot
 // repère facultatif sans valeur (pas de lien de signature, pas de téléphone,
 // devis déjà expiré…) disparaît entièrement, pour ne jamais envoyer
 // « Mon numéro : » tout seul. La signature est ajoutée à la fin.
-
-/** Remplit un modèle. `optional` : repères dont la ligne saute s'ils sont vides. */
-export const renderTemplate = (text, vars, optional = []) => {
-    const lines = String(text || '').split('\n')
-        .filter((line) => !optional.some((k) => !vars[k] && line.includes(`{${k}}`)));
-    let out = lines.join('\n');
-    for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(v ?? '');
-    return out
-        .replace(/[ \t]+([,.])/g, '$1') // « Bonjour , » quand la fiche client n'a pas de nom
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
-};
 
 // Relances de devis : un modèle par moment de la séquence.
 export const QUOTE_TEMPLATE_KINDS = [
@@ -475,7 +466,7 @@ export const planAutopilotRun = ({
             }
             const client = reachable(doc);
             if (!client) continue;
-            const { subject, body } = buildInvoiceReminderEmail(doc, due.status, { client, profile });
+            const { subject, body } = buildInvoiceReminderEmail(doc, due.status, { client, profile, settings: cfg });
             push({ kind: 'invoice_reminder', key, quote_id: doc.id, client_id: doc.client_id, step: due.nextCount, to: client.email.trim(), subject, body, amount: Number(doc.total_ttc) || 0, label: due.status.label });
         }
     }

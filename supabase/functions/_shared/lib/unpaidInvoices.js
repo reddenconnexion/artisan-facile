@@ -4,6 +4,7 @@
 
 import { clientGreetingName } from './clientGreeting.js';
 import { formatDate, formatPrice } from './format.js';
+import { renderTemplate } from './mailTemplate.js';
 
 // Statuts d'une facture qui n'attend plus aucun paiement.
 const SETTLED_STATUSES = ['paid', 'cancelled', 'draft'];
@@ -100,57 +101,87 @@ export const invoiceReminderStatus = (invoice, today = new Date()) => {
 // art. L441-10 du Code de commerce) ne s'applique qu'entre professionnels.
 const isProfessionalClient = (client) => Boolean(client?.siren || client?.tva_intracom);
 
+// ── Modèles des rappels, modifiables par l'artisan ───────────────────────────
+// Stockés dans les réglages du pilote (autopilot_settings.invoice_templates) et
+// utilisés partout : rappels automatiques et rappels envoyés à la main.
+
+export const INVOICE_TEMPLATE_KINDS = [
+    { key: 'amiable', label: 'Rappel aimable', when: "3 jours après l'échéance" },
+    { key: 'ferme', label: 'Rappel ferme', when: '10 jours plus tard' },
+    { key: 'mise_en_demeure', label: 'Mise en demeure', when: 'envoyée par vous seulement' },
+];
+
+export const INVOICE_PLACEHOLDERS = ['client', 'facture', 'montant', 'date', 'echeance', 'retard', 'dernier_rappel', 'iban', 'indemnite', 'entreprise'];
+const INVOICE_OPTIONAL = ['iban'];
+const LEVEL_KINDS = ['amiable', 'ferme', 'mise_en_demeure'];
+
+const FACTS = "la facture {facture} du {date}, d'un montant de {montant} TTC, arrivée à échéance le {echeance}";
+const IBAN_LINE = 'Pour rappel, le règlement peut se faire par virement sur le compte suivant : {iban}';
+const PAID_LINE = 'Si le paiement a été effectué entre-temps, merci de ne pas tenir compte de ce message.';
+
+export const DEFAULT_INVOICE_TEMPLATES = {
+    amiable: {
+        subject: 'Rappel : facture {facture} en attente de règlement',
+        body: 'Bonjour {client},\n\n' +
+            `Sauf erreur de notre part, ${FACTS}, n'a pas encore été réglée.\n\n` +
+            "Il s'agit sans doute d'un simple oubli : pourriez-vous procéder au règlement dans les meilleurs délais ?\n\n" +
+            `${IBAN_LINE}\n\n${PAID_LINE}`,
+    },
+    ferme: {
+        subject: '2e rappel : facture {facture} impayée',
+        body: 'Bonjour {client},\n\n' +
+            `Malgré notre précédent rappel {dernier_rappel}, ${FACTS}, reste impayée à ce jour, soit {retard} jours de retard.\n\n` +
+            'Nous vous remercions de bien vouloir régulariser la situation sous 8 jours. ' +
+            'Nous vous rappelons que des pénalités de retard sont prévues aux conditions figurant sur la facture.\n\n' +
+            `${IBAN_LINE}\n\n${PAID_LINE}`,
+    },
+    mise_en_demeure: {
+        subject: 'Mise en demeure de payer : facture {facture}',
+        body: 'Bonjour {client},\n\n' +
+            `Malgré nos précédentes relances, ${FACTS}, reste impayée à ce jour, soit {retard} jours de retard.\n\n` +
+            'Par la présente, nous vous mettons en demeure de régler la somme de {montant} TTC dans un délai de 8 jours à compter de la réception de ce courrier.\n\n' +
+            "À défaut de règlement dans ce délai, nous serons contraints d'engager une procédure de recouvrement. " +
+            'Les pénalités de retard prévues aux conditions de la facture seront alors exigibles{indemnite}.\n\n' +
+            IBAN_LINE,
+    },
+};
+
+/** Modèle de l'artisan pour ce niveau de rappel, à défaut celui de l'appli. */
+export const invoiceTemplate = (kind, settings) => {
+    const custom = settings?.invoice_templates?.[kind] || {};
+    const base = DEFAULT_INVOICE_TEMPLATES[kind] || DEFAULT_INVOICE_TEMPLATES.amiable;
+    const subject = String(custom.subject || '').trim();
+    const body = String(custom.body || '').trim();
+    return { subject: subject || base.subject, body: body || base.body, custom: Boolean(subject || body) };
+};
+
 /**
- * E-mail de rappel pour le niveau `status.level`, modifiable ensuite par
- * l'artisan avant envoi.
+ * E-mail de rappel pour le niveau `status.level` (aimable, ferme, mise en
+ * demeure), d'après le modèle de l'artisan s'il en a écrit un. Modifiable
+ * ensuite par l'artisan avant envoi.
  */
-export const buildInvoiceReminderEmail = (invoice, status, { client, profile } = {}) => {
-    const ref = invoiceReference(invoice);
-    const amount = formatPrice(invoice.total_ttc, '—');
-    const issued = formatDate(invoice.date);
-    const due = formatDate(status.dueDate);
-    const greeting = `Bonjour ${clientGreetingName(client?.name, 'fr', client?.civility) || ''}`.trim() + ',';
-    const lastReminder = invoice.last_followup_at ? formatDate(invoice.last_followup_at) : null;
-    const iban = profile?.iban ? `\n\nPour rappel, le règlement peut se faire par virement sur le compte suivant : ${profile.iban}` : '';
+export const buildInvoiceReminderEmail = (invoice, status, { client, profile, settings } = {}) => {
+    const lastReminder = invoice.last_followup_at ? formatDate(invoice.last_followup_at) : '';
+    const vars = {
+        client: clientGreetingName(client?.name, 'fr', client?.civility) || '',
+        facture: invoiceReference(invoice),
+        montant: formatPrice(invoice.total_ttc, '—'),
+        date: formatDate(invoice.date),
+        echeance: formatDate(status.dueDate),
+        retard: String(status.daysOverdue ?? ''),
+        // « du 10/09/2026 », vide s'il n'y a pas encore eu de rappel.
+        dernier_rappel: lastReminder ? `du ${lastReminder}` : '',
+        iban: profile?.iban || '',
+        indemnite: isProfessionalClient(client)
+            ? ", ainsi que l'indemnité forfaitaire pour frais de recouvrement de 40 € (article L441-10 du Code de commerce)"
+            : '',
+        entreprise: profile?.company_name || profile?.full_name || '',
+    };
+    const kind = LEVEL_KINDS[Math.min(Math.max(status.level || 0, 0), LEVEL_KINDS.length - 1)];
+    const tpl = invoiceTemplate(kind, settings);
     const signature = ['Cordialement,', profile?.full_name, profile?.company_name].filter(Boolean).join('\n');
-    const facts = `la facture ${ref} du ${issued}, d'un montant de ${amount} TTC, arrivée à échéance le ${due}`;
-
-    if (status.level === 0) {
-        return {
-            subject: `Rappel : facture ${ref} en attente de règlement`,
-            body: `${greeting}\n\n` +
-                `Sauf erreur de notre part, ${facts}, n'a pas encore été réglée.\n\n` +
-                `Il s'agit sans doute d'un simple oubli : pourriez-vous procéder au règlement dans les meilleurs délais ?` +
-                `${iban}\n\n` +
-                `Si le paiement a été effectué entre-temps, merci de ne pas tenir compte de ce message.\n\n` +
-                signature,
-        };
-    }
-
-    if (status.level === 1) {
-        return {
-            subject: `2e rappel : facture ${ref} impayée`,
-            body: `${greeting}\n\n` +
-                `Malgré notre précédent rappel${lastReminder ? ` du ${lastReminder}` : ''}, ${facts}, reste impayée à ce jour, soit ${status.daysOverdue} jours de retard.\n\n` +
-                `Nous vous remercions de bien vouloir régulariser la situation sous 8 jours. ` +
-                `Nous vous rappelons que des pénalités de retard sont prévues aux conditions figurant sur la facture.` +
-                `${iban}\n\n` +
-                `Si le paiement a été effectué entre-temps, merci de ne pas tenir compte de ce message.\n\n` +
-                signature,
-        };
-    }
-
-    const recoveryFee = isProfessionalClient(client)
-        ? `, ainsi que l'indemnité forfaitaire pour frais de recouvrement de 40 € (article L441-10 du Code de commerce)`
-        : '';
     return {
-        subject: `Mise en demeure de payer : facture ${ref}`,
-        body: `${greeting}\n\n` +
-            `Malgré nos précédentes relances, ${facts}, reste impayée à ce jour, soit ${status.daysOverdue} jours de retard.\n\n` +
-            `Par la présente, nous vous mettons en demeure de régler la somme de ${amount} TTC dans un délai de 8 jours à compter de la réception de ce courrier.\n\n` +
-            `À défaut de règlement dans ce délai, nous serons contraints d'engager une procédure de recouvrement. ` +
-            `Les pénalités de retard prévues aux conditions de la facture seront alors exigibles${recoveryFee}.` +
-            `${iban}\n\n` +
-            signature,
+        subject: renderTemplate(tpl.subject, vars, INVOICE_OPTIONAL),
+        body: `${renderTemplate(tpl.body, vars, INVOICE_OPTIONAL)}\n\n${signature}`,
     };
 };

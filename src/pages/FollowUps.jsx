@@ -233,7 +233,7 @@ const FollowUps = ({ embedded = false }) => {
     };
 
     const prepareInvoiceReminder = (invoice) => {
-        const draft = buildInvoiceReminderEmail(invoice, invoice.reminder, { client: invoice.clients, profile });
+        const draft = buildInvoiceReminderEmail(invoice, invoice.reminder, { client: invoice.clients, profile, settings: profile?.autopilot_settings });
         setInvoiceDrafts(prev => ({ ...prev, [invoice.id]: draft }));
     };
 

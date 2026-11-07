@@ -152,6 +152,27 @@ describe('buildInvoiceReminderEmail', () => {
         expect(pro).toContain('indemnité forfaitaire pour frais de recouvrement de 40 €');
     });
 
+    it('modèle de l\'artisan : utilisé pour son niveau seulement', () => {
+        const settings = { invoice_templates: { amiable: { subject: 'Petit oubli ? Facture {facture}', body: 'Bonjour {client}, la facture {facture} ({montant}) attend toujours. {iban}' } } };
+        const s0 = invoiceReminderStatus(invoice(), TODAY);
+        const { subject, body } = buildInvoiceReminderEmail(invoice(), s0, { client, profile, settings });
+        expect(subject).toBe('Petit oubli ? Facture FAC-2026-0042');
+        expect(body).toMatch(/^Bonjour M\. Dupont, la facture FAC-2026-0042 \(8\s592,00 €\) attend toujours\. FR76 1234/);
+        expect(body).toMatch(/Cordialement,\nDenis Meriot\nRed Den Connexion$/);
+        const inv = invoice({ follow_up_count: 1, last_followup_at: '2026-09-10T09:00:00' });
+        expect(buildInvoiceReminderEmail(inv, invoiceReminderStatus(inv, TODAY), { client, profile, settings }).subject)
+            .toBe('2e rappel : facture FAC-2026-0042 impayée');
+    });
+
+    it('sans IBAN, la ligne du virement disparaît ; sans rappel précédent, pas de « du , »', () => {
+        const inv = invoice({ follow_up_count: 1, last_followup_at: null });
+        const s = { ...invoiceReminderStatus(invoice(), TODAY), level: 1 };
+        const { body } = buildInvoiceReminderEmail(inv, s, { client, profile: { full_name: 'Denis' } });
+        expect(body).not.toContain('virement');
+        expect(body).toContain('Malgré notre précédent rappel, la facture');
+        expect(body).not.toMatch(/\{\w+\}/);
+    });
+
     it('sans numéro de facture ni IBAN', () => {
         const inv = invoice({ invoice_number: null, quote_number: 17 });
         const { subject, body } = buildInvoiceReminderEmail(inv, invoiceReminderStatus(inv, TODAY), { client, profile: {} });

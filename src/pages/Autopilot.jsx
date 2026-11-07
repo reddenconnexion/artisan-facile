@@ -14,6 +14,7 @@ import { TRIAL_DAYS } from '../utils/founderOffer';
 import FollowUpPostpone from '../components/FollowUpPostpone';
 import ReviewTemplateEditor from '../components/ReviewTemplateEditor';
 import QuoteTemplatesEditor from '../components/QuoteTemplatesEditor';
+import InvoiceTemplatesEditor from '../components/InvoiceTemplatesEditor';
 
 const KINDS = {
     quote_followup: { icon: FileText, label: 'Relance de devis', color: 'text-blue-600 dark:text-blue-400' },
@@ -292,6 +293,12 @@ const Autopilot = () => {
                             <FileText size={15} className="text-blue-600 dark:text-blue-400" /> Relances de devis
                         </p>
                         <div className="ml-6"><QuoteTemplatesEditor settings={settings} save={save} profile={profile} /></div>
+                    </div>
+                    <div className="mt-3">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                            <Receipt size={15} className="text-orange-600 dark:text-orange-400" /> Rappels de factures
+                        </p>
+                        <div className="ml-6"><InvoiceTemplatesEditor settings={settings} save={save} profile={profile} /></div>
                     </div>
                     <div className="mt-3">
                         <p className="text-sm font-medium text-gray-800 dark:text-gray-100 flex items-center gap-2">

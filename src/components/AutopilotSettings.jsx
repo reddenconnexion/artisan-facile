@@ -6,6 +6,7 @@ import { useAutopilot } from '../hooks/useAutopilot';
 import { formatCurrencyRounded } from '../utils/format';
 import ReviewTemplateEditor from './ReviewTemplateEditor';
 import QuoteTemplatesEditor from './QuoteTemplatesEditor';
+import InvoiceTemplatesEditor from './InvoiceTemplatesEditor';
 
 const ITEMS = [
     { key: 'quotes', icon: FileText, title: 'Relancer mes devis pas encore signés', text: 'À J+7, J+14 et J+21, puis un dernier message avant de classer le devis.' },
@@ -101,6 +102,9 @@ const AutopilotSettings = () => {
                                 )}
                                 {key === 'quotes' && (
                                     <QuoteTemplatesEditor settings={settings} save={save} profile={profile} />
+                                )}
+                                {key === 'invoices' && (
+                                    <InvoiceTemplatesEditor settings={settings} save={save} profile={profile} />
                                 )}
                                 {key === 'summary' && (
                                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
