@@ -18,7 +18,7 @@ import {
 import { buildInvoiceReminderEmail, invoiceReference } from '../utils/unpaidInvoices';
 import { generateFollowUpEmail } from '../utils/aiService';
 import { supabase } from '../utils/supabase';
-import { sendDocumentEmail, probablySentMessage } from '../utils/sendDocumentEmail';
+import { sendDocumentEmail, probablySentMessage, sendingLabel } from '../utils/sendDocumentEmail';
 import { toast } from 'sonner';
 import { Clock, Send, CheckCircle, Mail, ChevronDown, ChevronUp, Sparkles, Archive, AlertTriangle, Receipt, BadgeCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -178,14 +178,13 @@ const FollowUps = ({ embedded = false }) => {
     // l'adresse pro de l'artisan (Edge Function SMTP, même mécanisme que les
     // devis/factures), avec repli sur le client mail.
     const deliverEmail = async ({ to, subject, body, doc }) => {
-        const smtpConfigured = !!profile?.smtp_config?.host && !!profile?.smtp_config?.from_email;
         const mailtoUrl = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
         if (isTestMode) {
             captureEmail({ email: to, subject, body });
             toast.success('📬 Relance capturée dans l\'inbox test', { duration: 4000 });
-        } else if (smtpConfigured) {
-            const sendingToast = toast.loading('Envoi de la relance depuis votre adresse pro...');
+        } else {
+            const sendingToast = toast.loading(sendingLabel(profile, 'Envoi de la relance'));
             const { status, error } = await sendDocumentEmail({
                 to,
                 subject,
@@ -202,8 +201,6 @@ const FollowUps = ({ embedded = false }) => {
                 toast.error((error || 'Échec de l\'envoi direct') + ' — ouverture du client mail');
                 window.location.href = mailtoUrl;
             }
-        } else {
-            window.location.href = mailtoUrl;
         }
     };
 

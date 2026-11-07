@@ -14,7 +14,7 @@ import {
 } from '../utils/followUpService';
 import { generateFollowUpEmail } from '../utils/aiService';
 import { supabase } from '../utils/supabase';
-import { sendDocumentEmail, probablySentMessage } from '../utils/sendDocumentEmail';
+import { sendDocumentEmail, probablySentMessage, sendingLabel } from '../utils/sendDocumentEmail';
 import { toast } from 'sonner';
 import {
     Sparkles, Send, Mail, Clock, ChevronRight, ChevronDown, MailOpen, Eye, EyeOff, Loader2, CalendarClock, Trash2, History,
@@ -230,7 +230,6 @@ const DailyRelanceSuggestions = () => {
         }
 
         const { subject, body } = draft;
-        const smtpConfigured = !!profile?.smtp_config?.host && !!profile?.smtp_config?.from_email;
         const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
         setSending(prev => ({ ...prev, [key]: true }));
@@ -238,8 +237,8 @@ const DailyRelanceSuggestions = () => {
         if (isTestMode) {
             captureEmail({ email: clientEmail, subject, body });
             toast.success('📬 Relance capturée dans l\'inbox test', { duration: 4000 });
-        } else if (smtpConfigured) {
-            const sendingToast = toast.loading('Envoi de la relance depuis votre adresse pro...');
+        } else {
+            const sendingToast = toast.loading(sendingLabel(profile, 'Envoi de la relance'));
             const { status, error } = await sendDocumentEmail({
                 to: clientEmail,
                 subject,
@@ -256,8 +255,6 @@ const DailyRelanceSuggestions = () => {
                 toast.error((error || 'Échec de l\'envoi direct') + ' — ouverture du client mail');
                 window.location.href = mailtoUrl;
             }
-        } else {
-            window.location.href = mailtoUrl;
         }
 
         try {

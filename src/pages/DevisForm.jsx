@@ -1438,6 +1438,7 @@ const DevisForm = () => {
         handleNotifyWithdrawal,
         handleSendQuoteEmail,
         handleConfirmSendEmail,
+        markQuoteSent,
     } = useQuoteEmail({
         captureEmail,
         clients,
@@ -1589,11 +1590,32 @@ const DevisForm = () => {
 
             // console.log('Generating PDF with data:', { devisData, selectedClient, user: userProfile });
             await generateClientPDF(devisData, selectedClient, userProfile, isInvoice);
-            toast.success(
-                detailed
-                    ? 'Copie interne détaillée générée'
-                    : (isInvoice ? 'Facture générée avec succès' : 'PDF généré avec succès')
-            );
+            // Devis en brouillon téléchargé : l'artisan va sans doute l'envoyer
+            // lui-même. Tant qu'il reste « brouillon », aucune relance (manuelle
+            // ou automatique) ne le suit : on propose de le marquer envoyé.
+            if (!detailed && !isInvoice && formData.status === 'draft' && isEditing && id && id !== 'new') {
+                toast.success('PDF généré', {
+                    description: 'Vous l\'envoyez au client vous-même ? Marquez-le « envoyé » pour que l\'appli suive la réponse et relance.',
+                    duration: 10000,
+                    action: {
+                        label: 'Marquer envoyé',
+                        onClick: () => {
+                            markQuoteSent()
+                                .then(() => toast.success('Devis marqué comme envoyé'))
+                                .catch((err) => {
+                                    console.error('markQuoteSent failed:', err);
+                                    toast.error("Impossible de marquer le devis comme envoyé");
+                                });
+                        },
+                    },
+                });
+            } else {
+                toast.success(
+                    detailed
+                        ? 'Copie interne détaillée générée'
+                        : (isInvoice ? 'Facture générée avec succès' : 'PDF généré avec succès')
+                );
+            }
         } catch (error) {
             console.error('Error generating PDF:', error);
             toast.error('Erreur lors de la génération du PDF : ' + error.message);

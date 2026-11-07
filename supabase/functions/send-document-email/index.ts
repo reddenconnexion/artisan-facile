@@ -4,6 +4,12 @@
 // `profiles.smtp_config`). Permet d'envoyer devis/factures/rapports
 // directement depuis l'adresse pro de l'artisan, sans passer par mailto.
 //
+// Sans SMTP configuré (cas de la plupart des artisans), le mail part par la
+// plateforme (Resend, domaine vérifié) au nom de l'entreprise, et les
+// réponses du client arrivent dans la boîte de l'artisan (Reply-To). Le
+// repli `mailto:` côté appli ne marchait pas sur un appareil sans application
+// de messagerie, et rien n'était suivi.
+//
 // Tracking d'ouverture : à chaque envoi (sauf mode `test`), on crée une
 // ligne `email_sends` avec un token UUID unique et on injecte un pixel
 // transparent dans le HTML qui pointe vers `track-email-open`. Le pixel
@@ -34,7 +40,8 @@ import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { readSecret } from '../_shared/vault.ts';
 import { corsHeaders, corsPreflight, json, requireUser } from '../_shared/http.ts';
 import { enforceRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts';
-import { buildHtmlSignature, injectTrackingPixel, splitBodyAndSignature, textToHtml, toAsciiSubject } from '../_shared/email.ts';
+import { buildHtmlSignature, injectTrackingPixel, sendViaPlatform, splitBodyAndSignature, textToHtml, toAsciiSubject } from '../_shared/email.ts';
+import { isValidEmail } from '../_shared/lib/autopilot.js';
 
 function normalizeRecipients(v: unknown): string[] {
     if (!v) return [];
@@ -69,6 +76,28 @@ function normalizeAttachments(v: unknown): { filename: string; contentType: stri
         throw new Error('Pièces jointes trop volumineuses (8 Mo maximum au total)');
     }
     return result;
+}
+
+const PLATFORM_MAX_RECIPIENTS = 3;
+const PLATFORM_DAILY_LIMIT = 40;
+
+// deno-lint-ignore no-explicit-any
+async function checkPlatformGuards(admin: any, userId: string, { quoteId, clientId, recipients }: { quoteId?: unknown; clientId?: unknown; recipients: number }): Promise<string | null> {
+    if (recipients > PLATFORM_MAX_RECIPIENTS) {
+        return `${PLATFORM_MAX_RECIPIENTS} destinataires au maximum.`;
+    }
+    if (!quoteId && !clientId) {
+        return "Envoi direct réservé à vos devis, factures et clients.";
+    }
+    const table = quoteId ? 'quotes' : 'clients';
+    const { data: owned } = await admin.from(table).select('id').eq('id', quoteId ?? clientId).eq('user_id', userId).maybeSingle();
+    if (!owned) return 'Document introuvable.';
+    const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const { count } = await admin.from('email_sends').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('sent_at', since);
+    if ((count ?? 0) >= PLATFORM_DAILY_LIMIT) {
+        return `Limite de ${PLATFORM_DAILY_LIMIT} mails par jour atteinte. Configurez votre adresse mail dans votre profil pour envoyer davantage.`;
+    }
+    return null;
 }
 
 Deno.serve(async (req) => {
@@ -113,17 +142,35 @@ Deno.serve(async (req) => {
         if (profileErr) return json({ error: 'Profil introuvable' }, 404);
 
         const cfg = profile?.smtp_config;
-        if (!cfg?.host || !cfg?.port || !cfg?.username || !cfg?.password_secret_id || !cfg?.from_email) {
+        const smtpComplete = !!(cfg?.host && cfg?.port && cfg?.username && cfg?.password_secret_id && cfg?.from_email);
+        const smtpPassword = smtpComplete ? await readSecret(cfg.password_secret_id) : null;
+        const useSmtp = smtpComplete && !!smtpPassword;
+
+        // Le test de connexion vérifie le SMTP de l'artisan : pas de repli.
+        if (test && !useSmtp) {
             return json({ error: 'Configuration SMTP incomplète. Renseignez-la dans votre profil.' }, 400);
         }
 
-        const smtpPassword = await readSecret(cfg.password_secret_id);
-        if (!smtpPassword) {
-            return json({ error: 'Configuration SMTP incomplète. Renseignez-la dans votre profil.' }, 400);
+        // Repli plateforme : il faut une adresse où le client pourra répondre.
+        const replyTo = reply_to || (isValidEmail(profile?.professional_email) ? profile.professional_email : user.email) || null;
+        const resendKey = Deno.env.get('RESEND_API_KEY');
+        if (!useSmtp && (!resendKey || !replyTo)) {
+            return json({ error: "Envoi direct indisponible pour le moment. Configurez votre adresse mail dans votre profil." }, 400);
         }
 
         const toList = test ? [cfg.from_email] : normalizeRecipients(to);
         if (toList.length === 0) return json({ error: 'Destinataire requis' }, 400);
+
+        // Garde-fous de l'envoi par la plateforme : il engage la réputation du
+        // domaine commun à tous les artisans. Uniquement pour un document ou
+        // un client de l'artisan, peu de destinataires, volume quotidien borné.
+        if (!useSmtp) {
+            const guardError = await checkPlatformGuards(supabaseAdmin, user.id, {
+                quoteId: quote_id, clientId: client_id,
+                recipients: toList.length + normalizeRecipients(cc).length + normalizeRecipients(bcc).length,
+            });
+            if (guardError) return json({ error: guardError }, 400);
+        }
 
         // ── Création de l'entrée de tracking + token (sauf mode test) ──
         let trackingToken: string | null = null;
@@ -163,6 +210,24 @@ Deno.serve(async (req) => {
             const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
             const pixelUrl = `${supabaseUrl}/functions/v1/track-email-open?t=${trackingToken}`;
             finalHtml = injectTrackingPixel(finalHtml, pixelUrl);
+        }
+
+        if (!useSmtp) {
+            const platformStartedAt = Date.now();
+            await sendViaPlatform({
+                apiKey: resendKey!,
+                displayName: String(profile?.company_name || profile?.full_name || 'Votre artisan'),
+                replyTo: replyTo!,
+                to: toList,
+                cc: normalizeRecipients(cc),
+                bcc: normalizeRecipients(bcc),
+                subject,
+                text: finalText,
+                html: finalHtml,
+                attachments: resolvedAttachments.map(({ filename, content }) => ({ filename, content })),
+            });
+            console.log(`send-document-email: accepté par la plateforme en ${Date.now() - platformStartedAt} ms`);
+            return json({ success: true, sent_to: toList, email_send_id: emailSendId, channel: 'platform', reply_to: replyTo });
         }
 
         client = new SMTPClient({
@@ -212,7 +277,7 @@ Deno.serve(async (req) => {
         // deno-lint-ignore no-explicit-any
         (globalThis as any).EdgeRuntime?.waitUntil?.(closing);
 
-        return json({ success: true, sent_to: toList, email_send_id: emailSendId });
+        return json({ success: true, sent_to: toList, email_send_id: emailSendId, channel: 'smtp' });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('send-document-email error:', message);
