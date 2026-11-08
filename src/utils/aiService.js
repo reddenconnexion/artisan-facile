@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { supabase } from './supabase';
 import {
     toSafeNumber,
@@ -54,8 +55,17 @@ const callAiProxy = async (body) => {
         throw new Error(error.message || 'Erreur du proxy IA');
     }
 
+    // Message du serveur (ex. plafond mensuel du chiffrage avancé atteint) :
+    // montré une fois par session, une visite enchaîne plusieurs appels.
+    if (data?.notice && data.notice !== lastNoticeShown) {
+        lastNoticeShown = data.notice;
+        toast.info(data.notice, { duration: 10000 });
+    }
+
     return data.rawResponse;
 };
+
+let lastNoticeShown = null;
 
 /**
  * Prompt système par défaut pour la génération de devis.

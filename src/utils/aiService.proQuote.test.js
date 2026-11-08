@@ -82,3 +82,16 @@ describe('generateProQuote', () => {
         expect(r.questions).toEqual([]);
     });
 });
+
+describe('message du serveur (plafond Claude atteint)', () => {
+    it('est affiché une seule fois, et la réponse reste exploitée', async () => {
+        const { toast } = await import('sonner');
+        const info = vi.spyOn(toast, 'info').mockImplementation(() => {});
+        invokeMock.mockResolvedValue({ data: { rawResponse: JSON.stringify(sample), notice: 'Plafond atteint' }, error: null });
+        const r1 = await generateProQuote('A');
+        await generateProQuote('B');
+        expect(r1.items).toHaveLength(2);
+        expect(info).toHaveBeenCalledTimes(1);
+        expect(info.mock.calls[0][0]).toBe('Plafond atteint');
+    });
+});
