@@ -212,47 +212,63 @@ export const proItemsToFormItems = (items, idBase = Date.now()) => {
     return out;
 };
 
-// Nombre de lignes de bibliothèque envoyées au modèle : assez pour couvrir un
-// chantier courant sans alourdir le prompt (≈ 60 caractères par ligne).
-export const PRICE_LIBRARY_MAX_LINES = 120;
+// Nombre maximal de lignes de bibliothèque envoyées au modèle. Une
+// bibliothèque réelle compte des milliers d'articles : en envoyer 120 à chaque
+// appel pesait ≈ 4 000 tokens, payés à chaque chiffrage, pour une poignée
+// d'articles réellement utiles.
+export const PRICE_LIBRARY_MAX_LINES = 40;
 
+// Mots qui ne disent rien du chantier : ils faisaient remonter des articles
+// sans rapport (« pour », « avec », « pose » se trouvent partout).
+const STOPWORDS = new Set([
+    'les', 'des', 'une', 'aux', 'pour', 'avec', 'sans', 'dans', 'sur', 'sous', 'par', 'entre',
+    'est', 'sont', 'qui', 'que', 'quoi', 'dont', 'son', 'ses', 'leur', 'leurs', 'cette', 'ces',
+    'plus', 'moins', 'tout', 'tous', 'toute', 'toutes', 'mais', 'donc', 'car', 'pas', 'non', 'oui',
+    'client', 'cliente', 'chez', 'faire', 'fait', 'mettre', 'mis', 'prevoir', 'environ', 'deja',
+    'pose', 'poser', 'fourniture', 'fournir', 'main', 'oeuvre', 'mise', 'place', 'compris', 'comprise',
+    'travaux', 'chantier', 'existant', 'existante', 'neuf', 'neuve', 'type', 'modele',
+]);
+
+// Minuscules sans accents, mots de 3 lettres et plus hors mots vides, au
+// singulier (« prises » trouve « Prise 2P+T »).
 const tokenize = (text) =>
     String(text ?? '')
         .toLowerCase()
         .normalize('NFD').replace(/[̀-ͯ]/g, '')
         .split(/[^a-z0-9]+/)
-        .filter((w) => w.length >= 3);
+        .map((w) => (w.length > 4 && /[sx]$/.test(w) ? w.slice(0, -1) : w))
+        .filter((w) => w.length >= 3 && !STOPWORDS.has(w));
 
 const fmtPrice = (n) => (Math.round(n * 100) / 100).toString().replace('.', ',');
 
 /**
  * Bloc « BIBLIOTHÈQUE DE PRIX » : les prix de vente que l'artisan pratique
- * réellement. Quand la bibliothèque dépasse la limite, on garde les articles
- * dont la désignation partage le plus de mots avec la visite.
+ * réellement, limités aux articles qui parlent du chantier — ceux dont la
+ * désignation partage des mots avec le texte, les plus proches d'abord.
  *
  * @param {Array} library - lignes price_library ({description, price, unit, type, category})
- * @param {string} visitText - texte de la visite (relevé, notes, photos)
- * @returns {string} bloc à ajouter au prompt, vide si rien d'exploitable
+ * @param {string} visitText - texte du chantier (description, relevé, notes, photos)
+ * @returns {string} bloc à ajouter au prompt, vide si aucun article ne correspond
  */
 export const buildPriceLibraryPrompt = (library, visitText = '', max = PRICE_LIBRARY_MAX_LINES) => {
-    const usable = (Array.isArray(library) ? library : []).filter((it) =>
-        it && typeof it.description === 'string' && it.description.trim()
-        && Number.isFinite(Number(it.price)) && Number(it.price) > 0);
-    if (!usable.length) return '';
+    const words = new Set(tokenize(visitText));
+    if (!words.size) return '';
 
-    let picked = usable;
-    if (usable.length > max) {
-        const words = new Set(tokenize(visitText));
-        picked = usable
-            .map((it, i) => ({
-                it,
-                i,
-                score: tokenize(`${it.description} ${it.category || ''}`).filter((w) => words.has(w)).length,
-            }))
-            .sort((a, b) => b.score - a.score || a.i - b.i)
-            .slice(0, max)
-            .map((s) => s.it);
-    }
+    const picked = (Array.isArray(library) ? library : [])
+        .filter((it) => it && typeof it.description === 'string' && it.description.trim()
+            && Number.isFinite(Number(it.price)) && Number(it.price) > 0)
+        .map((it, i) => {
+            const own = new Set(tokenize(it.description));
+            const score = [...own].filter((w) => words.has(w)).length;
+            // À score égal, l'article le plus spécifique (peu de mots hors
+            // sujet) passe devant.
+            return { it, i, score, ratio: own.size ? score / own.size : 0 };
+        })
+        .filter((s) => s.score > 0)
+        .sort((a, b) => b.score - a.score || b.ratio - a.ratio || a.i - b.i)
+        .slice(0, max)
+        .map((s) => s.it);
+    if (!picked.length) return '';
 
     const lines = picked.map((it) => {
         const kind = it.type === 'service' ? 'MO' : 'fourniture';

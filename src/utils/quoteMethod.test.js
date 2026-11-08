@@ -17,30 +17,62 @@ describe('buildSiteVisitMethod', () => {
 });
 
 describe('buildPriceLibraryPrompt', () => {
-    it('est vide sans article exploitable', () => {
-        expect(buildPriceLibraryPrompt(undefined)).toBe('');
-        expect(buildPriceLibraryPrompt([{ description: '', price: 5 }, { description: 'Gratuit', price: 0 }])).toBe('');
+    it('est vide sans article exploitable ou sans texte de chantier', () => {
+        expect(buildPriceLibraryPrompt(undefined, 'prise')).toBe('');
+        expect(buildPriceLibraryPrompt([{ description: '', price: 5 }, { description: 'Gratuit', price: 0 }], 'gratuit')).toBe('');
+        expect(buildPriceLibraryPrompt([{ description: 'Prise 2P+T', price: 12 }], '')).toBe('');
     });
 
-    it('liste désignation, unité, prix et nature', () => {
+    it('liste désignation, unité, prix et nature des articles liés au chantier', () => {
         const out = buildPriceLibraryPrompt([
             { description: 'Main d\'œuvre électricien', price: 50, unit: 'h', type: 'service' },
             { description: 'Câble R2V 3G2,5', price: 1.8, unit: 'ml', type: 'material' },
-        ]);
+        ], 'Tirer un câble R2V depuis le tableau, travail d\'électricien');
         expect(out).toContain('BIBLIOTHÈQUE DE PRIX');
         expect(out).toContain("- Main d'œuvre électricien | h | 50 € HT | MO");
         expect(out).toContain('- Câble R2V 3G2,5 | ml | 1,8 € HT | fourniture');
     });
 
-    it('au-delà de la limite, garde les articles qui parlent de la visite', () => {
+    it('n’envoie que les articles qui parlent du chantier', () => {
         const library = [
             { description: 'Carrelage mural', price: 30 },
             { description: 'Plinthe bois', price: 8 },
             { description: 'Interrupteur va-et-vient', price: 9 },
         ];
-        const out = buildPriceLibraryPrompt(library, 'Ajouter un interrupteur dans le couloir', 1);
+        const out = buildPriceLibraryPrompt(library, 'Ajouter un interrupteur dans le couloir');
         expect(out).toContain('Interrupteur va-et-vient');
         expect(out).not.toContain('Carrelage');
+        expect(out).not.toContain('Plinthe');
+    });
+
+    it('ignore les mots vides et confond singulier et pluriel', () => {
+        const library = [
+            { description: 'Pose pour fourniture avec câblage', price: 10 },
+            { description: 'Prise 2P+T 16A', price: 12 },
+        ];
+        const out = buildPriceLibraryPrompt(library, 'Pose de 6 prises pour la cuisine avec fourniture');
+        expect(out).toContain('Prise 2P+T 16A');
+        expect(out).not.toContain('Pose pour fourniture');
+    });
+
+    it('plafonne et classe les plus proches d’abord', () => {
+        const library = [
+            { description: 'Disjoncteur 16A', price: 9 },
+            { description: 'Disjoncteur différentiel 30mA type A 40A', price: 70 },
+            { description: 'Disjoncteur 20A', price: 9 },
+        ];
+        const out = buildPriceLibraryPrompt(library, 'disjoncteur différentiel 30mA type A', 2);
+        const lines = out.split('\n').filter((l) => l.startsWith('- '));
+        expect(lines).toHaveLength(2);
+        expect(lines[0]).toContain('différentiel');
+    });
+
+    it('envoie au plus 40 lignes d’une grosse bibliothèque', async () => {
+        const { PRICE_LIBRARY_MAX_LINES } = await import('./quoteMethod');
+        const library = Array.from({ length: 500 }, (_, i) => ({ description: `Prise modèle ${i}`, price: 10 }));
+        const out = buildPriceLibraryPrompt(library, 'Remplacer les prises de la cuisine');
+        expect(out.split('\n').filter((l) => l.startsWith('- '))).toHaveLength(PRICE_LIBRARY_MAX_LINES);
+        expect(PRICE_LIBRARY_MAX_LINES).toBe(40);
     });
 });
 
