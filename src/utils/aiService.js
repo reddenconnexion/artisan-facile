@@ -295,11 +295,14 @@ export const generateProQuote = async (userDescription, context = {}) => {
     if (answersBlock) extras += ANSWERS_INSTRUCTION;
 
     const userMessage = `TRAVAUX À CHIFFRER :\n${userDescription}${answersBlock ? `\n\n${answersBlock}` : ''}`;
+    // 2e passage (réponses de l'artisan) : le serveur réfléchit moins, les
+    // questions sont déjà posées. Le 1er passage garde une réflexion moyenne.
+    const pass = answersBlock ? 'refine' : 'first';
     const rawResponse = context.customSystemPrompt
         // Le preset accompagne le prompt personnalisé : c'est lui qui oriente
         // le serveur vers le moteur de chiffrage Pro.
-        ? await callAiProxy({ preset: 'quote-pro', systemPrompt: context.customSystemPrompt + extras, userMessage })
-        : await callAiProxy({ preset: 'quote-pro', extras, userMessage });
+        ? await callAiProxy({ preset: 'quote-pro', pass, systemPrompt: context.customSystemPrompt + extras, userMessage })
+        : await callAiProxy({ preset: 'quote-pro', pass, extras, userMessage });
 
     const parsed = extractJsonObject(rawResponse);
     const rawItems = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.items) ? parsed.items : []);

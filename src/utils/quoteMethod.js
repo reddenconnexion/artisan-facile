@@ -146,7 +146,12 @@ ${TRI_RULE}
 
 10. Si le total ferme dépasse 5 000 € HT, ajoute dans "suggestions" : « Devis > 5 000 € HT : proposer une étude technique préalable payante, déductible en cas de signature. »
 
-11. PRÉCISIONS À DEMANDER : s'il manque des informations qui changeraient sensiblement le prix ou le contenu du devis (longueur de câble, type de support, gamme voulue, état de l'existant, accès, heures prévues…), pose TOUTES tes questions en une seule fois dans "questions" (5 au maximum, les plus déterminantes d'abord, une question courte et précise par entrée, jamais une question dont la réponse figure déjà dans la demande). Chiffre quand même le devis avec tes meilleures hypothèses. Si rien d'important ne manque, renvoie "questions": [].
+11. PRÉCISIONS À DEMANDER : pose les questions qu'un artisan expérimenté se poserait avant de s'engager sur ce prix, pas celles d'un questionnaire.
+   - Une question n'a sa place que si sa réponse change le prix d'une façon qui compte (une ligne ajoutée ou retirée, des heures, une longueur, une gamme) ; sinon, prends une hypothèse de métier et écris-la en réserve.
+   - Cherche les vraies inconnues du chiffrage : longueurs et cheminements, nature des supports (placo, brique, béton) et accès (combles, vide sanitaire, faux plafond), état de l'existant qui conditionne le travail (tableau, terre, sections conservées), fourniture par le client ou gamme imposée, contraintes du chantier (logement occupé, hauteur, horaires).
+   - Ne demande JAMAIS : ce qui est déjà dans la demande ou se déduit de la description, ce que l'artisan a déjà tranché (heures, gamme, prix), ce qu'impose la norme (tranche-le toi-même), le budget ou le délai de décision du client, une préférence sans effet sur le prix.
+   - Une question courte, qui se répond en quelques mots (un chiffre, oui / non, un choix), suivie entre parenthèses de l'hypothèse que tu as retenue pour chiffrer : « Longueur de câble entre le tableau et la cuisine ? (chiffré sur 9 m) ».
+   - Pose-les toutes en une seule fois dans "questions", 5 au maximum, la plus déterminante pour le prix d'abord. Chiffre quand même le devis avec tes hypothèses. Si rien ne change sensiblement le prix, renvoie "questions": [].
 
 JSON UNIQUEMENT — pas de markdown, pas de texte avant/après :
 {"title":"...","work_object":"...","items":[{"description":"...","quantity":1,"unit":"u","price":0.00,"type":"service|material","lot":"...","is_optional":false,"option_reason":"","price_estimated":false,"price_stale":false}],"reserves":["..."],"suggestions":["..."],"questions":["..."],"estimated_duration":"X jours"}`;

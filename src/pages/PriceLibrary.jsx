@@ -5,6 +5,7 @@ import { useConfirm } from '../context/ConfirmContext';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { useUserProfile } from '../hooks/useDataCache';
 import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
+import MarginCoefficientSetting from '../components/MarginCoefficientSetting';
 import { toast } from 'sonner';
 import { Plus, Upload, Download, Trash2, Search, FileSpreadsheet, X, Save, Pencil, BookOpen, ChevronDown } from 'lucide-react';
 import Papa from 'papaparse';
@@ -312,6 +313,9 @@ const PriceLibrary = () => {
                     </button>
                 </div>
             </div>
+
+            {/* Coefficient de marge : réglé là où il sert (aussi dans Profil). */}
+            <MarginCoefficientSetting />
 
             {/* Search */}
             <div className="mb-6 relative">
