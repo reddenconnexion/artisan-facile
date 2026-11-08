@@ -3,7 +3,7 @@ import {
     parisClock, isSendingWindow, isSummaryHour, dueQuoteFollowUp, buildQuoteFollowUpEmail,
     dueInvoiceReminder, dueReviewRequest, buildReviewRequestEmail, planAutopilotRun,
     dueReviewAfterWork, planReviewNow, renderTemplate, quoteTemplateKind, DEFAULT_QUOTE_TEMPLATES,
-    buildManualQuoteFollowUp, nextSendTime, sendTimeLabel, applyDraft,
+    buildManualQuoteFollowUp, computeAutopilotGains, nextSendTime, sendTimeLabel, applyDraft,
     buildEveningSummary, summarizeActions, readAutopilotSettings, actionKey,
     DEFAULT_FOLLOW_UP_STEPS, MAX_EMAILS_PER_DAY,
 } from './autopilot';
@@ -419,6 +419,38 @@ describe('heure du prochain envoi', () => {
         expect(sendTimeLabel(new Date('2026-11-10T09:05:00Z'), NOW)).toBe("aujourd'hui vers 10 h 05");
         expect(sendTimeLabel(new Date('2026-11-11T08:05:00Z'), NOW)).toBe('demain vers 9 h 05');
         expect(sendTimeLabel(new Date('2026-11-09T08:05:00Z'), new Date('2026-11-07T10:00:00Z'))).toBe('lundi vers 9 h 05');
+    });
+});
+
+describe('ce que le pilote a rapporté', () => {
+    const actions = [
+        { kind: 'quote_followup', quote_id: 1, created_at: '2026-11-02T08:05:00Z' },
+        { kind: 'quote_followup', quote_id: 1, created_at: '2026-11-09T08:05:00Z' }, // 2e relance, même devis
+        { kind: 'quote_followup', quote_id: 2, created_at: '2026-11-05T08:05:00Z' },
+        { kind: 'invoice_reminder', quote_id: 50, created_at: '2026-11-03T08:05:00Z' },
+        { kind: 'invoice_reminder', quote_id: 51, created_at: '2026-11-03T08:05:00Z', status: 'failed' },
+        { kind: 'review_request', quote_id: 60, created_at: '2026-11-04T16:00:00Z' },
+        { kind: 'summary', quote_id: null, created_at: '2026-11-04T17:05:00Z' },
+    ];
+    const docs = [
+        { id: 1, signed_at: '2026-11-06T18:00:00Z', total_ttc: 4200 },  // signé après la relance
+        { id: 2, signed_at: '2026-11-01T18:00:00Z', total_ttc: 900 },   // signé AVANT : ne compte pas
+        { id: 50, status: 'paid', paid_at: '2026-11-03', total_ttc: 650 }, // payé le jour du rappel : compte
+        { id: 51, status: 'paid', paid_at: '2026-11-08', total_ttc: 300 }, // rappel raté : ne compte pas
+    ];
+
+    it('compte ce qui suit un envoi du pilote, une fois par document', () => {
+        expect(computeAutopilotGains(actions, docs)).toEqual({
+            signed: { count: 1, amount: 4200 },
+            paid: { count: 1, amount: 650 },
+            reviews: 1,
+            mails: 5,
+            total: 4850,
+        });
+    });
+
+    it('rien d\'envoyé : rien à montrer', () => {
+        expect(computeAutopilotGains([], docs).total).toBe(0);
     });
 });
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Bot, FileText, Receipt, Star, Clock, PauseCircle, PlayCircle, Pencil, RotateCcw, Loader2,
     ChevronDown, ChevronUp, AlertTriangle, CheckCircle, Send, Settings,
@@ -13,6 +13,8 @@ import { formatCurrencyRounded } from '../utils/format';
 import { TRIAL_DAYS } from '../utils/founderOffer';
 import FollowUpPostpone from '../components/FollowUpPostpone';
 import ReviewTemplateEditor from '../components/ReviewTemplateEditor';
+import AutopilotSetup from '../components/AutopilotSetup';
+import AutopilotGains from '../components/AutopilotGains';
 import QuoteTemplatesEditor from '../components/QuoteTemplatesEditor';
 import InvoiceTemplatesEditor from '../components/InvoiceTemplatesEditor';
 
@@ -193,8 +195,9 @@ const SentMail = ({ row }) => {
  */
 const Autopilot = () => {
     const navigate = useNavigate();
-    const { isPro, loading: planLoading } = usePlanLimits();
-    const { settings, save, profile, preview, recent, loading, reload, saveDraft, holdDraft, resetDraft } = useAutopilot();
+    const [searchParams] = useSearchParams();
+    const { isPro, isFounder, loading: planLoading } = usePlanLimits();
+    const { settings, save, profile, preview, gains, recent, loading, reload, saveDraft, holdDraft, resetDraft } = useAutopilot();
 
     if (planLoading || loading || !preview) {
         return (
@@ -227,6 +230,13 @@ const Autopilot = () => {
                     </Link>
                 )}
             </div>
+
+            {isPro && (
+                <AutopilotSetup settings={settings} save={save} profile={profile} welcome={searchParams.get('bienvenue') === '1'} />
+            )}
+            {isPro && (settings.enabled || gains?.mails > 0) && (
+                <AutopilotGains gains={gains} activatedAt={settings.activated_at} isFounder={isFounder} />
+            )}
 
             {!isPro ? (
                 <div className="rounded-xl border border-blue-100 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/20 p-4 mb-5">

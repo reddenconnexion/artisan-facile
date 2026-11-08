@@ -566,6 +566,51 @@ export const planReviewNow = ({ settings, profile, doc, reviewedClients = new Se
     return { action };
 };
 
+// ── Ce que le pilote a rapporté ──────────────────────────────────────────────
+
+/**
+ * Gains du pilote : devis signés après une de ses relances, factures payées
+ * après un de ses rappels (le jour même compte), demandes d'avis et mails
+ * envoyés. On ne compte que ce qui suit un envoi du pilote : pas de gain
+ * attribué à une relance que l'artisan a faite lui-même.
+ *
+ * @param {{kind: string, quote_id: number, created_at: string, status?: string}[]} actions
+ * @param {{id: number, signed_at?: string, paid_at?: string, status?: string, total_ttc?: number}[]} docs
+ */
+export const computeAutopilotGains = (actions = [], docs = []) => {
+    const sent = (actions || []).filter((a) => a && a.kind !== 'summary' && (a.status ?? 'sent') === 'sent');
+    const first = new Map();
+    for (const a of sent) {
+        if (a.quote_id == null) continue;
+        const key = `${a.kind}:${a.quote_id}`;
+        const day = dayNumber(a.created_at);
+        if (day != null && (!first.has(key) || day < first.get(key))) first.set(key, day);
+    }
+    const byId = new Map((docs || []).map((d) => [d.id, d]));
+    const signed = { count: 0, amount: 0 };
+    const paid = { count: 0, amount: 0 };
+    for (const [key, day] of first) {
+        const [kind, id] = key.split(':');
+        const doc = byId.get(Number(id)) ?? byId.get(id);
+        if (!doc) continue;
+        if (kind === 'quote_followup' && doc.signed_at && dayNumber(doc.signed_at) >= day) {
+            signed.count += 1;
+            signed.amount += Number(doc.total_ttc) || 0;
+        }
+        if (kind === 'invoice_reminder' && doc.status === 'paid' && doc.paid_at && dayNumber(doc.paid_at) >= day) {
+            paid.count += 1;
+            paid.amount += Number(doc.total_ttc) || 0;
+        }
+    }
+    return {
+        signed,
+        paid,
+        reviews: sent.filter((a) => a.kind === 'review_request').length,
+        mails: sent.length,
+        total: signed.amount + paid.amount,
+    };
+};
+
 // ── Résumés ──────────────────────────────────────────────────────────────────
 
 const sum = (rows) => rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);

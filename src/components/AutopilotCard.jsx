@@ -9,6 +9,8 @@ import { useAutopilot } from '../hooks/useAutopilot';
 import { useConfirm } from '../context/ConfirmContext';
 import { formatCurrencyRounded } from '../utils/format';
 import { TRIAL_DAYS } from '../utils/founderOffer';
+import AutopilotSetup from './AutopilotSetup';
+import { isAutopilotSetupDone, isSetupDismissed } from '../utils/autopilotSetup';
 
 const KIND_ICONS = { quote_followup: FileText, invoice_reminder: Receipt, review_request: Star };
 const KIND_TEXT = {
@@ -45,7 +47,7 @@ const AutopilotCard = () => {
     const navigate = useNavigate();
     const confirm = useConfirm();
     const { isPro, loading: planLoading } = usePlanLimits();
-    const { settings, save, preview, recent, week, loading } = useAutopilot();
+    const { settings, save, profile, preview, gains, recent, week, loading } = useAutopilot();
     const [activating, setActivating] = useState(false);
 
     if (planLoading || loading || !preview) return null;
@@ -74,6 +76,12 @@ const AutopilotCard = () => {
                 </div>
             </div>
         );
+    }
+
+    // Pro pas encore installé : la mise en route (activer, lien d'avis, notifications).
+    // Repoussée (« plus tard ») : on revient aux encarts habituels.
+    if (!isAutopilotSetupDone(settings, profile) && !isSetupDismissed()) {
+        return <AutopilotSetup compact settings={settings} save={save} profile={profile} />;
     }
 
     if (!settings.enabled) {
@@ -145,6 +153,11 @@ const AutopilotCard = () => {
                 <ChevronRight size={16} className="text-gray-400 shrink-0" />
             </button>
             <div className="p-4 sm:p-5">
+                {gains?.total > 0 && (
+                    <p className="mb-3 text-sm font-semibold text-green-700 dark:text-green-300">
+                        💶 Depuis l'activation : {formatCurrencyRounded(gains.signed.amount)} signés et {formatCurrencyRounded(gains.paid.amount)} encaissés après les relances de l'appli.
+                    </p>
+                )}
                 {week.total === 0 ? (
                     <p className="text-sm text-gray-600 dark:text-gray-300">
                         Rien à relancer pour l'instant. Dès qu'un devis attend une réponse ou qu'une facture passe l'échéance, l'appli s'en occupe.
