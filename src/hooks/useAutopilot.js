@@ -5,6 +5,7 @@ import { useUserProfile, useInvalidateCache } from './useDataCache';
 import { isPostponedNow } from '../utils/followUpPostpone';
 import {
     planAutopilotRun, readAutopilotSettings, summarizeActions, parisClock, nextSendTime, sendTimeLabel, MAX_EMAILS_PER_DAY,
+    computeAutopilotGains,
 } from '../utils/autopilot';
 
 const DAY_MS = 24 * 3600 * 1000;
@@ -30,7 +31,7 @@ const fetchAutopilotData = async (userId, profile) => {
             .eq('kind', 'review_request')
             .eq('status', 'sent'),
         supabase.from('autopilot_actions')
-            .select('action_key, client_id, status, day')
+            .select('action_key, kind, quote_id, client_id, status, day, created_at')
             .eq('user_id', userId)
             .neq('kind', 'summary')
             .gte('day', since),
@@ -82,6 +83,8 @@ const fetchAutopilotData = async (userId, profile) => {
         .map((d) => ({ id: d.id, relance_postponed: true, relance_snoozed_until: d.relance_snoozed_until, title: d.title, amount: Number(d.total_ttc) || 0, client_name: d.clients?.name || '' }));
     return {
         preview: { ...summarizeActions(active), actions: active, needsArtisan, queue, postponed },
+        // Ce que le pilote a rapporté (devis et factures des 400 derniers jours).
+        gains: computeAutopilotGains(log, docs),
         // Table absente tant que la migration n'est pas passée : journal vide.
         recent: logRes.error ? [] : (logRes.data || []),
     };
@@ -95,7 +98,7 @@ export const useAutopilot = () => {
     const { user } = useAuth();
     const { data: profile } = useUserProfile();
     const { invalidateProfile } = useInvalidateCache();
-    const [data, setData] = useState({ preview: null, recent: [] });
+    const [data, setData] = useState({ preview: null, recent: [], gains: null });
     const [loading, setLoading] = useState(true);
     const [reloadKey, setReloadKey] = useState(0);
     const [localSettings, setLocalSettings] = useState(null);
@@ -155,7 +158,7 @@ export const useAutopilot = () => {
         reload();
     }, [user, reload]);
 
-    const { preview, recent } = data;
+    const { preview, recent, gains } = data;
     const sent = recent.filter((r) => r.status === 'sent' && r.kind !== 'summary');
     return {
         profile,
@@ -164,6 +167,7 @@ export const useAutopilot = () => {
         loading,
         reload,
         preview,
+        gains,
         recent: sent,
         week: summarizeActions(sent),
         lastSummary: recent.find((r) => r.kind === 'summary') || null,

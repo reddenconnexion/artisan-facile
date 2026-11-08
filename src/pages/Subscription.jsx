@@ -84,10 +84,10 @@ const Subscription = () => {
     // Handle Stripe redirect callbacks
     useEffect(() => {
         if (searchParams.get('success') === 'true') {
-            toast.success("🎉 Bienvenue dans le Pro ! Activez votre pilote automatique ci-dessous : l'appli s'occupe de vos relances.", { duration: 8000 });
+            toast.success('🎉 Bienvenue dans le Pro ! 3 étapes et l\'appli relance vos clients pour vous.', { duration: 8000 });
             refresh();
-            // Clean URL
-            navigate('/app/subscription', { replace: true });
+            // Mise en route du pilote, tout de suite.
+            navigate('/app/pilote?bienvenue=1', { replace: true });
         } else if (searchParams.get('cancelled') === 'true') {
             toast.info('Paiement annulé. Vous restez sur le plan gratuit.');
             navigate('/app/subscription', { replace: true });

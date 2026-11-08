@@ -96,9 +96,7 @@ async function makeSender(profile: Profile, replyTo: string | null): Promise<Sen
     // pouvoir répondre à son artisan.
     const resendKey = Deno.env.get('RESEND_API_KEY');
     if (!resendKey || !replyTo) return null;
-    const platformAddress = Deno.env.get('AUTOPILOT_EMAIL_FROM')
-        || (Deno.env.get('EMAIL_FROM') ?? '').match(/<([^>]+)>/)?.[1]
-        || 'relances@artisanfacile.fr';
+    const platformAddress = platformFromAddress();
     const displayName = String(profile.company_name || profile.full_name || 'Votre artisan').replace(/[<>"]/g, '');
     return {
         channel: 'platform',
@@ -115,6 +113,26 @@ async function makeSender(profile: Profile, replyTo: string | null): Promise<Sen
 }
 
 // ── Notification push ────────────────────────────────────────────────────────
+
+function platformFromAddress(): string {
+    return Deno.env.get('AUTOPILOT_EMAIL_FROM')
+        || (Deno.env.get('EMAIL_FROM') ?? '').match(/<([^>]+)>/)?.[1]
+        || 'relances@artisanfacile.fr';
+}
+
+/** Point du soir par mail, quand aucune notification n'a pu être livrée. */
+async function sendSummaryEmail(to: string | null, summary: { title: string; body: string }, appUrl: string): Promise<boolean> {
+    const resendKey = Deno.env.get('RESEND_API_KEY');
+    if (!resendKey || !to || !isValidEmail(to)) return false;
+    const text = `${summary.body}\n\nVoir le détail et les prochains mails : ${appUrl.replace(/\/$/, '')}/app/pilote`;
+    const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: `Artisan Facile <${platformFromAddress()}>`, to: [to], subject: summary.title, text, html: textToHtml(text) }),
+    });
+    if (!res.ok) console.error('autopilot summary email:', res.status, (await res.text()).slice(0, 200));
+    return res.ok;
+}
 
 async function sendPush(admin: SupabaseClient, userId: string, payload: Record<string, unknown>): Promise<number> {
     const vapidPublic = Deno.env.get('VAPID_PUBLIC_KEY');
@@ -308,7 +326,16 @@ async function runForUser(admin: SupabaseClient, profile: Profile, opts: {
                 user_id: profile.id, kind: 'summary', subject: summary.title, body: summary.body, channel: 'push', status: 'sent', day: today,
             });
             if (!dupErr) {
-                await sendPush(admin, profile.id, { title: summary.title, body: summary.body, url: '/app', tag: `autopilot-${today}` });
+                const delivered = await sendPush(admin, profile.id, { title: summary.title, body: summary.body, url: '/app/pilote', tag: `autopilot-${today}` });
+                if (delivered === 0) {
+                    // Pas de notification possible sur ce compte : le point arrive par mail.
+                    const to = isValidEmail(profile.professional_email) ? profile.professional_email
+                        : (await admin.auth.admin.getUserById(profile.id)).data?.user?.email ?? null;
+                    if (await sendSummaryEmail(to, summary, appUrl)) {
+                        await admin.from('autopilot_actions').update({ channel: 'email', recipient: to })
+                            .eq('user_id', profile.id).eq('kind', 'summary').eq('day', today);
+                    }
+                }
                 result.summary = true;
             }
         }
