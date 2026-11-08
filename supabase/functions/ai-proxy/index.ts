@@ -47,8 +47,10 @@ const SITE_VISIT_EXTRAS = `\n\nMODE VISITE CHANTIER — retourne aussi title, wo
 // réparations comme des points à créer et inventait des quantités.
 // Le devis Pro de l'Assistant suit la même méthode : même moteur.
 const CLAUDE_QUOTE_PRESETS = new Set(['quote-site-visit', 'visit-survey', 'visit-brief', 'quote-pro']);
-// La passerelle Supabase coupe à 150 s : on laisse la marge du repli Gemini.
-const CLAUDE_TIMEOUT_MS = 100_000;
+// Supabase (plan gratuit) coupe toute fonction à 150 s. À 100 s, un gros
+// chantier (relevé de plusieurs lots) était interrompu en pleine rédaction :
+// on laisse 130 s à Claude et 20 s au repli Gemini, rapide sans réflexion.
+const CLAUDE_TIMEOUT_MS = 130_000;
 
 // Plafond mensuel d'appels Claude par compte Pro : ils sont payés sur la clé
 // Anthropic du serveur. Au-delà, le chiffrage passe par Gemini jusqu'au mois
@@ -79,9 +81,12 @@ async function callClaude(apiKey: string, systemPrompt: string, userMessage: str
         model: 'claude-opus-5-5',
         max_tokens: 16000,
         fallbacks: 'default',
-        // Effort moyen : assez de réflexion pour trier ferme / options et
-        // estimer les heures poste par poste, sans dépasser le délai.
-        output_config: { effort: 'medium' },
+        // Effort bas : en « medium », Opus produisait 7 500 à 8 300 tokens par
+        // devis (≈ 75 s) et dépassait le délai sur un chantier de plusieurs
+        // lots. La méthode, détaillée dans le prompt, porte le tri ferme /
+        // options ; la réflexion bornée garde le chiffrage dans les temps et
+        // en divise à peu près le coût par deux.
+        output_config: { effort: 'low' },
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }],
       }),
@@ -253,8 +258,16 @@ Deno.serve(async (req) => {
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        return json({ error: `Erreur Gemini (${response.status}): ${errData.error?.message || response.statusText}` }, 502);
+        const errData = await response.json().catch(() => ({}));
+        const detail = errData.error?.message || response.statusText;
+        console.error(`ai-proxy: Gemini ${response.status} — ${detail}`);
+        // Crédit épuisé (402) ou quota (429) sur la clé du serveur : c'est le
+        // compte de l'éditeur, pas celui de l'artisan. Pas de message de
+        // facturation Google sous ses yeux, la cause reste dans les logs.
+        if (usingServerKey && (response.status === 402 || response.status === 429)) {
+          return json({ error: "L'assistant IA est momentanément indisponible. Réessayez dans quelques minutes." }, 503);
+        }
+        return json({ error: `Erreur Gemini (${response.status}): ${detail}` }, 502);
       }
 
       const data = await response.json();
