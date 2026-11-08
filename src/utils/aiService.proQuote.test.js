@@ -43,6 +43,7 @@ describe('generateProQuote', () => {
         });
         const body = invokeMock.mock.calls[0][1].body;
         expect(body.preset).toBe('quote-pro');
+        expect(body.pass).toBe('first');
         expect(body.systemPrompt).toBeUndefined();
         expect(body.extras).toContain('55 €/h');
         expect(body.extras).toContain('Acompte = fournitures');
@@ -82,6 +83,7 @@ describe('generateProQuote', () => {
         const body = invokeMock.mock.calls[0][1].body;
         expect(body.userMessage).toContain('12 m');
         expect(body.extras).toContain('PRÉCISIONS REÇUES');
+        expect(body.pass).toBe('refine');
         expect(r.questions).toEqual([]);
     });
 });

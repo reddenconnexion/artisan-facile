@@ -227,3 +227,13 @@ describe('prix à relever (bibliothèque ancienne, sans marge, estimée)', () =>
         expect(buildPriceCheckList([], {})).toBe('');
     });
 });
+
+describe('questions du devis Pro', () => {
+    it('cadre les questions : effet sur le prix, hypothèse retenue, interdits', async () => {
+        const { QUOTE_PRO_METHOD } = await import('./quoteMethod');
+        expect(QUOTE_PRO_METHOD).toContain('change le prix');
+        expect(QUOTE_PRO_METHOD).toContain('(chiffré sur 9 m)');
+        expect(QUOTE_PRO_METHOD).toContain('Ne demande JAMAIS');
+        expect(QUOTE_PRO_METHOD).toContain('"questions": []');
+    });
+});

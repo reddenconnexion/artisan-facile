@@ -64,7 +64,7 @@ function proClaudeMonthlyLimit(): number {
   return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : DEFAULT_PRO_CLAUDE_MONTHLY_LIMIT;
 }
 
-async function callClaude(apiKey: string, systemPrompt: string, userMessage: string): Promise<string> {
+async function callClaude(apiKey: string, systemPrompt: string, userMessage: string, effort: 'low' | 'medium' = 'low'): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CLAUDE_TIMEOUT_MS);
   try {
@@ -81,12 +81,9 @@ async function callClaude(apiKey: string, systemPrompt: string, userMessage: str
         model: 'claude-opus-5-5',
         max_tokens: 16000,
         fallbacks: 'default',
-        // Effort bas : en « medium », Opus produisait 7 500 à 8 300 tokens par
-        // devis (≈ 75 s) et dépassait le délai sur un chantier de plusieurs
-        // lots. La méthode, détaillée dans le prompt, porte le tri ferme /
-        // options ; la réflexion bornée garde le chiffrage dans les temps et
-        // en divise à peu près le coût par deux.
-        output_config: { effort: 'low' },
+        // Effort choisi par l'appelant (voir claudeEffort) : bas par défaut,
+        // moyen pour le 1er chiffrage Pro, celui qui pose les questions.
+        output_config: { effort },
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }],
       }),
@@ -106,6 +103,16 @@ async function callClaude(apiKey: string, systemPrompt: string, userMessage: str
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Effort de réflexion de Claude selon l'appel. En « medium », Opus produisait
+// 7 à 9 000 tokens par devis (75 à 95 s) ; en « low », 6 500 (≈ 60 s) mais des
+// questions moins pertinentes. Le 1er chiffrage de l'Assistant Pro, qui décide
+// des questions à poser, reste donc en « medium » (≈ 95 s sur un gros
+// chantier, sous le délai de 130 s) ; le 2e passage, avec les réponses de
+// l'artisan, et les autres chiffrages passent en « low ».
+function claudeEffort(preset: string, pass: unknown): 'low' | 'medium' {
+  return preset === 'quote-pro' && pass !== 'refine' ? 'medium' : 'low';
 }
 
 function resolvePresetPrompt(preset: string, userOverride: string | null | undefined, extras: string): string {
@@ -186,7 +193,7 @@ Deno.serve(async (req) => {
       usingServerKey = true;
     }
 
-    const { systemPrompt, userMessage, preset, extras } = await req.json();
+    const { systemPrompt, userMessage, preset, extras, pass } = await req.json();
 
     let resolvedSystemPrompt: string | undefined = systemPrompt;
     if (!resolvedSystemPrompt && preset) {
@@ -225,7 +232,7 @@ Deno.serve(async (req) => {
       }
       if (claudeAllowed) {
         try {
-          rawResponse = await callClaude(serverAnthropicKey, resolvedSystemPrompt, userMessage);
+          rawResponse = await callClaude(serverAnthropicKey, resolvedSystemPrompt, userMessage, claudeEffort(preset, pass));
         } catch (err) {
           console.warn(`ai-proxy: Claude indisponible, repli Gemini — ${(err as Error).message}`);
         }
