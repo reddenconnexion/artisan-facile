@@ -320,7 +320,7 @@ const DevisAIModal = ({ open, onClose, onItemsGenerated, onQuoteGenerated, userP
                             )}
                             {isPro && aiLoading && (
                                 <p className="mt-3 text-xs text-gray-500">
-                                    Le chiffrage complet peut prendre jusqu'à une minute.
+                                    Le chiffrage complet prend en général moins d'une minute, jusqu'à deux sur un gros chantier.
                                 </p>
                             )}
 
