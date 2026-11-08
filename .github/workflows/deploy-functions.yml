@@ -14,9 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Version épinglée : avec « latest », l'action interroge l'API GitHub
+      # pour trouver la dernière version, et la limite de requêtes des
+      # runners partagés faisait échouer le déploiement (« rate limit
+      # exceeded ») sans rien déployer. 3.0.0 = dernière version déployée
+      # avec succès. À monter à la main de temps en temps.
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.0.0
 
       - name: Check secrets and CLI
         run: |
