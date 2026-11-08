@@ -19,6 +19,7 @@ const sample = {
     items: [
         { description: 'Pose  du\ntableau', quantity: 6, unit: 'h', price: 55, type: 'service', lot: 'Tableau' },
         { description: 'Parafoudre', quantity: 1, unit: 'u', price: 90, type: 'material', lot: 'Tableau', is_optional: true, option_reason: 'Zone orageuse', price_estimated: true },
+        { description: 'Tableau 3 rangées', quantity: 1, unit: 'u', price: 189, type: 'material', lot: 'Tableau', price_stale: true },
     ],
     reserves: ['Supports non visibles avant démontage', 'Peinture non comprise'],
     suggestions: ['Quantité estimée : 8 m de câble — à vérifier'],
@@ -66,6 +67,8 @@ describe('generateProQuote', () => {
         expect(r.work_object).toBe('Remplacement du tableau. Création de 6 prises.');
         expect(r.items[0]).toMatchObject({ description: 'Pose du tableau', quantity: 6, unit: 'h', price: 55, type: 'service', lot: 'Tableau' });
         expect(r.items[1]).toMatchObject({ is_optional: true, option_reason: 'Zone orageuse', price_estimated: true, type: 'material' });
+        expect(r.items[2]).toMatchObject({ price_stale: true, type: 'material' });
+        expect(r.items[0].price_stale).toBeUndefined();
         expect(r.reserves).toEqual(['Supports non visibles avant démontage', 'Peinture non comprise']);
         expect(r.questions).toEqual(['Quelle longueur entre le tableau et la cuisine ?']);
         expect(r.estimated_duration).toBe('1 jour');
@@ -90,7 +93,7 @@ describe('message du serveur (plafond Claude atteint)', () => {
         invokeMock.mockResolvedValue({ data: { rawResponse: JSON.stringify(sample), notice: 'Plafond atteint' }, error: null });
         const r1 = await generateProQuote('A');
         await generateProQuote('B');
-        expect(r1.items).toHaveLength(2);
+        expect(r1.items).toHaveLength(3);
         expect(info).toHaveBeenCalledTimes(1);
         expect(info.mock.calls[0][0]).toBe('Plafond atteint');
     });

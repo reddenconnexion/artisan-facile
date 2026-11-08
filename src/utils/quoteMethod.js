@@ -136,7 +136,7 @@ ${TRI_RULE}
 
 6. LOTS : chaque ligne porte "lot", la zone de travail ou l'ensemble cohérent auquel elle appartient (ex. « Tableau électrique », « Cuisine », « Extérieur »). La main d'œuvre et les fournitures d'un même lot portent le même "lot". Range les lignes lot par lot. Sur un petit chantier d'un seul tenant, "lot": "" partout.
 
-7. PRIX : prix de vente HT. Reprends la bibliothèque de l'artisan quand elle couvre la ligne. Pour une fourniture absente de la bibliothèque, prends un prix de vente marché réaliste et marque la ligne "price_estimated": true pour que l'artisan le vérifie. Les lignes "is_optional" n'entrent pas dans le total.
+7. PRIX : prix de vente HT. Reprends la bibliothèque de l'artisan quand elle couvre la ligne. Pour une fourniture absente de la bibliothèque, prends un prix de vente marché réaliste et marque la ligne "price_estimated": true. Pour une fourniture reprise d'un article marqué « (ancien) », marque "price_stale": true. L'artisan re-relèvera ces prix avant d'envoyer le devis. Les lignes "is_optional" n'entrent pas dans le total.
 
 8. TITRE ET OBJET :
    - "title" : nom court du projet, 8 mots au maximum, pas une phrase.
@@ -149,7 +149,7 @@ ${TRI_RULE}
 11. PRÉCISIONS À DEMANDER : s'il manque des informations qui changeraient sensiblement le prix ou le contenu du devis (longueur de câble, type de support, gamme voulue, état de l'existant, accès, heures prévues…), pose TOUTES tes questions en une seule fois dans "questions" (5 au maximum, les plus déterminantes d'abord, une question courte et précise par entrée, jamais une question dont la réponse figure déjà dans la demande). Chiffre quand même le devis avec tes meilleures hypothèses. Si rien d'important ne manque, renvoie "questions": [].
 
 JSON UNIQUEMENT — pas de markdown, pas de texte avant/après :
-{"title":"...","work_object":"...","items":[{"description":"...","quantity":1,"unit":"u","price":0.00,"type":"service|material","lot":"...","is_optional":false,"option_reason":"","price_estimated":false}],"reserves":["..."],"suggestions":["..."],"questions":["..."],"estimated_duration":"X jours"}`;
+{"title":"...","work_object":"...","items":[{"description":"...","quantity":1,"unit":"u","price":0.00,"type":"service|material","lot":"...","is_optional":false,"option_reason":"","price_estimated":false,"price_stale":false}],"reserves":["..."],"suggestions":["..."],"questions":["..."],"estimated_duration":"X jours"}`;
 
 /** Méthode Pro complète pour un métier donné. */
 export const buildQuoteProMethod = (trade) =>
@@ -179,6 +179,53 @@ export const formatReservesBlock = (reserves) => {
     return 'Réserves :\n' + list.map((r) => `- ${r}`).join('\n');
 };
 
+// ── Prix à relever ─────────────────────────────────────────────────────────
+// Une fourniture au prix estimé par l'appli, ou reprise d'un prix de
+// bibliothèque trop ancien, porte une note interne qui commence par
+// PRICE_CHECK_MARK. Le marqueur survit à l'enregistrement du devis : la liste à
+// relever (pour la skill « veille-tarifs ») se reconstruit à tout moment.
+export const PRICE_CHECK_MARK = 'À relever';
+
+/** Note interne d'une ligne de devis Pro dont le prix est à relever, ou ''. */
+export const priceCheckNote = (item) => {
+    if (item?.type !== 'material') return '';
+    if (item.price_estimated) return `${PRICE_CHECK_MARK} : prix estimé par l'appli`;
+    if (item.price_stale) return `${PRICE_CHECK_MARK} : prix de bibliothèque de plus de ${PRICE_STALE_DAYS} jours`;
+    return '';
+};
+
+/** La ligne du devis porte-t-elle un prix à relever ? */
+export const isPriceToCheck = (item) =>
+    item?.type === 'material' && String(item.internal_note || '').trim().startsWith(PRICE_CHECK_MARK);
+
+/**
+ * Texte prêt à coller chez un fournisseur ou dans la skill « veille-tarifs » : une ligne
+ * `désignation | quantité | unité` par fourniture à relever, quantités
+ * cumulées pour une même désignation.
+ *
+ * @param {Array} items - lignes du devis
+ * @param {{title?: string}} [options]
+ * @returns {string} vide s'il n'y a rien à relever
+ */
+export const buildPriceCheckList = (items, { title = '' } = {}) => {
+    const byName = new Map();
+    for (const it of Array.isArray(items) ? items : []) {
+        if (!isPriceToCheck(it)) continue;
+        // Une option porte sa raison après « — » : seule la désignation compte.
+        const name = String(it.description || '').split(' — ')[0].trim();
+        if (!name) continue;
+        const key = name.toLowerCase();
+        const prev = byName.get(key);
+        const qty = Number(it.quantity) || 1;
+        if (prev) prev.qty += qty;
+        else byName.set(key, { name, qty, unit: it.unit || 'u' });
+    }
+    if (!byName.size) return '';
+    const fmtQty = (q) => String(Math.round(q * 100) / 100).replace('.', ',');
+    const header = `Prix à relever${title ? ` — devis « ${title} »` : ''} (désignation | quantité | unité) :`;
+    return [header, ...[...byName.values()].map((l) => `- ${l.name} | ${fmtQty(l.qty)} | ${l.unit}`)].join('\n');
+};
+
 /**
  * Lignes du devis Pro → lignes du formulaire : un titre de section est inséré
  * à chaque changement de lot (comme l'import CSV), une option garde sa raison
@@ -206,7 +253,7 @@ export const proItemsToFormItems = (items, idBase = Date.now()) => {
             buying_price: 0,
             type: item.type === 'material' ? 'material' : 'service',
             ...(item.is_optional ? { is_optional: true } : {}),
-            ...(item.price_estimated ? { internal_note: "Prix estimé par l'appli, à vérifier" } : {}),
+            ...(priceCheckNote(item) ? { internal_note: priceCheckNote(item) } : {}),
         });
     }
     return out;
@@ -241,44 +288,90 @@ const tokenize = (text) =>
 
 const fmtPrice = (n) => (Math.round(n * 100) / 100).toString().replace('.', ',');
 
+// Au-delà de cet âge, un prix de fourniture n'est plus un prix de référence :
+// c'est la règle de la skill « veille-tarifs » (un prix de plus de 30 jours se
+// re-relève). Il reste utilisable, mais la ligne part « à relever ».
+export const PRICE_STALE_DAYS = 30;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Date du prix d'un article (dernière mise à jour, sinon création), ou null. */
+const priceDate = (it) => {
+    const raw = it?.updated_at || it?.created_at;
+    const t = raw ? new Date(raw).getTime() : NaN;
+    return Number.isFinite(t) ? t : null;
+};
+
+/**
+ * Fourniture vendue au prix d'achat ou en dessous : son « prix de vente » n'en
+ * est pas un (ligne mal saisie, ou prix d'achat recopié). On ne la propose pas
+ * au chiffrage — le modèle l'estimera et la marquera à relever.
+ */
+export const isUnderpricedItem = (it) => {
+    const buying = Number(it?.buying_price);
+    return it?.type !== 'service' && Number.isFinite(buying) && buying > 0 && Number(it?.price) <= buying;
+};
+
+const fmtDay = (t) => new Date(t).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
 /**
  * Bloc « BIBLIOTHÈQUE DE PRIX » : les prix de vente que l'artisan pratique
  * réellement, limités aux articles qui parlent du chantier — ceux dont la
- * désignation partage des mots avec le texte, les plus proches d'abord.
+ * désignation partage des mots avec le texte, les plus proches d'abord, et à
+ * pertinence égale les prix les plus récents (un relevé « veille-tarifs » passe
+ * devant une vieille ligne de même désignation). Chaque fourniture porte la date
+ * de son prix ; au-delà de PRICE_STALE_DAYS elle est marquée « ancien ».
  *
- * @param {Array} library - lignes price_library ({description, price, unit, type, category})
+ * @param {Array} library - lignes price_library ({description, price, unit, type, category, buying_price, updated_at})
  * @param {string} visitText - texte du chantier (description, relevé, notes, photos)
+ * @param {number} [max]
+ * @param {{now?: number}} [options] - `now` pour les tests
  * @returns {string} bloc à ajouter au prompt, vide si aucun article ne correspond
  */
-export const buildPriceLibraryPrompt = (library, visitText = '', max = PRICE_LIBRARY_MAX_LINES) => {
+export const buildPriceLibraryPrompt = (library, visitText = '', max = PRICE_LIBRARY_MAX_LINES, { now = Date.now() } = {}) => {
     const words = new Set(tokenize(visitText));
     if (!words.size) return '';
 
     const picked = (Array.isArray(library) ? library : [])
         .filter((it) => it && typeof it.description === 'string' && it.description.trim()
-            && Number.isFinite(Number(it.price)) && Number(it.price) > 0)
+            && Number.isFinite(Number(it.price)) && Number(it.price) > 0
+            && !isUnderpricedItem(it))
         .map((it, i) => {
             const own = new Set(tokenize(it.description));
             const score = [...own].filter((w) => words.has(w)).length;
-            // À score égal, l'article le plus spécifique (peu de mots hors
-            // sujet) passe devant.
-            return { it, i, score, ratio: own.size ? score / own.size : 0 };
+            const date = priceDate(it);
+            const fresh = date !== null && now - date <= PRICE_STALE_DAYS * DAY_MS;
+            // À score égal : d'abord un prix récent, puis l'article le plus
+            // spécifique (peu de mots hors sujet).
+            return { it, i, score, fresh, ratio: own.size ? score / own.size : 0 };
         })
         .filter((s) => s.score > 0)
-        .sort((a, b) => b.score - a.score || b.ratio - a.ratio || a.i - b.i)
+        .sort((a, b) => b.score - a.score || Number(b.fresh) - Number(a.fresh) || b.ratio - a.ratio || a.i - b.i)
         .slice(0, max)
         .map((s) => s.it);
     if (!picked.length) return '';
 
+    let staleCount = 0;
     const lines = picked.map((it) => {
-        const kind = it.type === 'service' ? 'MO' : 'fourniture';
-        return `- ${it.description.trim()} | ${it.unit || 'u'} | ${fmtPrice(Number(it.price))} € HT | ${kind}`;
+        const isService = it.type === 'service';
+        let line = `- ${it.description.trim()} | ${it.unit || 'u'} | ${fmtPrice(Number(it.price))} € HT | ${isService ? 'MO' : 'fourniture'}`;
+        const date = priceDate(it);
+        if (!isService && date !== null) {
+            const stale = now - date > PRICE_STALE_DAYS * DAY_MS;
+            if (stale) staleCount += 1;
+            line += ` | prix du ${fmtDay(date)}${stale ? ' (ancien)' : ''}`;
+        }
+        return line;
     });
+
+    const staleRule = staleCount
+        ? `\nUne fourniture marquée « (ancien) » a un prix de plus de ${PRICE_STALE_DAYS} jours : reprends-le, mais marque la ligne "price_stale": true pour que l'artisan le re-relève.`
+        : '';
 
     return `
 
 BIBLIOTHÈQUE DE PRIX DE L'ARTISAN (ses prix de vente réels) :
-Quand une ligne du devis correspond à un article ci-dessous, reprends SA désignation et SON prix tels quels. N'estime un prix marché que pour ce qui n'y figure pas.
+Quand une ligne du devis correspond à un article ci-dessous, reprends SA désignation et SON prix tels quels. N'estime un prix marché que pour ce qui n'y figure pas.${staleRule}
 ${lines.join('\n')}`;
 };
 
