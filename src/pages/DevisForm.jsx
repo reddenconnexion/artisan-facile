@@ -72,6 +72,7 @@ import QuoteVersionsPanel from './devis-form/QuoteVersionsPanel';
 import { DISMISSED_HELPS_KEY, readDismissedHelps } from './devis-form/dismissedHelps';
 import { applyNavigationState } from './devis-form/navigationState';
 import { createInitialFormData, isBlankItem, quoteRowToFormData, updateClientCRMStatus } from './devis-form/quoteHelpers';
+import { formatReservesBlock, proItemsToFormItems } from '../utils/quoteMethod';
 import { useCreditNote } from './devis-form/useCreditNote';
 import { useDepositActions } from './devis-form/useDepositActions';
 import { useQuoteEmail } from './devis-form/useQuoteEmail';
@@ -2297,6 +2298,24 @@ const DevisForm = () => {
                     onClose={() => setShowAIModal(false)}
                     onItemsGenerated={(newItems) => {
                         setFormData(prev => ({ ...prev, items: [...prev.items, ...newItems] }));
+                        setUsedAiInSession(true);
+                    }}
+                    onQuoteGenerated={(quote) => {
+                        // Devis Pro : ce que l'artisan a déjà saisi (titre,
+                        // objet) est gardé ; les réserves rejoignent ses notes.
+                        const reservesBlock = formatReservesBlock(quote.reserves);
+                        setFormData(prev => ({
+                            ...prev,
+                            title: prev.title || quote.title,
+                            work_object: prev.work_object || quote.work_object || '',
+                            items: [
+                                ...prev.items.filter(item => !isBlankItem(item)),
+                                ...proItemsToFormItems(quote.items),
+                            ],
+                            notes: reservesBlock
+                                ? (prev.notes ? `${prev.notes}\n\n${reservesBlock}` : reservesBlock)
+                                : prev.notes,
+                        }));
                         setUsedAiInSession(true);
                     }}
                     userProfile={userProfile}

@@ -11,6 +11,16 @@ import { LEGACY_TRADE_KEY_MAP } from '../constants/trades';
 // prompt du serveur comme au prompt personnalisé, sans redéploiement de la
 // fonction ai-proxy.
 
+// Tri ferme / options : le cœur de la skill, commun au devis de visite et au
+// devis Pro rédigé depuis une description.
+const TRI_RULE = `1. STRICT NÉCESSAIRE DANS LE TOTAL, CONSEIL EN OPTIONS. Passe CHAQUE ligne envisagée dans ce filtre, dans l'ordre :
+   a) Le client l'a demandé → ligne ferme.
+   b) Exigé par la réglementation du métier (ex. électricité : NF C 15-100, NF C 14-100, Consuel) → ligne ferme.
+   c) Indispensable pour que ce qui est demandé fonctionne ou soit sûr → ligne ferme.
+   d) Bon conseil que l'artisan assume par écrit → ligne OPTION ("is_optional": true) avec "option_reason" : la raison en une phrase.
+   e) Sinon → la ligne n'apparaît NULLE PART (ni en option, ni en suggestion).
+   Trois ou quatre options au maximum : au-delà, reprends le tri.`;
+
 export const SITE_VISIT_METHOD = `
 
 MÉTHODE DE CHIFFRAGE (prioritaire sur toute autre consigne de contenu) :
@@ -21,13 +31,7 @@ MÉTHODE DE CHIFFRAGE (prioritaire sur toute autre consigne de contenu) :
    - Les descriptions de photos sont des constats d'appoint : elles précisent l'existant, elles ne créent pas de travaux à elles seules.
    - Chiffre ensuite CHAQUE travail demandé, entièrement : rien d'oublié (alimentation, protection au tableau, raccordement, mise en service), rien d'ajouté (voir 1).
 
-1. STRICT NÉCESSAIRE DANS LE TOTAL, CONSEIL EN OPTIONS. Passe CHAQUE ligne envisagée dans ce filtre, dans l'ordre :
-   a) Le client l'a demandé → ligne ferme.
-   b) Exigé par la réglementation du métier (ex. électricité : NF C 15-100, NF C 14-100, Consuel) → ligne ferme.
-   c) Indispensable pour que ce qui est demandé fonctionne ou soit sûr → ligne ferme.
-   d) Bon conseil que l'artisan assume par écrit → ligne OPTION ("is_optional": true) avec "option_reason" : la raison en une phrase.
-   e) Sinon → la ligne n'apparaît NULLE PART (ni en option, ni en suggestion).
-   Trois ou quatre options au maximum : au-delà, reprends le tri.
+${TRI_RULE}
 
 2. INTERDITS :
    - Aucune montée en gamme non demandée. Si le client a choisi une marque ou une gamme, chiffre dans SA gamme (l'alternative va dans "suggestions", jamais au chiffrage).
@@ -99,6 +103,114 @@ const normalizeTrade = (trade) => LEGACY_TRADE_KEY_MAP[trade] || trade || '';
 /** Méthode complète pour un métier donné. */
 export const buildSiteVisitMethod = (trade) =>
     SITE_VISIT_METHOD + (normalizeTrade(trade) === 'electricien' ? ELECTRICIAN_BENCHMARKS : '');
+
+// ── Devis Pro rédigé depuis une description ──────────────────────────────
+// La même skill, appliquée à l'Assistant du formulaire de devis : au lieu de
+// quelques lignes de 8 mots, l'artisan Pro reçoit un devis complet comme il
+// le ferait à la main — titre, objet des travaux, lignes détaillées rangées
+// par lot, options hors total avec leur raison, réserves, et les questions
+// qui manquent pour chiffrer juste.
+
+export const QUOTE_PRO_METHOD = `
+
+MÉTHODE DE CHIFFRAGE (prioritaire sur toute autre consigne de contenu, y compris sur la longueur des descriptions) :
+
+0. LIRE LA DEMANDE COMME UN ARTISAN. La description est écrite ou dictée vite, sur le chantier ou dans le camion : abréviations, fautes, phrases incomplètes.
+   - Dresse d'abord pour toi la liste des TRAVAUX DEMANDÉS et des CONSTATS (existant, longueurs, supports, accès). Ce qui n'est pas demandé n'est pas un travail à chiffrer.
+   - Les heures, quantités et prix donnés par l'artisan font autorité : reprends-les tels quels, sans les discuter.
+   - Chiffre ensuite CHAQUE travail demandé, entièrement : rien d'oublié (alimentation, protection, raccordement, mise en service), rien d'ajouté (voir 1).
+
+${TRI_RULE}
+
+2. INTERDITS :
+   - Aucune montée en gamme non demandée. Si le client a choisi une marque ou une gamme, chiffre dans SA gamme (l'alternative va dans "suggestions", jamais au chiffrage).
+   - Aucune provision « au cas où » dans les prix. Une incertitude sur l'ampleur des travaux devient une RÉSERVE écrite (voir 9) annonçant un avenant.
+   - Aucune obligation inventée : une recommandation fabricant, une règle « sauf justification par le calcul » ou une bonne pratique ne sont PAS des obligations.
+   - Aucune référence fabricant, aucun code article ni marque dans les désignations : le devis ne doit pas servir de liste de courses au client.
+
+3. MAIN D'ŒUVRE : lignes "service" en heures (unit "h", quantity = nombre d'heures, price = taux horaire de l'artisan), une ligne par poste réel (dépose, pose, raccordement, essais et mise en service…), jamais une seule ligne vague pour tout le chantier. Estime les durées comme un artisan expérimenté.
+
+4. FOURNITURES : lignes "material" détaillées, une ligne par élément avec sa quantité réelle. N'oublie pas le petit matériel indispensable à la pose (boîtes, câbles, gaines, fixations).
+
+5. DÉSIGNATIONS : précises et professionnelles, 90 caractères au maximum, sans retour à la ligne. Désignation générique + caractéristique utile + usage quand il éclaire le client (ex. « Interrupteur différentiel 40 A 30 mA type A — circuits cuisine », « Saignées, passage des câbles et rebouchage au plâtre »).
+
+6. LOTS : chaque ligne porte "lot", la zone de travail ou l'ensemble cohérent auquel elle appartient (ex. « Tableau électrique », « Cuisine », « Extérieur »). La main d'œuvre et les fournitures d'un même lot portent le même "lot". Range les lignes lot par lot. Sur un petit chantier d'un seul tenant, "lot": "" partout.
+
+7. PRIX : prix de vente HT. Reprends la bibliothèque de l'artisan quand elle couvre la ligne. Pour une fourniture absente de la bibliothèque, prends un prix de vente marché réaliste et marque la ligne "price_estimated": true pour que l'artisan le vérifie. Les lignes "is_optional" n'entrent pas dans le total.
+
+8. TITRE ET OBJET :
+   - "title" : nom court du projet, 8 mots au maximum, pas une phrase.
+   - "work_object" : le périmètre en 2 à 4 phrases (600 caractères au maximum) — ce qui est compris, ce qui ne l'est pas, les constats qui conditionnent le prix. En rénovation partielle, précise que seul ce qui est créé ou remplacé est mis aux normes. Aucune liste de postes, aucun montant.
+
+9. RÉSERVES : "reserves" = 3 à 6 phrases courtes, propres à CE chantier : hypothèses non vérifiables (supports, réseaux ou câbles existants non visibles avant démontage), défauts observés hors périmètre et laissés en l'état, ce qui n'est pas compris (finitions, peinture, plâtrerie, raccordement par un autre corps d'état…), et le principe d'un avenant signé pour tout travail supplémentaire. Ne recopie pas les mentions légales génériques, déjà imprimées sur le devis.
+
+10. Si le total ferme dépasse 5 000 € HT, ajoute dans "suggestions" : « Devis > 5 000 € HT : proposer une étude technique préalable payante, déductible en cas de signature. »
+
+11. PRÉCISIONS À DEMANDER : s'il manque des informations qui changeraient sensiblement le prix ou le contenu du devis (longueur de câble, type de support, gamme voulue, état de l'existant, accès, heures prévues…), pose TOUTES tes questions en une seule fois dans "questions" (5 au maximum, les plus déterminantes d'abord, une question courte et précise par entrée, jamais une question dont la réponse figure déjà dans la demande). Chiffre quand même le devis avec tes meilleures hypothèses. Si rien d'important ne manque, renvoie "questions": [].
+
+JSON UNIQUEMENT — pas de markdown, pas de texte avant/après :
+{"title":"...","work_object":"...","items":[{"description":"...","quantity":1,"unit":"u","price":0.00,"type":"service|material","lot":"...","is_optional":false,"option_reason":"","price_estimated":false}],"reserves":["..."],"suggestions":["..."],"questions":["..."],"estimated_duration":"X jours"}`;
+
+/** Méthode Pro complète pour un métier donné. */
+export const buildQuoteProMethod = (trade) =>
+    QUOTE_PRO_METHOD + (normalizeTrade(trade) === 'electricien' ? ELECTRICIAN_BENCHMARKS : '');
+
+// Réserves renvoyées par le modèle : phrases non vides, dédoublonnées, plafonnées.
+export const MAX_RESERVES = 8;
+
+export const normalizeReserves = (raw) => {
+    const list = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(/\n+/) : [];
+    const seen = new Set();
+    const out = [];
+    for (const r of list) {
+        const text = typeof r === 'string' ? r.replace(/^\s*[-•*]\s*/, '').replace(/\s+/g, ' ').trim() : '';
+        if (!text || seen.has(text.toLowerCase())) continue;
+        seen.add(text.toLowerCase());
+        out.push(text);
+        if (out.length === MAX_RESERVES) break;
+    }
+    return out;
+};
+
+/** Bloc « Réserves » prêt à rejoindre les notes du devis, vide sans réserve. */
+export const formatReservesBlock = (reserves) => {
+    const list = normalizeReserves(reserves);
+    if (!list.length) return '';
+    return 'Réserves :\n' + list.map((r) => `- ${r}`).join('\n');
+};
+
+/**
+ * Lignes du devis Pro → lignes du formulaire : un titre de section est inséré
+ * à chaque changement de lot (comme l'import CSV), une option garde sa raison
+ * visible du client, un prix estimé est signalé dans la note interne.
+ */
+export const proItemsToFormItems = (items, idBase = Date.now()) => {
+    const out = [];
+    let currentLot = null;
+    let n = 0;
+    const nextId = () => idBase + (n++);
+    for (const item of Array.isArray(items) ? items : []) {
+        const lot = typeof item.lot === 'string' ? item.lot.trim() : '';
+        if (lot && lot !== currentLot) {
+            out.push({ id: nextId(), description: lot, type: 'section' });
+        }
+        currentLot = lot || currentLot;
+        out.push({
+            id: nextId(),
+            description: item.is_optional && item.option_reason
+                ? `${item.description} — ${item.option_reason}`
+                : item.description,
+            quantity: Number(item.quantity) || 1,
+            unit: item.unit || 'u',
+            price: Number(item.price) || 0,
+            buying_price: 0,
+            type: item.type === 'material' ? 'material' : 'service',
+            ...(item.is_optional ? { is_optional: true } : {}),
+            ...(item.price_estimated ? { internal_note: "Prix estimé par l'appli, à vérifier" } : {}),
+        });
+    }
+    return out;
+};
 
 // Nombre de lignes de bibliothèque envoyées au modèle : assez pour couvrir un
 // chantier courant sans alourdir le prompt (≈ 60 caractères par ligne).
