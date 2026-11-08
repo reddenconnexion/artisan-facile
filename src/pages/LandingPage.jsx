@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { CheckCircle, ArrowRight, Shield, Zap, Smartphone, Calendar, FileText, Users, Loader2, X, Radio, Building2, BadgeCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -196,56 +196,104 @@ const LandingPage = () => {
                                         <p className="text-gray-400">bernard.dupont@email.fr</p>
                                     </div>
 
+                                    {/* Titre et objet des travaux, comme sur le PDF réel */}
+                                    <p className="text-sm font-bold text-gray-900 mb-1">
+                                        Objet : Remplacement du tableau électrique et création de prises en cuisine
+                                    </p>
+                                    <p className="text-xs text-gray-500 leading-relaxed mb-4">
+                                        Remplacement du tableau existant par un tableau neuf avec protections différentielles 30 mA,
+                                        et création de 6 prises sur plan de travail. Les circuits créés ou remplacés sont réalisés
+                                        selon la norme NF C 15-100 ; le reste de l'installation reste en l'état.
+                                    </p>
+
                                     <table className="w-full text-xs mb-4">
                                         <thead>
                                             <tr className="border-b border-gray-200 text-gray-400">
                                                 <th className="text-left pb-2 font-medium">Description</th>
                                                 <th className="text-right pb-2 font-medium">Qté</th>
                                                 <th className="text-right pb-2 font-medium">P.U.</th>
-                                                <th className="text-right pb-2 font-medium">Total HT</th>
+                                                <th className="text-right pb-2 font-medium">Total</th>
                                             </tr>
                                         </thead>
                                         <tbody className="text-gray-700">
-                                            <tr className="border-b border-gray-100">
-                                                <td className="py-1.5">Tableau électrique 36 modules</td>
-                                                <td className="text-right py-1.5">1</td>
-                                                <td className="text-right py-1.5">320,00 €</td>
-                                                <td className="text-right py-1.5 font-medium">320,00 €</td>
-                                            </tr>
-                                            <tr className="border-b border-gray-100">
-                                                <td className="py-1.5">Point lumineux + câblage</td>
-                                                <td className="text-right py-1.5">6</td>
-                                                <td className="text-right py-1.5">45,00 €</td>
-                                                <td className="text-right py-1.5 font-medium">270,00 €</td>
-                                            </tr>
-                                            <tr>
-                                                <td className="py-1.5">Prises électriques (dont 2 USB)</td>
-                                                <td className="text-right py-1.5">8</td>
-                                                <td className="text-right py-1.5">28,00 €</td>
-                                                <td className="text-right py-1.5 font-medium">224,00 €</td>
-                                            </tr>
+                                            {[
+                                                {
+                                                    section: "A — Main d'œuvre",
+                                                    lines: [
+                                                        { label: 'Dépose de l\'ancien tableau, pose et raccordement du nouveau', detail: 'Repérage et étiquetage de chaque circuit, contrôle des serrages', qty: '6 h', pu: '55,00 €', total: '330,00 €' },
+                                                        { label: 'Création de 6 prises sur plan de travail', detail: 'Saignées, câble 2,5 mm² sous gaine, rebouchage au plâtre', qty: '4 h', pu: '55,00 €', total: '220,00 €' },
+                                                        { label: 'Essais, mesures et mise en service', detail: 'Test des différentiels, mesure de la terre, schéma remis au client', qty: '1 h', pu: '55,00 €', total: '55,00 €' },
+                                                    ],
+                                                },
+                                                {
+                                                    section: 'B — Fournitures',
+                                                    lines: [
+                                                        { label: 'Tableau électrique 3 rangées 39 modules', detail: 'Coffret avec porte, bornier de terre et peignes de raccordement', qty: '1', pu: '189,00 €', total: '189,00 €' },
+                                                        { label: 'Interrupteur différentiel 40 A 30 mA type A', detail: 'Un par rangée, protège cuisson et lave-linge', qty: '2', pu: '72,00 €', total: '144,00 €' },
+                                                        { label: 'Disjoncteur divisionnaire courbe C 10 à 32 A', detail: 'Un par circuit, calibré selon la section du câble', qty: '10', pu: '12,50 €', total: '125,00 €' },
+                                                        { label: 'Prise 2P+T 16 A encastrée', detail: "Boîte d'encastrement et plaque de finition comprises", qty: '6', pu: '16,00 €', total: '96,00 €' },
+                                                    ],
+                                                },
+                                            ].map(({ section, lines }) => (
+                                                <Fragment key={section}>
+                                                    <tr>
+                                                        <td colSpan={4} className="pt-2.5 pb-1">
+                                                            <span className="block bg-blue-50 text-blue-700 font-semibold text-[11px] uppercase tracking-wide px-2 py-1 rounded">
+                                                                {section}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                    {lines.map((line) => (
+                                                        <tr key={line.label} className="border-b border-gray-100 align-top">
+                                                            <td className="py-1.5 pr-2">
+                                                                <p className="font-medium text-gray-800">{line.label}</p>
+                                                                <p className="text-[11px] text-gray-400 leading-snug">{line.detail}</p>
+                                                            </td>
+                                                            <td className="text-right py-1.5 whitespace-nowrap">{line.qty}</td>
+                                                            <td className="text-right py-1.5 whitespace-nowrap pl-2">{line.pu}</td>
+                                                            <td className="text-right py-1.5 whitespace-nowrap pl-2 font-medium">{line.total}</td>
+                                                        </tr>
+                                                    ))}
+                                                </Fragment>
+                                            ))}
                                         </tbody>
                                     </table>
 
                                     <div className="flex justify-end mb-4">
-                                        <div className="w-44 text-xs space-y-1">
+                                        <div className="w-52 text-xs space-y-1">
                                             <div className="flex justify-between text-gray-500">
-                                                <span>Total HT</span>
-                                                <span>814,00 €</span>
+                                                <span>Main d'œuvre</span>
+                                                <span>605,00 €</span>
                                             </div>
                                             <div className="flex justify-between text-gray-500">
-                                                <span>TVA 10%</span>
-                                                <span>81,40 €</span>
+                                                <span>Fournitures</span>
+                                                <span>554,00 €</span>
                                             </div>
                                             <div className="flex justify-between font-bold text-gray-900 text-sm border-t border-gray-200 pt-1">
-                                                <span>Total TTC</span>
-                                                <span className="text-blue-600">895,40 €</span>
+                                                <span>Total à payer</span>
+                                                <span className="text-blue-600">1 159,00 €</span>
+                                            </div>
+                                            <p className="text-[11px] text-gray-400 text-right">TVA non applicable, art. 293 B du CGI</p>
+                                            <div className="flex justify-between text-gray-500 pt-1">
+                                                <span>Acompte à la signature</span>
+                                                <span>554,00 €</span>
                                             </div>
                                         </div>
                                     </div>
 
+                                    {/* Réserves : ce qui protège l'artisan, comme sur un vrai devis */}
+                                    <div className="bg-gray-50 rounded-lg p-3 mb-4 text-xs">
+                                        <p className="font-semibold text-gray-800 mb-1">Réserves</p>
+                                        <ul className="list-disc pl-4 space-y-0.5 text-gray-500 leading-snug">
+                                            <li>Devis établi sous réserve de l'état des supports et des réseaux existants, non visibles avant démontage.</li>
+                                            <li>Seuls les circuits créés ou remplacés sont mis en conformité.</li>
+                                            <li>Peinture et finitions après saignées non comprises.</li>
+                                            <li>Tout travail supplémentaire fera l'objet d'un avenant signé avant exécution.</li>
+                                        </ul>
+                                    </div>
+
                                     <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-                                        <p className="text-xs text-gray-400">Valable 30 jours · Paiement à réception</p>
+                                        <p className="text-xs text-gray-400">Valable 30 jours · Solde à la fin des travaux</p>
                                         <div className="flex items-center gap-2">
                                             <div className="w-20 h-6 border border-dashed border-gray-300 rounded flex items-center justify-center">
                                                 <span className="text-xs text-gray-400">Signature</span>
