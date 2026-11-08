@@ -136,7 +136,7 @@ ${TRI_RULE}
 
 6. LOTS : chaque ligne porte "lot", la zone de travail ou l'ensemble cohérent auquel elle appartient (ex. « Tableau électrique », « Cuisine », « Extérieur »). La main d'œuvre et les fournitures d'un même lot portent le même "lot". Range les lignes lot par lot. Sur un petit chantier d'un seul tenant, "lot": "" partout.
 
-7. PRIX : prix de vente HT. Reprends la bibliothèque de l'artisan quand elle couvre la ligne. Pour une fourniture absente de la bibliothèque, prends un prix de vente marché réaliste et marque la ligne "price_estimated": true. Pour une fourniture reprise d'un article marqué « (ancien) », marque "price_stale": true. L'artisan re-relèvera ces prix avant d'envoyer le devis. Les lignes "is_optional" n'entrent pas dans le total.
+7. PRIX : prix de vente HT. Reprends la bibliothèque de l'artisan quand elle couvre la ligne, même si sa désignation porte une marque ou un conditionnement (retire la marque, ramène le prix à l'unité) : une telle ligne n'est PAS estimée. Pour une fourniture absente de la bibliothèque, prends un prix de vente marché réaliste et marque la ligne "price_estimated": true. Pour une fourniture reprise d'un article marqué « (ancien) », marque "price_stale": true. L'artisan re-relèvera ces prix avant d'envoyer le devis. Les lignes "is_optional" n'entrent pas dans le total.
 
 8. TITRE ET OBJET :
    - "title" : nom court du projet, 8 mots au maximum, pas une phrase.
@@ -270,6 +270,10 @@ export const proItemsToFormItems = (items, idBase = Date.now()) => {
 // d'articles réellement utiles.
 export const PRICE_LIBRARY_MAX_LINES = 40;
 
+// Prix relevés depuis moins de PRICE_STALE_DAYS envoyés en plus, même sans mot
+// commun avec la description (voir buildPriceLibraryPrompt).
+export const PRICE_LIBRARY_FRESH_MAX = 30;
+
 // Mots qui ne disent rien du chantier : ils faisaient remonter des articles
 // sans rapport (« pour », « avec », « pose » se trouvent partout).
 const STOPWORDS = new Set([
@@ -333,27 +337,40 @@ const fmtDay = (t) => new Date(t).toLocaleDateString('fr-FR', { day: '2-digit', 
  * @param {{now?: number}} [options] - `now` pour les tests
  * @returns {string} bloc à ajouter au prompt, vide si aucun article ne correspond
  */
-export const buildPriceLibraryPrompt = (library, visitText = '', max = PRICE_LIBRARY_MAX_LINES, { now = Date.now() } = {}) => {
+export const buildPriceLibraryPrompt = (library, visitText = '', max = PRICE_LIBRARY_MAX_LINES, { now = Date.now(), freshMax = PRICE_LIBRARY_FRESH_MAX } = {}) => {
     const words = new Set(tokenize(visitText));
-    if (!words.size) return '';
 
-    const picked = (Array.isArray(library) ? library : [])
+    const scored = (Array.isArray(library) ? library : [])
         .filter((it) => it && typeof it.description === 'string' && it.description.trim()
             && Number.isFinite(Number(it.price)) && Number(it.price) > 0
             && !isUnderpricedItem(it))
         .map((it, i) => {
             const own = new Set(tokenize(it.description));
-            const score = [...own].filter((w) => words.has(w)).length;
+            const score = words.size ? [...own].filter((w) => words.has(w)).length : 0;
             const date = priceDate(it);
             const fresh = date !== null && now - date <= PRICE_STALE_DAYS * DAY_MS;
             // À score égal : d'abord un prix récent, puis l'article le plus
             // spécifique (peu de mots hors sujet).
-            return { it, i, score, fresh, ratio: own.size ? score / own.size : 0 };
-        })
+            return { it, i, score, fresh, date, ratio: own.size ? score / own.size : 0 };
+        });
+
+    const matched = scored
         .filter((s) => s.score > 0)
         .sort((a, b) => b.score - a.score || Number(b.fresh) - Number(a.fresh) || b.ratio - a.ratio || a.i - b.i)
-        .slice(0, max)
-        .map((s) => s.it);
+        .slice(0, max);
+
+    // Prix relevés récemment (skill « veille-tarifs », import de tarif) :
+    // envoyés même si la description ne les nomme pas. L'artisan décrit
+    // « des circuits spécialisés », c'est le chiffrage qui ajoute disjoncteurs,
+    // câbles et gaines — sans cette liste, ses prix frais n'arrivaient jamais
+    // jusqu'au modèle et la ligne repartait « à relever ».
+    const already = new Set(matched.map((s) => s.i));
+    const freshExtra = scored
+        .filter((s) => !already.has(s.i) && s.fresh && s.it.type !== 'service')
+        .sort((a, b) => b.date - a.date || a.i - b.i)
+        .slice(0, freshMax);
+
+    const picked = [...matched, ...freshExtra].map((s) => s.it);
     if (!picked.length) return '';
 
     let staleCount = 0;
@@ -376,7 +393,10 @@ export const buildPriceLibraryPrompt = (library, visitText = '', max = PRICE_LIB
     return `
 
 BIBLIOTHÈQUE DE PRIX DE L'ARTISAN (ses prix de vente réels) :
-Quand une ligne du devis correspond à un article ci-dessous, reprends SA désignation et SON prix tels quels. N'estime un prix marché que pour ce qui n'y figure pas.${staleRule}
+Quand une ligne du devis correspond à un article ci-dessous, reprends SON prix : c'est un prix de bibliothèque, jamais une estimation.
+• Désignation : celle de l'article, mais SANS marque, gamme commerciale ni référence (règle 2) — « Disjoncteur Ph+N 16A courbe C — Legrand DNX³ » devient « Disjoncteur Ph+N 16 A courbe C ».
+• Unité : un article vendu au conditionnement (couronne de 100 m, touret, lot de 10…) se ramène à l'unité de ta ligne (prix ÷ contenance : 255,80 € la couronne de 100 m = 2,56 €/ml).
+• N'estime un prix marché que pour ce qui ne figure pas ci-dessous.${staleRule}
 ${lines.join('\n')}`;
 };
 
