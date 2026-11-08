@@ -25,6 +25,13 @@ RÈGLES GÉNÉRALES:
 JSON UNIQUEMENT — pas de markdown, pas de texte avant/après:
 {"items":[{"description":"...","quantity":1,"unit":"u","price":0.00,"type":"service"}],"suggestions":["..."],"estimated_duration":"X jours"}`;
 
+// Devis Pro rédigé depuis une description : la méthode complète (tri ferme /
+// options, lots, réserves, questions) et le format de réponse arrivent dans
+// `extras` (voir QUOTE_PRO_METHOD côté client). La base ne porte donc que le
+// rôle, sans les consignes du devis simple (« 8 mots max ») qui la
+// contrediraient.
+const QUOTE_PRO_BASE = `Tu es un artisan du bâtiment français expérimenté qui chiffre ses propres devis : justes, complets, sans gonflage, rédigés pour être signés. Tu réponds uniquement en JSON.`;
+
 const SITE_VISIT_EXTRAS = `\n\nMODE VISITE CHANTIER — retourne aussi title, work_object, price_range et confidence:
 - "title" : nom court du projet (8 mots max), pas une phrase.
 - "work_object" : le périmètre en 2 à 4 phrases (400 caractères max) — ce qui est compris, ce qui ne l'est pas, et les constats relevés qui conditionnent le prix (longueurs, alimentation existante, accès). Aucune liste de postes, aucun montant.
@@ -38,7 +45,8 @@ const SITE_VISIT_EXTRAS = `\n\nMODE VISITE CHANTIER — retourne aussi title, wo
 // Même chose pour la lecture de la visite (remplissage du relevé, résumé pour
 // devis) : Gemini Flash sans réflexion confondait les champs, comptait des
 // réparations comme des points à créer et inventait des quantités.
-const CLAUDE_QUOTE_PRESETS = new Set(['quote-site-visit', 'visit-survey', 'visit-brief']);
+// Le devis Pro de l'Assistant suit la même méthode : même moteur.
+const CLAUDE_QUOTE_PRESETS = new Set(['quote-site-visit', 'visit-survey', 'visit-brief', 'quote-pro']);
 // La passerelle Supabase coupe à 150 s : on laisse la marge du repli Gemini.
 const CLAUDE_TIMEOUT_MS = 100_000;
 
@@ -85,6 +93,10 @@ async function callClaude(apiKey: string, systemPrompt: string, userMessage: str
 
 function resolvePresetPrompt(preset: string, userOverride: string | null | undefined, extras: string): string {
   const customBase = (userOverride && userOverride.trim()) ? userOverride.trim() : QUOTE_PROMPT;
+  if (preset === 'quote-pro') {
+    const proBase = (userOverride && userOverride.trim()) ? userOverride.trim() : QUOTE_PRO_BASE;
+    return proBase + (extras || '');
+  }
   if (preset === 'quote') {
     return customBase + (extras || '');
   }

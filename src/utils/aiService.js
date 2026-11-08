@@ -13,7 +13,10 @@ import {
     buildAnswersBlock,
     normalizeQuestions,
     ANSWERS_INSTRUCTION,
+    buildQuoteProMethod,
+    normalizeReserves,
 } from './quoteMethod';
+import { normalizeWorkObject } from './workObject';
 import { formatDate, formatPrice } from './format';
 
 // Re-exported so callers that already import these from aiService keep working.
@@ -256,6 +259,65 @@ export const generateQuoteItems = async (userDescription, context = {}) => {
         ? await callAiProxy({ systemPrompt: context.customSystemPrompt + extras, userMessage })
         : await callAiProxy({ preset: 'quote', extras, userMessage });
     return parseQuoteResponse(rawResponse);
+};
+
+/**
+ * Devis Pro rédigé depuis une description libre, selon la méthode de la skill
+ * « devis électrique » (voir QUOTE_PRO_METHOD) : titre, objet des travaux,
+ * lignes détaillées par lot, options hors total, réserves et questions.
+ *
+ * @param {string} userDescription - travaux décrits ou dictés par l'artisan
+ * @param {object} context - hourlyRate, instructions, customSystemPrompt,
+ *   trade (métier), priceLibrary (lignes price_library), answers
+ *   ([{question, answer}] : réponses aux questions d'un premier chiffrage)
+ * @returns {Promise<{title, work_object, items, reserves, suggestions, questions, estimated_duration}>}
+ */
+export const generateProQuote = async (userDescription, context = {}) => {
+    const answersBlock = buildAnswersBlock(context.answers);
+    const hourlyRate = context.hourlyRate || context.hourly_rate || context.ai_hourly_rate;
+    const instructions = context.instructions || context.ai_instructions;
+
+    let extras = '';
+    if (hourlyRate) extras += `\nTaux horaire MO de l'artisan : ${hourlyRate} €/h HT.`;
+    if (instructions) extras += `\nINSTRUCTIONS DE L'ARTISAN (ses règles de chiffrage, prioritaires) : ${instructions}`;
+    extras += buildQuoteProMethod(context.trade);
+    extras += buildPriceLibraryPrompt(context.priceLibrary, userDescription);
+    if (answersBlock) extras += ANSWERS_INSTRUCTION;
+
+    const userMessage = `TRAVAUX À CHIFFRER :\n${userDescription}${answersBlock ? `\n\n${answersBlock}` : ''}`;
+    const rawResponse = context.customSystemPrompt
+        // Le preset accompagne le prompt personnalisé : c'est lui qui oriente
+        // le serveur vers le moteur de chiffrage Pro.
+        ? await callAiProxy({ preset: 'quote-pro', systemPrompt: context.customSystemPrompt + extras, userMessage })
+        : await callAiProxy({ preset: 'quote-pro', extras, userMessage });
+
+    const parsed = extractJsonObject(rawResponse);
+    const rawItems = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.items) ? parsed.items : []);
+    const items = rawItems.map((item, i) => {
+        const line = validateQuoteItem(item, i);
+        // Désignation sur une ligne : le PDF et l'éditeur l'affichent ainsi.
+        line.description = line.description.replace(/\s+/g, ' ');
+        if (typeof item.lot === 'string' && item.lot.trim()) line.lot = item.lot.trim();
+        if (item.is_optional === true) {
+            line.is_optional = true;
+            if (typeof item.option_reason === 'string' && item.option_reason.trim()) {
+                line.option_reason = item.option_reason.trim();
+            }
+        }
+        if (item.price_estimated === true) line.price_estimated = true;
+        return line;
+    });
+
+    return {
+        title: typeof parsed.title === 'string' ? parsed.title.trim() : '',
+        work_object: normalizeWorkObject(parsed.work_object),
+        items,
+        reserves: normalizeReserves(parsed.reserves),
+        suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.filter((s) => typeof s === 'string' && s.trim()) : [],
+        estimated_duration: typeof parsed.estimated_duration === 'string' ? parsed.estimated_duration : null,
+        // Un seul aller-retour : plus de question après les réponses.
+        questions: answersBlock ? [] : normalizeQuestions(parsed.questions),
+    };
 };
 
 /**
