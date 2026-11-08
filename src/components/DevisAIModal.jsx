@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Sparkles, Loader2, Clock, HelpCircle, Crown } from 'lucide-react';
+import { Sparkles, Loader2, Clock, HelpCircle, Crown, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateQuoteItems, generateProQuote } from '../utils/aiService';
 import { checkLimit } from '../utils/planLimits';
 import { usePriceLibrary } from '../hooks/useDataCache';
+import { buildPriceCheckList, proItemsToFormItems } from '../utils/quoteMethod';
 
 /**
  * Modal "Assistant Intelligent" — génère le devis via IA.
@@ -30,6 +31,8 @@ const DevisAIModal = ({ open, onClose, onItemsGenerated, onQuoteGenerated, userP
     // Devis Pro en attente de réponses aux questions posées par l'IA.
     const [pendingQuote, setPendingQuote] = useState(null);
     const [answers, setAnswers] = useState({});
+    // Fournitures au prix estimé ou ancien, à re-relever avant l'envoi.
+    const [priceCheck, setPriceCheck] = useState({ text: '', count: 0 });
 
     const plan = userProfile?.plan || 'free';
     const isPro = plan === 'pro' || plan === 'owner';
@@ -42,6 +45,7 @@ const DevisAIModal = ({ open, onClose, onItemsGenerated, onQuoteGenerated, userP
         setShowSuggestions(false);
         setPendingQuote(null);
         setAnswers({});
+        setPriceCheck({ text: '', count: 0 });
         onClose();
     };
 
@@ -51,9 +55,9 @@ const DevisAIModal = ({ open, onClose, onItemsGenerated, onQuoteGenerated, userP
         customSystemPrompt: userProfile?.ai_preferences?.quote_system_prompt || userProfile?.quote_system_prompt || '',
     });
 
-    const showSuggestionsOrClose = (suggestions, successMessage) => {
-        if (suggestions && suggestions.length > 0) {
-            setAiSuggestions(suggestions);
+    const showSuggestionsOrClose = (suggestions, successMessage, pricesToCheck = 0) => {
+        if ((suggestions && suggestions.length > 0) || pricesToCheck > 0) {
+            setAiSuggestions(suggestions || []);
             setShowSuggestions(true);
         } else {
             toast.success(successMessage);
@@ -67,7 +71,10 @@ const DevisAIModal = ({ open, onClose, onItemsGenerated, onQuoteGenerated, userP
         onQuoteGenerated(quote);
         setPendingQuote(null);
         setAiDuration(quote.estimated_duration || null);
-        showSuggestionsOrClose(quote.suggestions, `Devis rédigé : ${lines} ligne${lines > 1 ? 's' : ''}, objet et réserves compris.`);
+        const text = buildPriceCheckList(proItemsToFormItems(quote.items), { title: quote.title });
+        const count = text ? text.split('\n').length - 1 : 0;
+        setPriceCheck({ text, count });
+        showSuggestionsOrClose(quote.suggestions, `Devis rédigé : ${lines} ligne${lines > 1 ? 's' : ''}, objet et réserves compris.`, count);
     };
 
     const runProQuote = async (withAnswers = []) => {
@@ -157,6 +164,15 @@ const DevisAIModal = ({ open, onClose, onItemsGenerated, onQuoteGenerated, userP
         }
     };
 
+    const handleCopyPriceCheck = async () => {
+        try {
+            await navigator.clipboard.writeText(priceCheck.text);
+            toast.success('Liste des prix à relever copiée');
+        } catch {
+            toast.error('Copie impossible sur cet appareil.');
+        }
+    };
+
     const handleAddSuggestion = (suggestion) => {
         onItemsGenerated([{
             id: Date.now() + Math.random(),
@@ -208,6 +224,27 @@ const DevisAIModal = ({ open, onClose, onItemsGenerated, onQuoteGenerated, userP
                                     <span>Durée estimée du chantier : <strong>{aiDuration}</strong></span>
                                 </div>
                             )}
+                            {priceCheck.count > 0 && (
+                                <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                                    <p className="flex items-start gap-2 text-sm text-orange-800">
+                                        <ClipboardList className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                        <span>
+                                            <strong>{priceCheck.count} prix à relever</strong> avant d'envoyer le devis :
+                                            estimés par l'appli ou trop anciens dans votre bibliothèque. Ils sont marqués
+                                            « À relever » dans le chiffrage des lignes.
+                                        </span>
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={handleCopyPriceCheck}
+                                        className="mt-2 px-3 py-1.5 text-xs font-medium bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                                    >
+                                        Copier la liste à relever
+                                    </button>
+                                </div>
+                            )}
+                            {(!isPro || aiSuggestions.length > 0) && (
+                            <>
                             <p className="text-sm text-gray-600 mb-3">
                                 {isPro
                                     ? 'Le devis est rempli. Points à vérifier avant de l\'envoyer :'
@@ -234,6 +271,8 @@ const DevisAIModal = ({ open, onClose, onItemsGenerated, onQuoteGenerated, userP
                                     <li className="text-sm text-gray-500 text-center py-2">Tous les postes ont été ajoutés !</li>
                                 )}
                             </ul>
+                            </>
+                            )}
                             <div className="mt-6 flex justify-end">
                                 <button
                                     onClick={handleClose}

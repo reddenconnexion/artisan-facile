@@ -315,6 +315,7 @@ export const generateProQuote = async (userDescription, context = {}) => {
             }
         }
         if (item.price_estimated === true) line.price_estimated = true;
+        if (item.price_stale === true) line.price_stale = true;
         return line;
     });
 

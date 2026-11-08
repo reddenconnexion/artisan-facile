@@ -1,5 +1,7 @@
-import { Plus, Mic, Layers, X, Sparkles, Info, ShoppingCart, HelpCircle, Truck, ClipboardPaste, MinusCircle } from 'lucide-react';
+import { Plus, Mic, Layers, X, Sparkles, Info, ShoppingCart, HelpCircle, Truck, ClipboardPaste, MinusCircle, ClipboardList } from 'lucide-react';
+import { toast } from 'sonner';
 import { supplyEntries } from '../../utils/quoteInternalDetail';
+import { buildPriceCheckList, isPriceToCheck } from '../../utils/quoteMethod';
 
 /**
  * Boutons d'ajout sous les lignes (main d'œuvre, matériel, dictée, section,
@@ -22,6 +24,18 @@ const ItemsToolbar = ({
     setVoiceContext,
     showItemTypesHelp,
 }) => {
+    // Fournitures au prix estimé ou ancien (note interne « À relever ») : la
+    // liste se copie à tout moment, pour les re-relever avant l'envoi.
+    const priceCheckCount = (formData.items || []).filter(isPriceToCheck).length;
+    const copyPriceCheck = async () => {
+        try {
+            await navigator.clipboard.writeText(buildPriceCheckList(formData.items, { title: formData.title }));
+            toast.success('Liste des prix à relever copiée');
+        } catch {
+            toast.error('Copie impossible sur cet appareil.');
+        }
+    };
+
     return (
         <>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -119,6 +133,18 @@ const ItemsToolbar = ({
                         >
                             <Truck className="w-4 h-4" />
                             Liste fournisseur
+                        </button>
+                    )}
+
+                    {priceCheckCount > 0 && (
+                        <button
+                            type="button"
+                            onClick={copyPriceCheck}
+                            className="flex items-center gap-1.5 text-sm font-medium text-orange-700 hover:text-orange-900 hover:bg-orange-50 dark:hover:bg-orange-900/20 px-3 py-1.5 rounded-lg border border-orange-200 transition-colors"
+                            title="Copie les fournitures dont le prix est estimé ou trop ancien (désignation | quantité | unité), pour les re-relever chez vos fournisseurs avant d'envoyer le devis."
+                        >
+                            <ClipboardList className="w-4 h-4" />
+                            {priceCheckCount} prix à relever
                         </button>
                     )}
 
