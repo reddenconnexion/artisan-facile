@@ -50,6 +50,18 @@ const CLAUDE_QUOTE_PRESETS = new Set(['quote-site-visit', 'visit-survey', 'visit
 // La passerelle Supabase coupe à 150 s : on laisse la marge du repli Gemini.
 const CLAUDE_TIMEOUT_MS = 100_000;
 
+// Plafond mensuel d'appels Claude par compte Pro : ils sont payés sur la clé
+// Anthropic du serveur. Au-delà, le chiffrage passe par Gemini jusqu'au mois
+// suivant. Réglable sans redéploiement via le secret PRO_CLAUDE_MONTHLY_LIMIT.
+// Le compte « owner » (l'éditeur) n'est pas plafonné.
+const DEFAULT_PRO_CLAUDE_MONTHLY_LIMIT = 60;
+const CLAUDE_CAP_NOTICE = "Vous avez atteint le nombre de chiffrages avancés inclus ce mois-ci : celui-ci a été rédigé par le moteur standard, à relire avec soin. Le chiffrage avancé revient le 1er du mois.";
+
+function proClaudeMonthlyLimit(): number {
+  const raw = Number(Deno.env.get('PRO_CLAUDE_MONTHLY_LIMIT'));
+  return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : DEFAULT_PRO_CLAUDE_MONTHLY_LIMIT;
+}
+
 async function callClaude(apiKey: string, systemPrompt: string, userMessage: string): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CLAUDE_TIMEOUT_MS);
@@ -186,12 +198,32 @@ Deno.serve(async (req) => {
 
     let rawResponse: string | undefined;
 
+    let notice: string | undefined;
     const serverAnthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (usingServerKey && isPro && serverAnthropicKey && CLAUDE_QUOTE_PRESETS.has(preset)) {
-      try {
-        rawResponse = await callClaude(serverAnthropicKey, resolvedSystemPrompt, userMessage);
-      } catch (err) {
-        console.warn(`ai-proxy: Claude indisponible, repli Gemini — ${(err as Error).message}`);
+      // Réserve l'appel dans le plafond du mois. En cas d'erreur du compteur,
+      // on ne prend pas le risque d'un appel payant non compté : repli Gemini.
+      let claudeAllowed = plan === 'owner';
+      if (!claudeAllowed) {
+        const { data: claimed, error: claimError } = await supabase.rpc('claim_premium_ai_call', {
+          p_month: new Date().toISOString().slice(0, 7),
+          p_limit: proClaudeMonthlyLimit(),
+        });
+        if (claimError) {
+          console.warn(`ai-proxy: compteur Claude indisponible, repli Gemini — ${claimError.message}`);
+        } else if (claimed === true) {
+          claudeAllowed = true;
+        } else {
+          console.log(`ai-proxy: plafond Claude du mois atteint pour ${user.id}, repli Gemini`);
+          notice = CLAUDE_CAP_NOTICE;
+        }
+      }
+      if (claudeAllowed) {
+        try {
+          rawResponse = await callClaude(serverAnthropicKey, resolvedSystemPrompt, userMessage);
+        } catch (err) {
+          console.warn(`ai-proxy: Claude indisponible, repli Gemini — ${(err as Error).message}`);
+        }
       }
     }
 
@@ -264,7 +296,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return json({ rawResponse });
+    return json(notice ? { rawResponse, notice } : { rawResponse });
 
   } catch (error) {
     return json({ error: error.message }, 500);
