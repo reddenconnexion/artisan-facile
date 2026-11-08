@@ -237,3 +237,52 @@ describe('questions du devis Pro', () => {
         expect(QUOTE_PRO_METHOD).toContain('"questions": []');
     });
 });
+
+describe('prix relevés récemment (veille-tarifs)', () => {
+    const NOW = new Date('2026-11-08T12:00:00Z').getTime();
+    const daysAgo = (n) => new Date(NOW - n * 24 * 3600 * 1000).toISOString();
+
+    it('envoie les fournitures relevées depuis moins de 30 jours même si la description ne les nomme pas', async () => {
+        const { buildPriceLibraryPrompt } = await import('./quoteMethod');
+        const library = [
+            { description: 'Disjoncteur Ph+N 16A courbe C — Legrand DNX³', price: 13.46, type: 'material', updated_at: daysAgo(1) },
+            { description: 'Câble R2V 3G2,5 mm²', price: 2.56, unit: 'ml', type: 'material', updated_at: daysAgo(2) },
+            { description: 'Disjoncteur 10A', price: 9, type: 'material', updated_at: daysAgo(300) },
+            { description: 'Main d’œuvre dépannage', price: 60, type: 'service', updated_at: daysAgo(1) },
+        ];
+        const out = buildPriceLibraryPrompt(library, 'circuits spécialisés cuisine induction', 40, { now: NOW });
+        expect(out).toContain('Disjoncteur Ph+N 16A courbe C');
+        expect(out).toContain('Câble R2V 3G2,5 mm² | ml | 2,56 € HT');
+        expect(out).not.toContain('Disjoncteur 10A');
+        expect(out).not.toContain('dépannage');
+    });
+
+    it('plafonne les prix frais ajoutés, les plus récents d’abord', async () => {
+        const { buildPriceLibraryPrompt } = await import('./quoteMethod');
+        const library = Array.from({ length: 10 }, (_, i) => ({
+            description: `Article relevé ${i}`, price: 10, type: 'material', updated_at: daysAgo(i + 1),
+        }));
+        const out = buildPriceLibraryPrompt(library, 'chantier sans rapport', 40, { now: NOW, freshMax: 3 });
+        const lines = out.split('\n').filter((l) => l.startsWith('- Article'));
+        expect(lines.map((l) => l.split(' |')[0])).toEqual(['- Article relevé 0', '- Article relevé 1', '- Article relevé 2']);
+    });
+
+    it('sans texte, n’envoie que les prix frais', async () => {
+        const { buildPriceLibraryPrompt } = await import('./quoteMethod');
+        const out = buildPriceLibraryPrompt(
+            [{ description: 'Gaine ICTA Ø20', price: 0.75, unit: 'ml', type: 'material', updated_at: daysAgo(5) }],
+            '', 40, { now: NOW });
+        expect(out).toContain('Gaine ICTA Ø20');
+    });
+
+    it('demande de retirer la marque et de ramener le conditionnement à l’unité', async () => {
+        const { buildPriceLibraryPrompt, QUOTE_PRO_METHOD } = await import('./quoteMethod');
+        const out = buildPriceLibraryPrompt(
+            [{ description: 'Câble R2V 3G2,5 mm² — couronne 100 m', price: 255.8, unit: 'couronne', type: 'material', updated_at: daysAgo(1) }],
+            'câble', 40, { now: NOW });
+        expect(out).toContain('SANS marque');
+        expect(out).toContain('prix ÷ contenance');
+        expect(out).toContain('jamais une estimation');
+        expect(QUOTE_PRO_METHOD).toContain('une telle ligne n\'est PAS estimée');
+    });
+});
