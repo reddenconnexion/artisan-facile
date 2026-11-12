@@ -49,6 +49,50 @@ export const removeVoice = (capture, mediaId) => ({
     entries: (capture.entries || []).filter((e) => !(e.type === 'voice' && e.mediaId === mediaId)),
 });
 
+/**
+ * Range un enregistrement dans une autre pièce (lieu annoncé à voix haute,
+ * ou correction à la main).
+ *
+ * Avec `follow`, la visite suit : les photos, points à voir et dictées faits
+ * dans la foulée — rattachés à l'ancienne pièce faute de mieux — passent
+ * aussi dans la nouvelle, jusqu'au prochain changement de pièce. Si l'artisan
+ * n'a pas changé de pièce depuis, elle devient la pièce en cours. Le comptage
+ * ne bouge pas : il est déjà inscrit au relevé de sa pièce.
+ *
+ * @returns {{capture: object, voiceIds: string[]}} `voiceIds` : les
+ *   enregistrements déplacés, pour que l'appelant aligne ses notes vocales.
+ */
+export const rezoneVoice = (capture, mediaId, zoneName, { follow = false } = {}) => {
+    const entries = capture.entries || [];
+    const index = entries.findIndex((e) => e.type === 'voice' && e.mediaId === mediaId);
+    const zone = (zoneName || '').trim();
+    if (index < 0 || !zone || entries[index].zone === zone) return { capture, voiceIds: [] };
+
+    const from = entries[index].zone || '';
+    const voiceIds = [mediaId];
+    const next = entries.map((e, i) => (i === index ? { ...e, zone } : e));
+    if (!follow) return { capture: { ...capture, entries: next }, voiceIds };
+
+    let movedOn = false;
+    for (let i = index + 1; i < next.length; i += 1) {
+        const entry = next[i];
+        if (entry.type === 'zone') { movedOn = true; break; }
+        if (entry.type !== 'count' && (entry.zone || '') === from) {
+            next[i] = { ...entry, zone };
+            if (entry.type === 'voice') voiceIds.push(entry.mediaId);
+        }
+    }
+    if (movedOn || (capture.zone || '') !== from) return { capture: { ...capture, entries: next }, voiceIds };
+
+    // La bascule s'inscrit au fil juste avant la dictée qui l'a annoncée.
+    const at = entries[index].at;
+    const marker = { id: `zone-${at}-spoken-${index}`, type: 'zone', at, zone };
+    return {
+        capture: { ...capture, zone, entries: [...next.slice(0, index), marker, ...next.slice(index)] },
+        voiceIds,
+    };
+};
+
 /** Une ou plusieurs photos prises à la volée. */
 export const addPhoto = (capture, { mediaId, at }) =>
     withEntry(capture, { type: 'photo', at, zone: capture.zone, mediaId });

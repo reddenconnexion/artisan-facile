@@ -32,8 +32,9 @@ import { useVisitRecorder } from '../hooks/useVisitRecorder';
 import {
     createCapture, addZoneChange, addCount, addVoice, removeVoice, addPhoto, addFlag,
     undoLast, hasCaptureContent, ensureSurveyZone, bumpSurveyCounter,
-    buildTimelineLines, photoZones,
+    buildTimelineLines, photoZones, rezoneVoice,
 } from '../utils/visitCapture';
+import { detectSpokenZone } from '../utils/spokenZone';
 import { surveyCompleteness } from '../utils/predevisReport';
 import {
     loadVisitDraft, saveVisitDraft, clearVisitDraft, draftAgeLabel, draftPhotos, restoreDraftPhotos,
@@ -373,6 +374,9 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
     useEffect(() => { voiceTranscriptsRef.current = voiceTranscripts; }, [voiceTranscripts]);
     const transcribeQueueRef = useRef([]);
     const transcribingRef = useRef(false);
+    // Rangement d'une dictée d'après le lieu annoncé (défini plus bas, avec
+    // l'état de la visite) : la file de transcription l'appelle par cette ref.
+    const routeDictationRef = useRef(null);
 
     /**
      * Met un segment audio à l'abri dans le bucket privé `visit-audio` et
@@ -442,6 +446,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                     setVoiceTranscripts(prev => ({ ...prev, [note.id]: transcript }));
                     setVoiceStatus(s => ({ ...s, [note.id]: { state: 'done' } }));
                     markVoiceNoteDone(note);
+                    routeDictationRef.current?.(note, transcript);
                 } catch (err) {
                     console.warn('Transcription en échec :', err);
                     setVoiceStatus(s => ({
@@ -915,6 +920,38 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
     useEffect(() => {
         latestRef.current = { survey, textNotes, address, clientName, capture };
     }, [survey, textNotes, address, clientName, capture]);
+
+    // ── Dictée rangée toute seule ──────────────────────────────────────────
+    // « Cuisine, … », « Tableau, … » : le lieu dit en premier range la dictée,
+    // sans chercher de pastille avant de parler.
+
+    /**
+     * Range un enregistrement dans une pièce ou un poste. `follow` : la
+     * visite suit (pièce en cours, photos prises dans la foulée).
+     */
+    const moveVoiceToZone = (id, zoneName, { follow = false } = {}) => {
+        const zone = String(zoneName ?? '').trim();
+        const current = latestRef.current.capture || capture;
+        const { voiceIds } = rezoneVoice(current, id, zone, { follow });
+        if (!voiceIds.length) return false;
+        if (!isDictationTopic(zone)) setSurvey(s => ensureSurveyZone(s, zone));
+        setCapture(c => rezoneVoice(c, id, zone, { follow }).capture);
+        setVoiceNotes(prev => prev.map(n => (voiceIds.includes(n.id) ? { ...n, zone } : n)));
+        const dbIds = voiceNotesRef.current.filter(n => voiceIds.includes(n.id) && n.dbId).map(n => n.dbId);
+        if (dbIds.length) supabase.from('voice_memos').update({ zone }).in('id', dbIds).then(() => {}, () => {});
+        return true;
+    };
+
+    const routeDictation = (note, transcript) => {
+        if (note?.kind !== 'dictation') return;
+        const spoken = detectSpokenZone(transcript, {
+            zones: (latestRef.current.survey?.zones || []).map(z => z.name),
+            topics: dictationTopics,
+            presets: surveyTemplate.zonePresets,
+        });
+        if (spoken) moveVoiceToZone(note.id, spoken, { follow: true });
+    };
+    useEffect(() => { routeDictationRef.current = routeDictation; });
 
     const transcriptionsBusy = () => transcribingRef.current
         || transcribeQueueRef.current.length > 0
@@ -1580,6 +1617,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                         onCaptureStyleChange={handleCaptureStyle}
                         dictationTopics={dictationTopics}
                         onDeleteVoice={handleDeleteDictation}
+                        onMoveVoice={moveVoiceToZone}
                     />
                 )}
 

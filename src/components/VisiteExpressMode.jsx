@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import {
-    Mic, Square, Camera, Flag, Undo2, Plus, MapPin, Check, Clock,
+    Mic, Square, Camera, Flag, Undo2, Plus, Check, Clock, ChevronDown, ChevronUp, Settings2,
     Sparkles, Radio, AlertTriangle, Loader2, CloudUpload, RefreshCw, Trash2, MessagesSquare,
 } from 'lucide-react';
 import { formatDuration } from '../utils/siteVisitConfig';
 import { zoneCounters } from '../utils/visitCapture';
 
 // Mode express : l'écran de visite sur le terrain. Deux façons d'enregistrer :
-// - dictée (par défaut) : l'artisan choisit la pièce ou le poste, dicte ce
-//   qu'il y a à faire, s'arrête ; le texte s'affiche aussitôt pour vérifier.
+// - dictée (par défaut) : l'artisan touche « Dicter », dit le lieu en premier
+//   (« Cuisine, … », « Tableau, … ») puis ce qu'il y a à faire, et s'arrête ;
+//   la dictée se range toute seule et son texte s'affiche pour vérifier.
 //   Courtes et sans bavardage, les dictées se transcrivent bien et font foi ;
 // - conversation entière : le micro tourne du début à la fin pendant que le
 //   client parle, à trier ensuite.
@@ -70,38 +71,61 @@ const CaptureStyleSwitch = ({ value, onChange }) => (
     </div>
 );
 
-/** Corps de l'écran express : état d'enregistrement, pièces, fil de la visite. */
+const sameName = (a, b) => String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
+
+/** Corps de l'écran express : état d'enregistrement, lieux, fil de la visite. */
 const VisiteExpressMode = ({
     template, survey, capture, onZoneChange,
     isRecording, elapsed, segmentCount,
     level = 0, isSilent = false, micId = '', micLabel = '', micInputs = [], onPickMic,
     photos = [], onRetryPhotos, onOpenPhoto,
     voiceNotes = [], transcripts = {}, voiceStatus = {}, onRetryTranscriptions,
-    captureStyle = 'continuous', onCaptureStyleChange, dictationTopics = [], onDeleteVoice,
+    captureStyle = 'continuous', onCaptureStyleChange, dictationTopics = [], onDeleteVoice, onMoveVoice,
 }) => {
-    const [customOpen, setCustomOpen] = useState(false);
+    // null : la liste des lieux s'ouvre d'elle-même tant qu'aucun n'a servi.
+    const [moreOpen, setMoreOpen] = useState(null);
+    const [settingsOpen, setSettingsOpen] = useState(false);
     const [customName, setCustomName] = useState('');
     const dictating = captureStyle === 'dictation';
 
-    // Pastilles : en dictée, les postes hors pièce (général, tableau) d'abord ;
-    // puis les pièces déjà relevées et les propositions du métier.
+    // Lieux déjà passés, dans l'ordre de la visite : ce sont eux qu'on
+    // retouche le plus. Le reste se déplie — ou se dit à voix haute.
     const topics = dictating ? dictationTopics : [];
-    const isTopic = (name) => topics.some((t) => t.toLowerCase() === String(name ?? '').toLowerCase());
-    const known = (survey.zones || []).map((z) => (z.name || '').trim()).filter((n) => n && !isTopic(n));
-    const presets = (template.zonePresets || []).filter(
-        (p) => !known.some((k) => k.toLowerCase() === p.toLowerCase())
-    );
-    const chips = [...topics, ...known, ...presets];
+    const isTopic = (name) => dictationTopics.some((t) => sameName(t, name));
+    const visited = [];
+    const remember = (name) => {
+        const clean = String(name ?? '').trim();
+        if (clean && !visited.some((v) => sameName(v, clean))) visited.push(clean);
+    };
+    (capture.entries || []).forEach((e) => remember(e.zone));
+    (survey.zones || []).forEach((z) => remember(z.name));
+    remember(capture.zone);
+    const unvisited = (list) => (list || []).filter((p) => !visited.some((v) => sameName(v, p)));
+    const otherRooms = unvisited(template.zonePresets);
+    const otherTopics = unvisited(topics);
+    const showMore = moreOpen ?? visited.length === 0;
 
-    const pick = (name) => { buzz(); onZoneChange(name); };
+    const pick = (name) => { buzz(); onZoneChange(name); setMoreOpen(false); };
 
     const addCustom = () => {
         const name = customName.trim();
         if (!name) return;
         pick(name);
         setCustomName('');
-        setCustomOpen(false);
     };
+
+    const chipClass = (name) => `px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+        sameName(capture.zone, name)
+            ? 'bg-violet-600 text-white'
+            : isTopic(name)
+                ? 'bg-amber-50 border border-amber-200 text-amber-800 active:scale-95'
+                : 'bg-white border border-gray-200 text-gray-700 active:scale-95'
+    }`;
+
+    // Où ranger une dictée à la main : lieux de la visite, puis le reste.
+    const movePlaces = [...visited, ...otherRooms, ...unvisited(dictationTopics)];
+    const spokenExamples = [template.zonePresets?.[0] || 'Cuisine', template.hasTableau ? 'Tableau' : '']
+        .filter(Boolean).map((n) => `« ${n}, … »`).join(' ou ');
 
     const entries = [...(capture.entries || [])].reverse();
     const pendingPhotos = photos.filter((p) => !p.path).length;
@@ -113,10 +137,29 @@ const VisiteExpressMode = ({
     const failedNotes = voiceNotes.filter((n) => voiceStatus[n.id]?.state === 'failed');
     const firstFailure = failedNotes.map((n) => voiceStatus[n.id]?.error).find(Boolean);
 
+    const micSelect = (
+        <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-2xl">
+            <Mic className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <select
+                value={micId}
+                onChange={(e) => onPickMic?.(e.target.value)}
+                className="flex-1 min-w-0 text-xs font-semibold text-gray-700 bg-transparent focus:outline-none"
+                aria-label="Micro utilisé"
+            >
+                <option value="">
+                    {micLabel ? `Automatique — ${micLabel}` : 'Micro automatique (choix du téléphone)'}
+                </option>
+                {micInputs
+                    .filter((input) => input.deviceId)
+                    .map((input) => (
+                        <option key={input.deviceId} value={input.deviceId}>{input.label}</option>
+                    ))}
+            </select>
+        </div>
+    );
+
     return (
         <div className="p-3 space-y-3">
-            {!isRecording && <CaptureStyleSwitch value={captureStyle} onChange={onCaptureStyleChange} />}
-
             {/* État de l'enregistrement */}
             {dictating ? (
                 isRecording ? (
@@ -127,21 +170,24 @@ const VisiteExpressMode = ({
                                 <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
                             </span>
                             <p className="flex-1 min-w-0 font-bold leading-tight truncate">
-                                Dictée — {capture.zone || 'pièce non précisée'}
+                                Dictée — {capture.zone || 'dites le lieu en premier'}
                             </p>
                             <span className="font-mono font-bold tabular-nums text-lg flex-shrink-0">
                                 {formatDuration(elapsed)}
                             </span>
                         </div>
                         <p className="text-xs text-red-100">
-                            Dites : l'existant · ce qu'il faut faire · combien · qui fournit · les contraintes.
+                            {capture.zone ? 'Autre lieu ? Dites son nom en premier. Puis' : 'Le lieu, puis'}
+                            {' '}: l'existant · à faire · combien · qui fournit · les contraintes.
                         </p>
                     </div>
                 ) : (
                     <div className="flex items-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-2xl">
                         <Mic className="w-4 h-4 flex-shrink-0 text-gray-400" />
                         <p className="flex-1 text-sm font-semibold">
-                            {capture.zone ? `Prêt à dicter : ${capture.zone}` : 'Choisissez la pièce ou le poste, puis « Dicter »'}
+                            {capture.zone
+                                ? `Prêt à dicter : ${capture.zone}`
+                                : `Touchez « Dicter » et dites le lieu en premier : ${spokenExamples}`}
                         </p>
                     </div>
                 )
@@ -152,7 +198,9 @@ const VisiteExpressMode = ({
                         <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
                     </span>
                     <div className="flex-1 min-w-0">
-                        <p className="font-bold leading-tight">Visite enregistrée</p>
+                        <p className="font-bold leading-tight">
+                            Visite enregistrée{capture.zone ? ` — ${capture.zone}` : ''}
+                        </p>
                         <p className="text-xs text-red-100">
                             Laissez le client parler — tout est capté.
                         </p>
@@ -175,102 +223,94 @@ const VisiteExpressMode = ({
                 </div>
             )}
 
-            {/* Micro utilisé + preuve que ça capte */}
-            <div className="px-3 py-2 bg-white border border-gray-200 rounded-2xl space-y-2">
-                <div className="flex items-center gap-2">
-                    <Mic className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <select
-                        value={micId}
-                        onChange={(e) => onPickMic?.(e.target.value)}
-                        className="flex-1 min-w-0 text-xs font-semibold text-gray-700 bg-transparent focus:outline-none"
-                        aria-label="Micro utilisé"
-                    >
-                        <option value="">
-                            {micLabel ? `Automatique — ${micLabel}` : 'Micro automatique (choix du téléphone)'}
-                        </option>
-                        {micInputs
-                            .filter((input) => input.deviceId)
-                            .map((input) => (
-                                <option key={input.deviceId} value={input.deviceId}>{input.label}</option>
-                            ))}
-                    </select>
+            {/* Preuve que ça capte — et le micro sous la main si ce n'est pas le cas */}
+            {isRecording && (
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                        className={`h-full rounded-full transition-[width] duration-100 ${isSilent ? 'bg-red-400' : 'bg-emerald-500'}`}
+                        style={{ width: `${Math.round(Math.min(1, level) * 100)}%` }}
+                    />
                 </div>
-                {isRecording && (
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                            className={`h-full rounded-full transition-[width] duration-100 ${isSilent ? 'bg-red-400' : 'bg-emerald-500'}`}
-                            style={{ width: `${Math.round(Math.min(1, level) * 100)}%` }}
-                        />
-                    </div>
-                )}
-                {isRecording && isSilent && (
+            )}
+            {isRecording && isSilent && (
+                <>
                     <p className="flex items-start gap-1.5 text-xs font-semibold text-red-600">
                         <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                         Aucun son capté depuis 15 s — vérifiez le micro avant de continuer.
                     </p>
-                )}
-            </div>
-
-            {/* Pièce en cours */}
-            <div className="flex items-center gap-2 px-3 py-2.5 bg-violet-600 text-white rounded-2xl">
-                <MapPin className="w-4 h-4 flex-shrink-0" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-violet-200">{dictating ? 'Pièce / poste' : 'Je suis dans'}</span>
-                <span className="flex-1 text-right font-bold truncate">
-                    {capture.zone || 'aucune pièce'}
-                </span>
-            </div>
-
-            {/* Changement de pièce en un tap */}
-            <div className="flex flex-wrap gap-1.5">
-                {chips.map((name) => (
-                    <button
-                        key={name}
-                        type="button"
-                        onClick={() => pick(name)}
-                        className={`px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                            (capture.zone || '').toLowerCase() === name.toLowerCase()
-                                ? 'bg-violet-600 text-white'
-                                : isTopic(name)
-                                    ? 'bg-amber-50 border border-amber-200 text-amber-800 active:scale-95'
-                                    : 'bg-white border border-gray-200 text-gray-700 active:scale-95'
-                        }`}
-                    >
-                        {name}
-                    </button>
-                ))}
-                {!customOpen && (
-                    <button
-                        type="button"
-                        onClick={() => setCustomOpen(true)}
-                        className="px-3 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-dashed border-violet-200 text-violet-600 active:scale-95"
-                        aria-label="Autre pièce"
-                    >
-                        <Plus className="w-4 h-4" />
-                    </button>
-                )}
-            </div>
-
-            {customOpen && (
-                <div className="flex gap-2">
-                    <input
-                        autoFocus
-                        type="text"
-                        value={customName}
-                        onChange={(e) => setCustomName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') addCustom(); }}
-                        placeholder="Nom de la pièce…"
-                        className="flex-1 px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                    />
-                    <button
-                        type="button"
-                        onClick={addCustom}
-                        className="px-4 bg-violet-600 text-white rounded-xl font-semibold"
-                        aria-label="Valider la pièce"
-                    >
-                        <Check className="w-4 h-4" />
-                    </button>
-                </div>
+                    {!settingsOpen && micSelect}
+                </>
             )}
+
+            {/* Lieux de la visite : un tap pour y revenir */}
+            <div className="space-y-2">
+                {visited.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                        {visited.map((name) => (
+                            <button key={name} type="button" onClick={() => pick(name)} className={chipClass(name)}>
+                                {name}
+                            </button>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => setMoreOpen(!showMore)}
+                            aria-expanded={showMore}
+                            className="flex items-center gap-1 px-3 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-dashed border-violet-200 text-violet-600 active:scale-95"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Autre lieu
+                        </button>
+                    </div>
+                )}
+
+                {showMore && (
+                    <div className="p-3 bg-white border border-gray-200 rounded-2xl space-y-2.5">
+                        {dictating && (
+                            <p className="text-xs text-gray-500">
+                                Facultatif : le lieu dit en premier dans la dictée suffit.
+                            </p>
+                        )}
+                        {otherRooms.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                                {otherRooms.map((name) => (
+                                    <button key={name} type="button" onClick={() => pick(name)} className={chipClass(name)}>
+                                        {name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {otherTopics.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Hors pièce</span>
+                                {otherTopics.map((name) => (
+                                    <button key={name} type="button" onClick={() => pick(name)} className={chipClass(name)}>
+                                        {name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={customName}
+                                onChange={(e) => setCustomName(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') addCustom(); }}
+                                placeholder="Autre nom de pièce…"
+                                className="flex-1 min-w-0 px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                            />
+                            <button
+                                type="button"
+                                onClick={addCustom}
+                                disabled={!customName.trim()}
+                                className="px-4 bg-violet-600 text-white rounded-xl font-semibold disabled:opacity-40"
+                                aria-label="Valider la pièce"
+                            >
+                                <Check className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
 
             {/* Photos de la visite, avec leur état d'enregistrement */}
             {photos.length > 0 && (
@@ -314,7 +354,6 @@ const VisiteExpressMode = ({
                             </button>
                         ))}
                     </div>
-                    <p className="text-[11px] text-gray-400">Touchez une photo pour l'agrandir, la copier ou la supprimer.</p>
                     {failedPhotos > 0 && (
                         <button
                             type="button"
@@ -328,8 +367,9 @@ const VisiteExpressMode = ({
                 </div>
             )}
 
-            {/* Transcription des enregistrements, au fil de la visite */}
-            {voiceNotes.length > 0 && (
+            {/* Transcription : en dictée chaque texte s'affiche dans le fil, donc
+                ce bloc ne sort que s'il y a un échec à rattraper. */}
+            {voiceNotes.length > 0 && (!dictating || failedNotes.length > 0) && (
                 <div className="px-3 py-2.5 bg-white border border-gray-200 rounded-2xl space-y-1.5">
                     <div className="flex items-center gap-2">
                         <Mic className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -377,10 +417,10 @@ const VisiteExpressMode = ({
             {entries.length === 0 && dictating ? (
                 <div className="p-4 bg-white border border-gray-100 rounded-2xl text-sm text-gray-500 space-y-1.5">
                     <p className="font-semibold text-gray-700">Comment ça marche</p>
-                    <p>1. Faites le tour avec le client : le micro ne tourne que pendant vos dictées.</p>
-                    <p>2. Pour chaque pièce, touchez son nom puis « Dicter » : l'existant, ce qu'il faut faire, les quantités, qui fournit. Arrêtez quand c'est dit.</p>
-                    {topics.length > 0 && <p>3. « {topics.join(' », « ')} » : la demande du client, l'accès, le délai, le tableau et l'alimentation.</p>}
-                    <p>{topics.length > 0 ? 4 : 3}. Le texte s'affiche sous chaque dictée : relisez, supprimez et redictez si c'est faux.</p>
+                    <p>1. Suivez le client, dans l'ordre où il vous emmène : le micro ne tourne que pendant vos dictées.</p>
+                    <p>2. Touchez « Dicter » et commencez par le lieu — {spokenExamples} — puis l'existant, ce qu'il faut faire, les quantités, qui fournit. La dictée se range toute seule.</p>
+                    {dictationTopics.length > 0 && <p>3. « {dictationTopics.join(' », « ')} » se disent aussi : la demande du client, l'accès, le délai, l'alimentation.</p>}
+                    <p>{dictationTopics.length > 0 ? 4 : 3}. Le texte s'affiche sous chaque dictée : relisez, changez le lieu s'il est faux, supprimez et redictez au besoin.</p>
                 </div>
             ) : entries.length === 0 ? (
                 <div className="p-4 bg-white border border-gray-100 rounded-2xl text-sm text-gray-500 space-y-1.5">
@@ -395,7 +435,9 @@ const VisiteExpressMode = ({
                 </div>
             ) : (
                 <div className="bg-white border border-gray-100 rounded-2xl divide-y divide-gray-50 overflow-hidden">
-                    {entries.map((entry) => (
+                    {entries.map((entry) => {
+                        const isDictation = entry.type === 'voice' && entry.kind === 'dictation';
+                        return (
                         <div key={entry.id} className="px-3 py-2">
                         <div className="flex items-center gap-2.5">
                             <span className="text-xs text-gray-400 tabular-nums flex items-center gap-1 flex-shrink-0">
@@ -414,10 +456,25 @@ const VisiteExpressMode = ({
                                             ? <Loader2 className="w-3.5 h-3.5 text-violet-500 animate-spin flex-shrink-0" aria-label="Transcription en cours" />
                                             : null
                             )}
-                            {entry.type !== 'zone' && (
+                            {isDictation && onMoveVoice ? (
+                                // Le lieu d'une dictée se corrige ici, sans la refaire.
+                                <select
+                                    value={entry.zone || ''}
+                                    onChange={(e) => { if (e.target.value) onMoveVoice(entry.mediaId, e.target.value); }}
+                                    className={`ml-auto min-w-0 max-w-[45%] text-xs font-semibold bg-transparent text-right focus:outline-none ${
+                                        entry.zone ? 'text-violet-700' : 'text-orange-600'
+                                    }`}
+                                    aria-label="Lieu de cette dictée"
+                                >
+                                    {!entry.zone && <option value="">À ranger…</option>}
+                                    {[entry.zone, ...movePlaces.filter((p) => !sameName(p, entry.zone))].filter(Boolean).map((name) => (
+                                        <option key={name} value={name}>{name}</option>
+                                    ))}
+                                </select>
+                            ) : entry.type !== 'zone' && (
                                 <span className="text-xs text-gray-400 truncate ml-auto">{entry.zone || '—'}</span>
                             )}
-                            {entry.type === 'voice' && entry.kind === 'dictation' && onDeleteVoice && (
+                            {isDictation && onDeleteVoice && (
                                 <button
                                     type="button"
                                     onClick={() => onDeleteVoice(entry.mediaId)}
@@ -429,7 +486,7 @@ const VisiteExpressMode = ({
                             )}
                         </div>
                         {/* Le texte d'une dictée, pour la vérifier sur place. */}
-                        {entry.type === 'voice' && entry.kind === 'dictation' && (
+                        {isDictation && (
                             String(transcripts[entry.mediaId] ?? '').trim() ? (
                                 <p className="mt-1 text-sm text-gray-700 leading-snug">{transcripts[entry.mediaId]}</p>
                             ) : transcripts[entry.mediaId] !== undefined ? (
@@ -437,9 +494,34 @@ const VisiteExpressMode = ({
                             ) : null
                         )}
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
+
+            {/* Réglages : rarement touchés, donc repliés */}
+            <div className="space-y-2">
+                <button
+                    type="button"
+                    onClick={() => setSettingsOpen((v) => !v)}
+                    aria-expanded={settingsOpen}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-500"
+                >
+                    <Settings2 className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="flex-1 min-w-0 text-left truncate">
+                        {dictating ? 'Dictée par pièce' : 'Conversation entière'} · {micId ? (micLabel || 'micro choisi') : 'micro automatique'}
+                    </span>
+                    {settingsOpen ? <ChevronUp className="w-3.5 h-3.5 flex-shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" />}
+                </button>
+                {settingsOpen && (
+                    <>
+                        {isRecording
+                            ? <p className="px-3 text-xs text-gray-400">La façon d'enregistrer se change micro coupé.</p>
+                            : <CaptureStyleSwitch value={captureStyle} onChange={onCaptureStyleChange} />}
+                        {micSelect}
+                    </>
+                )}
+            </div>
         </div>
     );
 };
