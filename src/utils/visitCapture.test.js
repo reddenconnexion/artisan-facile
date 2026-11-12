@@ -15,6 +15,8 @@ import {
     buildTimelineLines,
     captureFlags,
     removeVoice,
+    rezoneVoice,
+    photoZones,
 } from './visitCapture';
 import { createEmptySurvey } from './surveyText';
 import { SURVEY_TEMPLATES } from '../constants/surveyTemplates';
@@ -197,5 +199,76 @@ describe('dictées', () => {
         const next = removeVoice(c, 'd1');
         expect(next.entries.map((e) => e.type)).toEqual(['zone', 'photo']);
         expect(next.zone).toBe('Cuisine');
+    });
+});
+
+describe('dictée rangée d\'après le lieu annoncé', () => {
+    const dictation = (c, mediaId, at, zone) => addVoice(c, { mediaId, duration: 12, at, zone, kind: 'dictation' });
+
+    it('range la dictée et fait suivre la visite', () => {
+        let c = dictation(createCapture(), 'd1', T0, '');
+        c = addPhoto(c, { mediaId: 'ph1', at: min(1) });
+        c = addFlag(c, { at: min(2) });
+        const { capture, voiceIds } = rezoneVoice(c, 'd1', 'Garage', { follow: true });
+        expect(voiceIds).toEqual(['d1']);
+        expect(capture.zone).toBe('Garage');
+        expect(capture.entries.map((e) => [e.type, e.zone])).toEqual([
+            ['zone', 'Garage'],
+            ['voice', 'Garage'],
+            ['photo', 'Garage'],
+            ['flag', 'Garage'],
+        ]);
+        expect(photoZones(capture)).toEqual({ ph1: 'Garage' });
+        expect(new Set(capture.entries.map((e) => e.id)).size).toBe(4);
+    });
+
+    it('l\'emporte sur la pastille restée de la pièce précédente', () => {
+        let c = addZoneChange(createCapture(), 'Cuisine', T0);
+        c = dictation(c, 'd1', min(1), 'Cuisine');
+        c = dictation(c, 'd2', min(5), 'Cuisine'); // dite « Garage, … » sans retoucher la pastille
+        c = dictation(c, 'd3', min(6), 'Cuisine'); // suite, sans redire le lieu
+        const { capture, voiceIds } = rezoneVoice(c, 'd2', 'Garage', { follow: true });
+        expect(voiceIds).toEqual(['d2', 'd3']);
+        expect(capture.zone).toBe('Garage');
+        expect(capture.entries.filter((e) => e.type === 'voice').map((e) => e.zone)).toEqual(['Cuisine', 'Garage', 'Garage']);
+        expect(captureSegments(capture).map((s) => s.zone)).toEqual(['Cuisine', 'Garage']);
+    });
+
+    it('ne touche pas à ce qui suit un changement de pièce', () => {
+        let c = dictation(createCapture(), 'd1', T0, '');
+        c = addZoneChange(c, 'Séjour', min(1));
+        c = addPhoto(c, { mediaId: 'ph1', at: min(2) });
+        const { capture } = rezoneVoice(c, 'd1', 'Garage', { follow: true });
+        expect(capture.zone).toBe('Séjour');
+        expect(capture.entries.map((e) => [e.type, e.zone])).toEqual([
+            ['voice', 'Garage'],
+            ['zone', 'Séjour'],
+            ['photo', 'Séjour'],
+        ]);
+    });
+
+    it('laisse le comptage dans sa pièce', () => {
+        let c = addZoneChange(createCapture(), 'Cuisine', T0);
+        c = dictation(c, 'd1', min(1), 'Cuisine');
+        c = addCount(c, { counterKey: 'prises', at: min(2) });
+        const { capture } = rezoneVoice(c, 'd1', 'Garage', { follow: true });
+        expect(capture.entries.find((e) => e.type === 'count').zone).toBe('Cuisine');
+    });
+
+    it('corrige à la main sans déplacer le reste', () => {
+        let c = addZoneChange(createCapture(), 'Cuisine', T0);
+        c = dictation(c, 'd1', min(1), 'Cuisine');
+        c = addPhoto(c, { mediaId: 'ph1', at: min(2) });
+        const { capture, voiceIds } = rezoneVoice(c, 'd1', 'Tableau électrique');
+        expect(voiceIds).toEqual(['d1']);
+        expect(capture.zone).toBe('Cuisine');
+        expect(capture.entries.map((e) => e.zone)).toEqual(['Cuisine', 'Tableau électrique', 'Cuisine']);
+    });
+
+    it('ne fait rien si la dictée est déjà au bon endroit ou introuvable', () => {
+        const c = dictation(addZoneChange(createCapture(), 'Cuisine', T0), 'd1', min(1), 'Cuisine');
+        expect(rezoneVoice(c, 'd1', 'Cuisine', { follow: true })).toEqual({ capture: c, voiceIds: [] });
+        expect(rezoneVoice(c, 'absent', 'Garage', { follow: true })).toEqual({ capture: c, voiceIds: [] });
+        expect(rezoneVoice(c, 'd1', '  ')).toEqual({ capture: c, voiceIds: [] });
     });
 });
