@@ -15,6 +15,8 @@ import { PGlite } from '@electric-sql/pglite';
 
 const ROOT = cwd();
 const MIG = path.join(ROOT, 'supabase/migrations/20260705120000_add_poste_global_display_mode.sql');
+// get_portal_data vit désormais dans la migration qui pose les listes blanches.
+const PORTAL_MIG = path.join(ROOT, 'supabase/migrations/20261112100000_portal_data_whitelist.sql');
 const STRIP_MIG = path.join(ROOT, 'supabase/migrations/20260704120000_hide_internal_quote_item_fields.sql');
 
 function extractPureFunctions(sql) {
@@ -32,16 +34,38 @@ function extractPortal(sql) {
   return block.slice(0, block.lastIndexOf('$$;') + 3);
 }
 
-// Schéma minimal couvrant uniquement ce que get_portal_data lit/écrit.
+// Schéma minimal : ce que get_portal_data lit/écrit, plus les colonnes sensibles
+// de la production qui ne doivent JAMAIS ressortir (pour prouver le filtrage).
 const SCHEMA = `
 CREATE TABLE clients (
-  id bigint PRIMARY KEY, user_id uuid, name text,
+  id bigint PRIMARY KEY, user_id uuid, name text, email text, phone text,
+  address text, postal_code text, city text, siren text, tva_intracom text,
+  notes text, contacts jsonb, status text, autopilot_paused boolean,
   portal_token uuid, portal_token_revoked boolean DEFAULT false, portal_token_expires_at timestamptz
 );
-CREATE TABLE profiles (id uuid PRIMARY KEY, company_name text);
+CREATE TABLE profiles (
+  id uuid PRIMARY KEY, email text, full_name text, company_name text,
+  professional_email text, website text, address text, city text, postal_code text,
+  phone text, siret text, logo_url text, trade text, brand_color text,
+  iban text, wero_phone text,
+  google_review_url text, facebook_review_url text, pages_jaunes_review_url text,
+  insurance_company text, insurance_contract_number text, insurance_company_address text,
+  insurance_coverage_area text, insurance_attestation_url text, insurance_attestation_valid_until date,
+  plan text, stripe_customer_id text, stripe_subscription_id text, stripe_subscription_status text,
+  stripe_test_customer_id text, stripe_test_subscription_id text, stripe_test_subscription_status text,
+  smtp_config jsonb, pdp_config jsonb, ai_preferences jsonb, follow_up_settings jsonb,
+  marketing_data jsonb, autopilot_settings jsonb, monthly_revenue_goal numeric,
+  email_signature_html text, b2b_receiver_status text, b2b_receiver_error text,
+  founder_since timestamptz, subscription_cancel_at timestamptz, subscription_trial_end timestamptz,
+  avatar_url text
+);
 CREATE TABLE quotes (
-  id bigint PRIMARY KEY, user_id uuid, client_id bigint, status text,
-  items jsonb, client_display_mode text, date timestamptz, title text, quote_number text
+  id bigint PRIMARY KEY, user_id uuid, client_id bigint, status text, type text,
+  items jsonb, client_display_mode text, date timestamptz, title text, quote_number text,
+  total_ht numeric, total_tva numeric, total_ttc numeric, include_tva boolean, notes text,
+  public_token uuid, follow_up_count integer, last_viewed_at timestamptz,
+  creation_time_seconds integer, used_ai_generation boolean, transmission_ref text,
+  urgency text, work_stage text, payment_method text
 );
 CREATE TABLE project_photos (id bigint PRIMARY KEY, client_id bigint, created_at timestamptz);
 CREATE TABLE intervention_reports (
@@ -67,12 +91,40 @@ beforeAll(async () => {
   await db.exec(extractStrip(readFileSync(STRIP_MIG, 'utf8')));
   await db.exec(extractPureFunctions(readFileSync(MIG, 'utf8')));
   await db.exec(SCHEMA);
-  await db.exec(extractPortal(readFileSync(MIG, 'utf8')));
+  await db.exec(extractPortal(readFileSync(PORTAL_MIG, 'utf8')));
 
-  await db.query('INSERT INTO clients (id, user_id, name, portal_token) VALUES (1, $1, $2, $3)', [
-    ARTISAN, 'M. Client', TOKEN,
-  ]);
-  await db.query('INSERT INTO profiles (id, company_name) VALUES ($1, $2)', [ARTISAN, 'ArtisanFacile']);
+  await db.query(
+    `INSERT INTO clients (id, user_id, name, email, address, postal_code, city, notes, contacts, portal_token)
+     VALUES (1, $1, 'M. Client', 'client@example.test', '1 rue du Client', '33000', 'Bordeaux',
+             'NOTE-INTERNE-CLIENT', '[{"name":"CONTACT-INTERNE"}]'::jsonb, $2)`,
+    [ARTISAN, TOKEN],
+  );
+  await db.query(
+    `INSERT INTO profiles (
+       id, email, full_name, company_name, professional_email, website, address, city, postal_code,
+       phone, siret, logo_url, trade, brand_color, iban, wero_phone,
+       google_review_url, facebook_review_url, pages_jaunes_review_url,
+       insurance_company, insurance_contract_number, insurance_company_address,
+       insurance_coverage_area, insurance_attestation_url, insurance_attestation_valid_until,
+       plan, stripe_customer_id, stripe_subscription_id, stripe_test_customer_id,
+       smtp_config, pdp_config, ai_preferences, follow_up_settings, marketing_data,
+       autopilot_settings, monthly_revenue_goal, email_signature_html
+     ) VALUES (
+       $1, 'login-secret@example.test', 'Jean Artisan', 'ArtisanFacile', 'contact@example.test',
+       'https://example.test', '2 rue de l''Atelier', 'Libourne', '33500',
+       '0600000000', '12345678900012', 'https://example.test/logo.png', 'electricien', '#112233',
+       'FR7600000000000000000000000', '0611111111',
+       'https://example.test/g', 'https://example.test/f', 'https://example.test/pj',
+       'Assureur SA', 'CONTRAT-42', '3 rue de l''Assureur', 'France métropolitaine',
+       'https://example.test/attestation.pdf', '2027-01-01',
+       'pro', 'cus_SECRET', 'sub_SECRET', 'cus_test_SECRET',
+       '{"password":"SMTP-SECRET"}'::jsonb, '{"api_key":"PDP-SECRET"}'::jsonb,
+       '{"artisan_status":"micro","hourly_rate":"TAUX-SECRET"}'::jsonb,
+       '{"steps":"RELANCE-SECRET"}'::jsonb, '{"x":"MARKETING-SECRET"}'::jsonb,
+       '{"x":"AUTOPILOT-SECRET"}'::jsonb, 99999, '<p>SIGNATURE-SECRET</p>'
+     )`,
+    [ARTISAN],
+  );
 
   // Devis A : poste_global valide.
   const good = [
@@ -85,9 +137,12 @@ beforeAll(async () => {
     { id: 1, type: 'material', description: 'Câble', quantity: 'abc', price: 2, buying_price: 1, reference: 'R1' },
   ];
   await db.query(
-    `INSERT INTO quotes (id, user_id, client_id, status, items, client_display_mode, date, title, quote_number)
-     VALUES (10, $1, 1, 'sent', $2::jsonb, 'poste_global', now(), 'Devis A', 'A-1'),
-            (11, $1, 1, 'sent', $3::jsonb, 'poste_global', now() - interval '1 day', 'Devis B', 'B-1')`,
+    `INSERT INTO quotes (id, user_id, client_id, status, type, items, client_display_mode, date, title, quote_number,
+                         total_ttc, public_token, follow_up_count, creation_time_seconds, transmission_ref, urgency)
+     VALUES (10, $1, 1, 'sent', 'quote', $2::jsonb, 'poste_global', now(), 'Devis A', 'A-1',
+             528, '33333333-3333-3333-3333-333333333333', 3, 120, 'TRANSMISSION-INTERNE', 'URGENCE-INTERNE'),
+            (11, $1, 1, 'sent', 'quote', $3::jsonb, 'poste_global', now() - interval '1 day', 'Devis B', 'B-1',
+             2, NULL, 0, 60, NULL, NULL)`,
     [ARTISAN, JSON.stringify(good), JSON.stringify(bad)],
   );
 });
@@ -135,5 +190,102 @@ describe('get_portal_data — repli par-devis', () => {
     expect(res.rows[0].entity_label).toBe('Devis B');
     expect(res.rows[0].details.fallback).toBe('detailed');
     expect(res.rows[0].details.client_display_mode).toBe('poste_global');
+  });
+});
+
+// ── Listes blanches : rien d'interne ne sort par le lien d'espace client ──────
+//
+// get_portal_data est SECURITY DEFINER et appelée sans session : tout ce qu'elle
+// renvoie est lisible par quiconque détient un lien /p/:token. Le profil de
+// l'artisan y est déjà reparti une fois en entier (row_to_json réintroduit par
+// une migration ultérieure) : ces tests sont là pour que ça ne se reproduise pas.
+
+const ARTISAN_KEYS = [
+  'company_name', 'full_name', 'logo_url', 'phone', 'professional_email', 'website',
+  'address', 'postal_code', 'city', 'siret', 'trade', 'brand_color',
+  'iban', 'wero_phone',
+  'google_review_url', 'facebook_review_url', 'pages_jaunes_review_url',
+  'insurance_company', 'insurance_contract_number', 'insurance_company_address',
+  'insurance_coverage_area', 'insurance_attestation_url', 'insurance_attestation_valid_until',
+];
+
+describe('get_portal_data — listes blanches', () => {
+  const load = async () => (await db.query('SELECT get_portal_data($1) AS data', [TOKEN])).rows[0].data;
+
+  it("n'expose aucune clé sensible du profil artisan", async () => {
+    const { artisan } = await load();
+    for (const key of [
+      'email', 'stripe_customer_id', 'stripe_subscription_id', 'stripe_test_customer_id',
+      'plan', 'smtp_config', 'pdp_config', 'ai_preferences', 'follow_up_settings',
+      'marketing_data', 'autopilot_settings', 'monthly_revenue_goal', 'email_signature_html',
+      'b2b_receiver_status', 'founder_since', 'subscription_cancel_at', 'id',
+    ]) {
+      expect(artisan).not.toHaveProperty(key);
+    }
+    // Ni sous une autre clé, ni imbriqué : aucune valeur sensible dans la réponse.
+    const raw = JSON.stringify(await load());
+    expect(raw).not.toMatch(/SECRET/);
+    expect(raw).not.toContain('login-secret@example.test');
+  });
+
+  it('renvoie exactement la liste blanche artisan, avec les bonnes valeurs', async () => {
+    const { artisan } = await load();
+    expect(Object.keys(artisan).sort()).toEqual([...ARTISAN_KEYS].sort());
+    expect(artisan).toMatchObject({
+      company_name: 'ArtisanFacile',
+      full_name: 'Jean Artisan',
+      professional_email: 'contact@example.test',
+      address: "2 rue de l'Atelier",
+      postal_code: '33500',
+      city: 'Libourne',
+      siret: '12345678900012',
+      trade: 'electricien',
+      brand_color: '#112233',
+      iban: 'FR7600000000000000000000000',
+      wero_phone: '0611111111',
+      insurance_company: 'Assureur SA',
+      insurance_contract_number: 'CONTRAT-42',
+      insurance_company_address: "3 rue de l'Assureur",
+      insurance_coverage_area: 'France métropolitaine',
+      insurance_attestation_url: 'https://example.test/attestation.pdf',
+      insurance_attestation_valid_until: '2027-01-01',
+    });
+  });
+
+  it('couvre tous les champs du profil lus par les générateurs PDF du portail', () => {
+    // Si un PDF se met à lire un nouveau champ du profil, il faut l'ajouter à la
+    // liste blanche SQL — sinon il manquerait silencieusement sur les documents
+    // téléchargés depuis l'espace client.
+    const sources = ['src/utils/pdf/quotePdf.js', 'src/utils/pdf/reportPdf.js', 'src/utils/facturxGenerator.js']
+      .map((f) => readFileSync(path.join(ROOT, f), 'utf8'))
+      .join('\n');
+    const read = new Set([...sources.matchAll(/userProfile\??\.([a-zA-Z_]+)/g)].map((m) => m[1]));
+    // Volontairement absents : `email` (e-mail de connexion, simple repli quand
+    // professional_email est vide) et `tva_intracom` (pas une colonne de profiles).
+    const notExposed = new Set(['email', 'tva_intracom']);
+    const missing = [...read].filter((k) => !ARTISAN_KEYS.includes(k) && !notExposed.has(k));
+    expect(missing).toEqual([]);
+  });
+
+  it('ne renvoie du client que le nécessaire (ni notes, ni contacts, ni jeton)', async () => {
+    const { client } = await load();
+    expect(Object.keys(client).sort()).toEqual(
+      ['address', 'city', 'email', 'id', 'name', 'postal_code', 'siren', 'tva_intracom'],
+    );
+    expect(client.name).toBe('M. Client');
+    expect(client.email).toBe('client@example.test');
+    expect(JSON.stringify(await load())).not.toMatch(/NOTE-INTERNE|CONTACT-INTERNE/);
+  });
+
+  it('ne renvoie des devis que les colonnes utiles au client', async () => {
+    const { quotes } = await load();
+    const a = quotes.find((x) => x.id === 10);
+    expect(a).toMatchObject({ id: 10, client_id: 1, status: 'sent', type: 'quote', title: 'Devis A', total_ttc: 528 });
+    for (const key of [
+      'user_id', 'public_token', 'follow_up_count', 'last_viewed_at', 'creation_time_seconds',
+      'used_ai_generation', 'transmission_ref', 'urgency', 'work_stage', 'payment_method',
+    ]) {
+      expect(a).not.toHaveProperty(key);
+    }
   });
 });
