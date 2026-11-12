@@ -11,6 +11,14 @@ import { LEGACY_TRADE_KEY_MAP } from './trades';
 // - zonePresets     : noms de pièces proposés en un tap
 // - dictationTopics : postes dictés hors pièce (contexte, tableau…) — ils
 //                     rattachent une dictée sans créer de pièce au relevé
+// - stops           : points de passage de la visite, à faire dans l'ordre où
+//                     le client emmène l'artisan — la grille de l'écran de
+//                     visite. [{key, label, short, memo, quick, spoken}]
+//                     label  = le poste dicté correspondant (dictationTopics)
+//                     memo   = pense-bête : ce qu'il faut regarder et dire
+//                     quick  = réponses en un tap : 'contexte.<groupe>.<champ>'
+//                              (champ à pastilles) ou 'tableau.etat'
+//                     spoken = autres façons de l'annoncer à voix haute
 // - zoneCounters    : compteurs par pièce [{key, label, short}] — steppers de
 //                     la trame et gros boutons du mode express (`short`)
 // - zoneExtraFields : champs texte par pièce [{key, label, placeholder}]
@@ -56,7 +64,25 @@ export const SURVEY_TEMPLATES = {
             },
         ],
         zonePresets: ['Cuisine', 'Séjour', 'Chambre', 'Salle de bain', 'WC', 'Couloir', 'Entrée', 'Garage', 'Extérieur'],
-        dictationTopics: ['Général'],
+        dictationTopics: ['Général', 'Demande du client', 'Accès et logistique'],
+        stops: [
+            {
+                key: 'demande',
+                label: 'Demande du client',
+                short: 'Demande',
+                memo: ['Ce qu\'il veut, dans ses mots', 'Délai', 'Budget', 'Qui décide'],
+                quick: ['contexte.bien.typeBien', 'contexte.bien.natureTravaux'],
+                spoken: ['demande', 'client'],
+            },
+            {
+                key: 'acces',
+                label: 'Accès et logistique',
+                short: 'Accès',
+                memo: ['Étage, stationnement, portage', 'Logement occupé ?', 'Contraintes : horaires, copropriété, amiante'],
+                quick: ['contexte.acces.accesChantier', 'contexte.bien.occupation'],
+                spoken: ['acces', 'logistique', 'stationnement'],
+            },
+        ],
         zoneCounters: [],
         zoneExtraFields: [
             { key: 'divers', label: 'À relever dans cette pièce', placeholder: 'Constats, mesures, travaux à prévoir…' },
@@ -131,7 +157,49 @@ export const SURVEY_TEMPLATES = {
             },
         ],
         zonePresets: ['Cuisine', 'Séjour', 'Chambre', 'Salle de bain', 'WC', 'Couloir', 'Entrée', 'Bureau', 'Buanderie', 'Garage', 'Combles', 'Extérieur'],
-        dictationTopics: ['Général', 'Tableau électrique'],
+        dictationTopics: ['Général', 'Demande du client', 'Tableau électrique', 'Comptage et terre', 'Passage des câbles', 'Accès et logistique'],
+        stops: [
+            {
+                key: 'demande',
+                label: 'Demande du client',
+                short: 'Demande',
+                memo: ['Ce qu\'il veut, dans ses mots', 'Délai', 'Budget', 'Gamme d\'appareillage', 'Qui décide'],
+                quick: ['contexte.bien.typeBien', 'contexte.bien.natureTravaux'],
+                spoken: ['demande', 'client'],
+            },
+            {
+                key: 'tableau',
+                label: 'Tableau électrique',
+                short: 'Tableau',
+                memo: ['Rangées et places libres', 'Différentiels : type A, type AC', 'Parafoudre', 'Repérage des circuits', 'Emplacement, accessibilité'],
+                quick: ['tableau.etat'],
+                spoken: ['tableau', 'coffret', 'coffret electrique', 'armoire electrique'],
+            },
+            {
+                key: 'comptage',
+                label: 'Comptage et terre',
+                short: 'Compteur, terre',
+                memo: ['Compteur : type, emplacement', 'Puissance souscrite', 'Distance jusqu\'au tableau', 'Piquet, barrette de terre', 'GTL'],
+                quick: ['contexte.alimentation.phase', 'contexte.alimentation.terre', 'contexte.alimentation.compteur'],
+                spoken: ['comptage', 'compteur', 'linky', 'terre', 'prise de terre', 'alimentation'],
+            },
+            {
+                key: 'cables',
+                label: 'Passage des câbles',
+                short: 'Câbles',
+                memo: ['Par où passer : combles, vide sanitaire, faux plafond', 'Nature des murs', 'Saignées et rebouchage : qui fait quoi', 'Reprise des finitions'],
+                quick: ['contexte.support.modePose', 'contexte.support.saignees'],
+                spoken: ['passage de cables', 'cables', 'cablage', 'cheminement', 'murs'],
+            },
+            {
+                key: 'acces',
+                label: 'Accès et logistique',
+                short: 'Accès',
+                memo: ['Étage, stationnement, portage', 'Hauteur sous plafond', 'Logement occupé ?', 'Contraintes : amiante, horaires, copropriété'],
+                quick: ['contexte.acces.accesChantier', 'contexte.bien.occupation'],
+                spoken: ['acces', 'logistique', 'stationnement'],
+            },
+        ],
         zoneCounters: [
             { key: 'prises', label: 'Prises 2P+T', short: 'Prise' },
             { key: 'interrupteurs', label: 'Interrupteurs / va-et-vient', short: 'Inter' },

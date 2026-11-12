@@ -55,7 +55,7 @@ export const SPOKEN_ROOMS = [
 // existe pour le métier (pastille, poste dicté ou pièce déjà relevée).
 export const SPOKEN_ALIASES = {
     'Tableau électrique': ['tableau', 'coffret', 'coffret electrique', 'armoire electrique'],
-    'Général': ['generalites', 'demande du client', 'demande client'],
+    'Général': ['generalites'],
     'Salle de bain': ['salle de bains', 'sdb'],
     WC: ['toilettes', 'toilette', 'w c'],
     'Extérieur': ['dehors', 'exterieurs'],
@@ -86,9 +86,11 @@ const startsWithAt = (tokens, start, key) => {
  * @param {string[]} [places.zones]   - pièces déjà au relevé
  * @param {string[]} [places.topics]  - postes dictés (« Général », « Tableau électrique »)
  * @param {string[]} [places.presets] - pastilles de pièces du métier
+ * @param {Record<string, string[]>} [places.aliases] - autres façons de dire un
+ *   lieu, propres au métier (« compteur » pour « Comptage et terre »)
  * @returns {string}
  */
-export const detectSpokenZone = (text, { zones = [], topics = [], presets = [] } = {}) => {
+export const detectSpokenZone = (text, { zones = [], topics = [], presets = [], aliases = {} } = {}) => {
     const tokens = tokenize(text);
     if (!tokens.length) return '';
 
@@ -107,11 +109,11 @@ export const detectSpokenZone = (text, { zones = [], topics = [], presets = [] }
     clean(topics).forEach((name) => add(name, words(name), false));
     clean(presets).forEach((name) => add(name, words(name), true));
     SPOKEN_ROOMS.forEach((name) => add(name, words(name), true));
-    for (const [target, aliases] of Object.entries(SPOKEN_ALIASES)) {
+    for (const [target, list] of [...Object.entries(aliases || {}), ...Object.entries(SPOKEN_ALIASES)]) {
         const name = known.find((k) => fold(k) === fold(target));
         if (!name) continue;
         const numbered = !clean(topics).some((t) => fold(t) === fold(name));
-        aliases.forEach((alias) => add(name, words(alias), numbered));
+        (list || []).forEach((alias) => add(name, words(alias), numbered));
     }
     candidates.sort((a, b) => b.key.length - a.key.length);
 
