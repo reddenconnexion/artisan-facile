@@ -5,13 +5,14 @@ import { supabase } from '../../utils/supabase';
 import {
     FileText, Camera, Download, Phone, Mail, Globe, ClipboardList, Eye,
     X, Loader2, PenLine, CheckCircle, Star, MessageSquare, Send,
-    Copy, CreditCard, Smartphone, ChevronDown,
+    Copy, CreditCard, Smartphone, ChevronDown, ShieldCheck,
 } from 'lucide-react';
 import { generateDevisPDF, generateInterventionReportPDF } from '../../utils/pdfGenerator';
 import SignatureModal from '../../components/SignatureModal';
 import { toast } from 'sonner';
 import { canSignInPortal, isSignatureBlocked } from '../../utils/quoteSignability';
 import { formatDate, formatDateTime } from '../../utils/format';
+import { attestationDownloadUrl } from '../../utils/insuranceAttestation';
 
 /* ─── Inline PDF Viewer ─── */
 const PdfViewerModal = ({ url, title, onClose }) => {
@@ -340,6 +341,15 @@ const ClientPortal = () => {
         }
     };
 
+    const handleViewAttestation = () => {
+        const url = data.artisan.insurance_attestation_url;
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            window.open(url, '_blank', 'noopener');
+        } else {
+            setPdfViewer({ url, title: 'Attestation d\'assurance décennale' });
+        }
+    };
+
     const handleRequestOtp = async (email) => {
         try {
             const response = await fetch(`${supabaseUrl}/functions/v1/request-quote-otp`, {
@@ -423,6 +433,13 @@ const ClientPortal = () => {
     );
 
     const pendingInvoices = sortedQuotes.filter(q => q.type === 'invoice' && q.status !== 'paid').length;
+
+    const attestationUrl = artisan.insurance_attestation_url || null;
+    const attestationDetails = [
+        artisan.insurance_company,
+        artisan.insurance_contract_number && `Contrat n° ${artisan.insurance_contract_number}`,
+    ].filter(Boolean).join(' · ');
+    const attestationValidUntil = formatDate(artisan.insurance_attestation_valid_until, { day: 'numeric', month: 'long', year: 'numeric' });
 
     const signingQuote = quotes.find(q => q.id === signingQuoteId);
     const signingRequiresOtp = signingQuote?.require_otp === true && Boolean(client?.email);
@@ -701,6 +718,42 @@ const ClientPortal = () => {
                                             </div>
                                         );
                                     })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Attestation d'assurance décennale de l'artisan */}
+                        {attestationUrl && (
+                            <div className="space-y-3">
+                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                    <ShieldCheck className="w-4 h-4" /> Assurance
+                                </h2>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                                        <div className="flex justify-between items-start gap-2">
+                                            <div className="min-w-0">
+                                                <p className="font-semibold text-gray-900 text-sm">Attestation d'assurance décennale</p>
+                                                {attestationDetails && (
+                                                    <p className="text-xs text-gray-500 mt-1 break-words">{attestationDetails}</p>
+                                                )}
+                                                {attestationValidUntil && (
+                                                    <p className="text-xs text-gray-500 mt-1">Valable jusqu'au {attestationValidUntil}</p>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-1 flex-shrink-0">
+                                                <button onClick={handleViewAttestation}
+                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200"
+                                                    title="Voir l'attestation" aria-label="Voir l'attestation d'assurance décennale">
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                                <a href={attestationDownloadUrl(attestationUrl, artisan.company_name || artisan.full_name)}
+                                                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200"
+                                                    title="Télécharger l'attestation" aria-label="Télécharger l'attestation d'assurance décennale">
+                                                    <Download className="w-4 h-4" />
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}

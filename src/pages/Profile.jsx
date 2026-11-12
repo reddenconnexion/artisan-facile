@@ -11,6 +11,7 @@ import { useConfirm } from '../context/ConfirmContext';
 import { useInvalidateCache } from '../hooks/useDataCache';
 import { useProfileForm } from './profile/useProfileForm';
 import { useB2BReceiver } from './profile/useB2BReceiver';
+import { useInsuranceAttestation } from './profile/useInsuranceAttestation';
 import { useAiSettings } from './profile/useAiSettings';
 import { usePdpConfig } from './profile/usePdpConfig';
 import { useSmtpSettings } from './profile/useSmtpSettings';
@@ -65,6 +66,12 @@ const Profile = () => {
         invalidateProfile,
         b2bReceiverStatus: b2b.b2bReceiverStatus,
         registerB2BReceiver: b2b.registerB2BReceiver,
+    });
+    const attestation = useInsuranceAttestation({
+        user,
+        formData: profileForm.formData,
+        setFormData: profileForm.setFormData,
+        invalidateProfile,
     });
     const ai = useAiSettings();
     const pdp = usePdpConfig(user);
@@ -151,6 +158,7 @@ const Profile = () => {
                 loading={profileForm.loading}
                 siretCheck={profileForm.siretCheck}
                 handleLogoUpload={profileForm.handleLogoUpload}
+                attestation={attestation}
                 b2bReceiverStatus={b2b.b2bReceiverStatus}
                 b2bReceiverError={b2b.b2bReceiverError}
                 registerB2BReceiver={b2b.registerB2BReceiver}

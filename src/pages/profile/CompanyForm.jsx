@@ -14,6 +14,7 @@ const CompanyForm = ({
     loading,
     siretCheck,
     handleLogoUpload,
+    attestation,
     b2bReceiverStatus,
     b2bReceiverError,
     registerB2BReceiver,
@@ -48,7 +49,7 @@ const CompanyForm = ({
                 <CompanyAddressSection formData={formData} handleChange={handleChange} />
 
                 {/* Assurance décennale / RC pro */}
-                <CompanyInsuranceSection formData={formData} handleChange={handleChange} />
+                <CompanyInsuranceSection formData={formData} handleChange={handleChange} attestation={attestation} />
 
                 {/* Contact */}
                 <CompanyContactSection

@@ -25,6 +25,8 @@ export const useProfileForm = ({ user, invalidateProfile, b2bReceiverStatus, reg
         insurance_contract_number: '',
         insurance_company_address: '',
         insurance_coverage_area: '',
+        insurance_attestation_url: '',
+        insurance_attestation_valid_until: '',
         google_review_url: '',
         facebook_review_url: '',
         pages_jaunes_review_url: '',
@@ -57,6 +59,8 @@ export const useProfileForm = ({ user, invalidateProfile, b2bReceiverStatus, reg
             insurance_contract_number: data.insurance_contract_number || '',
             insurance_company_address: data.insurance_company_address || '',
             insurance_coverage_area: data.insurance_coverage_area || '',
+            insurance_attestation_url: data.insurance_attestation_url || '',
+            insurance_attestation_valid_until: data.insurance_attestation_valid_until || '',
             google_review_url: data.google_review_url || '',
             facebook_review_url: data.facebook_review_url || '',
             pages_jaunes_review_url: data.pages_jaunes_review_url || '',
@@ -169,6 +173,9 @@ export const useProfileForm = ({ user, invalidateProfile, b2bReceiverStatus, reg
                     insurance_contract_number: formData.insurance_contract_number,
                     insurance_company_address: formData.insurance_company_address,
                     insurance_coverage_area: formData.insurance_coverage_area,
+                    // Le lien de l'attestation (insurance_attestation_url) est
+                    // enregistré dès le dépôt par useInsuranceAttestation.
+                    insurance_attestation_valid_until: formData.insurance_attestation_valid_until || null,
                     google_review_url: formData.google_review_url,
                     facebook_review_url: formData.facebook_review_url,
                     pages_jaunes_review_url: formData.pages_jaunes_review_url,
