@@ -35,6 +35,8 @@ import {
     buildTimelineLines, photoZones, rezoneVoice,
 } from '../utils/visitCapture';
 import { detectSpokenZone } from '../utils/spokenZone';
+import { departureChecklist, toggleQuickValue, setContexteText, stopSpokenAliases } from '../utils/visitStops';
+import VisitDepartureSheet from './VisitDepartureSheet';
 import { surveyCompleteness } from '../utils/predevisReport';
 import {
     loadVisitDraft, saveVisitDraft, clearVisitDraft, draftAgeLabel, draftPhotos, restoreDraftPhotos,
@@ -622,6 +624,32 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
 
     const handleFlag = () => setCapture(c => addFlag(c, { at: nowMs() }));
 
+    // ── Points de passage et « Avant de partir » ───────────────────────────
+
+    const handleQuickToggle = (spec, value) => setSurvey(s => toggleQuickValue(s, spec, value));
+
+    const [departureOpen, setDepartureOpen] = useState(false);
+    // Une fois la liste consultée, « Terminer » ne la représente plus.
+    const departureSeenRef = useRef(false);
+    const openDeparture = () => {
+        departureSeenRef.current = true;
+        setDepartureOpen(true);
+    };
+
+    const handleGoToStop = (label) => {
+        setDepartureOpen(false);
+        setMode('express');
+        handleZoneChange(label);
+    };
+
+    const handleDictateStop = async (label) => {
+        handleGoToStop(label);
+        // Le micro s'ouvre dans la foulée : le poste doit être connu de
+        // l'enregistreur avant le prochain rendu.
+        captureZoneRef.current = label;
+        await startVisit();
+    };
+
     // Le flux caméra est ouvert ici, dans le geste de l'utilisateur : plusieurs
     // navigateurs refusent la caméra à un appel différé (effet, promesse).
     // En cas d'échec on bascule sur l'appareil photo du téléphone plutôt que
@@ -948,6 +976,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
             zones: (latestRef.current.survey?.zones || []).map(z => z.name),
             topics: dictationTopics,
             presets: surveyTemplate.zonePresets,
+            aliases: stopSpokenAliases(surveyTemplate),
         });
         if (spoken) moveVoiceToZone(note.id, spoken, { follow: true });
     };
@@ -1075,12 +1104,20 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
      * la trame à partir de la visite. Le chiffrage (handleAnalyze) reste un
      * geste volontaire, après vérification.
      */
-    const handleFinishVisit = async () => {
+    const handleFinishVisit = async ({ force = false } = {}) => {
         if (!canAnalyze) {
             if (visitRecorder.isRecording) visitRecorder.stop();
             toast.error('Rien à analyser — ajoutez une note vocale, une photo ou du texte.');
             return;
         }
+        // Encore sur place : ce qui manque se règle maintenant, pas au bureau.
+        // Présenté une fois ; ensuite « Terminer » termine.
+        const { missing, unseenStops } = departureChecklist({ template: surveyTemplate, survey, capture });
+        if (!force && !departureSeenRef.current && (missing.length || unseenStops.length)) {
+            openDeparture();
+            return;
+        }
+        setDepartureOpen(false);
         setMode('detail');
         await runAutoFill();
     };
@@ -1363,6 +1400,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
     // ── Derived ────────────────────────────────────────────────────────────
 
     const completeness = surveyCompleteness(survey, surveyTemplate);
+    const departure = departureChecklist({ template: surveyTemplate, survey, capture });
     const transcribedCount = voiceNotes.filter((n) => String(voiceTranscripts[n.id] ?? '').trim()).length;
 
     // Assemblé à chaque rendu : quelques concaténations sur des données de
@@ -1431,17 +1469,19 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                     </p>
                 </div>
                 {/* Avancement du relevé */}
-                {step === 'capture' && completeness.total > 0 && (
-                    <span
-                        className={`flex-shrink-0 text-xs font-bold px-2 py-1 rounded-full tabular-nums ${
-                            completeness.pct === 100
+                {step === 'capture' && departure.total > 0 && (
+                    <button
+                        type="button"
+                        onClick={openDeparture}
+                        className={`flex-shrink-0 text-xs font-bold px-2.5 py-1.5 rounded-full tabular-nums active:scale-95 ${
+                            departure.done === departure.total
                                 ? 'bg-emerald-100 text-emerald-700'
                                 : 'bg-amber-100 text-amber-700'
                         }`}
-                        title="Points clés renseignés pour un chiffrage fiable"
+                        aria-label={`Avant de partir : ${departure.done} points clés renseignés sur ${departure.total}`}
                     >
-                        {completeness.done}/{completeness.total}
-                    </span>
+                        {departure.done}/{departure.total}
+                    </button>
                 )}
                 {/* Step dots */}
                 <div className="flex gap-1.5 items-center flex-shrink-0">
@@ -1618,6 +1658,9 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                         dictationTopics={dictationTopics}
                         onDeleteVoice={handleDeleteDictation}
                         onMoveVoice={moveVoiceToZone}
+                        onQuickToggle={handleQuickToggle}
+                        departure={departure}
+                        onOpenDeparture={openDeparture}
                     />
                 )}
 
@@ -2069,7 +2112,7 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                         onPhotos={handleExpressPhotos}
                         onOpenCamera={handleOpenCamera}
                         cameraSupported={isInPageCameraSupported()}
-                        onFinish={handleFinishVisit}
+                        onFinish={() => handleFinishVisit()}
                     />
                 )}
                 {step === 'capture' && mode === 'detail' && (
@@ -2146,6 +2189,20 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
                 className="hidden"
                 onChange={e => { handleExpressPhotos(e.target.files); e.target.value = ''; }}
             />
+
+            {departureOpen && (
+                <VisitDepartureSheet
+                    departure={departure}
+                    survey={survey}
+                    onClose={() => setDepartureOpen(false)}
+                    onQuickToggle={handleQuickToggle}
+                    onText={(key, value) => setSurvey(s => setContexteText(s, key, value))}
+                    onGoToStop={handleGoToStop}
+                    onDictate={handleDictateStop}
+                    onFinish={() => handleFinishVisit({ force: true })}
+                    canFinish={canAnalyze && !visitRecorder.isRecording}
+                />
+            )}
 
             <DevisBriefSheet
                 open={briefOpen}

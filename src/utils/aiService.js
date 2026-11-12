@@ -606,7 +606,7 @@ const voiceBlocks = (notes, conversationHeader) => {
 const SURVEY_EXTRACTION_RULES = `Tu remplis la fiche de relevé d'une visite avant devis, à la place de l'artisan électricien qui parlait avec son client. Lis la visite comme lui : un collègue de métier qui sait ce qui sert au chiffrage.
 
 TU REÇOIS :
-- ses DICTÉES, quand il en a fait : l'artisan décrit lui-même, au calme, une pièce ou un poste (entre crochets). [Général] = le bien, la demande du client, les accès, le délai ; [Tableau électrique] = tableau, comptage, alimentation, terre. Ce sont les sources les plus fiables : chaque quantité et chaque choix dictés se reportent. Une dictée [Général] ou [Tableau électrique] ne crée pas de pièce ;
+- ses DICTÉES, quand il en a fait : l'artisan décrit lui-même, au calme, une pièce ou un poste (entre crochets). Les postes ne sont pas des pièces : [Général] et [Demande du client] = le bien, la demande du client, le délai, le budget ; [Tableau électrique] = le tableau ; [Comptage et terre] = comptage, alimentation, terre ; [Passage des câbles] = nature des murs, mode de pose, saignées, finitions ; [Accès et logistique] = accès, hauteur, contraintes du chantier. Ce sont les sources les plus fiables : chaque quantité et chaque choix dictés se reportent. Une dictée de poste ne crée jamais de pièce ;
 - éventuellement la conversation retranscrite (reconnaissance vocale : fautes, mots mal compris, bavardage, deux personnes qui parlent). Entre crochets, la pièce où l'artisan se trouvait quand il parlait. Elle complète les dictées ; en cas de désaccord, la dictée l'emporte ;
 - éventuellement ses notes tapées et les constats lus sur ses photos (entre crochets, la pièce de la photo).
 
@@ -683,7 +683,7 @@ export const extractSurveyFromVisit = async (voiceTranscripts = [], photoAnalyse
 const DEVIS_BRIEF_PROMPT = `Tu prépares, pour un artisan électricien, le résumé de sa visite avant devis. Ce résumé sera collé tel quel dans l'outil qui rédige ses devis : il doit contenir tout ce qui sert à chiffrer, et rien d'autre. Écris-le comme un collègue électricien qui aurait fait la visite avec lui.
 
 SOURCES :
-1. Les DICTÉES de l'artisan (entre crochets, la pièce ou le poste : [Général], [Tableau électrique]…) : il y décrit lui-même ce qu'il a vu et ce qu'il faut faire. Elles font foi, au même titre que le relevé.
+1. Les DICTÉES de l'artisan (entre crochets, la pièce ou le poste : [Demande du client], [Tableau électrique], [Comptage et terre]…) : il y décrit lui-même ce qu'il a vu et ce qu'il faut faire. Elles font foi, au même titre que le relevé.
 2. Le RELEVÉ STRUCTURÉ, relu par l'artisan : il fait foi pour les quantités et les choix. Mais il a pu être pré-rempli automatiquement : quand une dictée ou la conversation le contredit clairement (une réparation comptée comme un point à créer, un nombre qui n'est jamais dit), suis la dictée ou la conversation et signale l'écart dans POINTS À CONFIRMER.
 3. La conversation retranscrite, quand il y en a une (fautes de reconnaissance vocale, bavardage, deux personnes qui parlent) : entre crochets, la pièce où elle a été dite. Elle complète, la dictée l'emporte.
 4. Les notes tapées et les constats lus sur les photos.

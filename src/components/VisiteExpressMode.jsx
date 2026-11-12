@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import {
     Mic, Square, Camera, Flag, Undo2, Plus, Check, Clock, ChevronDown, ChevronUp, Settings2,
     Sparkles, Radio, AlertTriangle, Loader2, CloudUpload, RefreshCw, Trash2, MessagesSquare,
+    Circle, CircleAlert, CircleCheck, ClipboardCheck, ChevronRight,
 } from 'lucide-react';
 import { formatDuration } from '../utils/siteVisitConfig';
 import { zoneCounters } from '../utils/visitCapture';
+import { stopForZone, stopStatus, quickFieldSpec, getQuickValue } from '../utils/visitStops';
 
 // Mode express : l'écran de visite sur le terrain. Deux façons d'enregistrer :
 // - dictée (par défaut) : l'artisan touche « Dicter », dit le lieu en premier
@@ -13,6 +15,9 @@ import { zoneCounters } from '../utils/visitCapture';
 //   Courtes et sans bavardage, les dictées se transcrivent bien et font foi ;
 // - conversation entière : le micro tourne du début à la fin pendant que le
 //   client parle, à trier ensuite.
+// La grille des points de passage (demande, tableau, comptage…) se parcourt
+// dans l'ordre où le client emmène l'artisan : elle montre ce qui est vu et ce
+// qui reste, et chaque poste ouvre son pense-bête et ses réponses en un tap.
 // Les pastilles (pièce, compteurs, photo, point à voir) complètent ce qui ne
 // se dit pas à voix haute — jamais un passage obligé.
 // Composants présentationnels : la logique vit dans VisiteTechniqueMode et
@@ -81,8 +86,16 @@ const VisiteExpressMode = ({
     photos = [], onRetryPhotos, onOpenPhoto,
     voiceNotes = [], transcripts = {}, voiceStatus = {}, onRetryTranscriptions,
     captureStyle = 'continuous', onCaptureStyleChange, dictationTopics = [], onDeleteVoice, onMoveVoice,
+    onQuickToggle, departure = null, onOpenDeparture,
 }) => {
-    // null : la liste des lieux s'ouvre d'elle-même tant qu'aucun n'a servi.
+    // Points de passage du métier : toujours à l'écran, dans n'importe quel ordre.
+    const stops = template.stops || [];
+    const isStop = (name) => stops.some((s) => sameName(s.label, name));
+    const currentStop = stopForZone(template, capture.zone);
+    const quickSpecs = (currentStop?.quick || []).map((key) => quickFieldSpec(template, key)).filter(Boolean);
+
+    // null : sans grille, la liste des pièces s'ouvre d'elle-même tant
+    // qu'aucune n'a servi.
     const [moreOpen, setMoreOpen] = useState(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [customName, setCustomName] = useState('');
@@ -95,15 +108,23 @@ const VisiteExpressMode = ({
     const visited = [];
     const remember = (name) => {
         const clean = String(name ?? '').trim();
-        if (clean && !visited.some((v) => sameName(v, clean))) visited.push(clean);
+        // Les postes ont leur tuile dans la grille : pas de pastille en double.
+        if (clean && !isStop(clean) && !visited.some((v) => sameName(v, clean))) visited.push(clean);
     };
     (capture.entries || []).forEach((e) => remember(e.zone));
     (survey.zones || []).forEach((z) => remember(z.name));
     remember(capture.zone);
     const unvisited = (list) => (list || []).filter((p) => !visited.some((v) => sameName(v, p)));
     const otherRooms = unvisited(template.zonePresets);
-    const otherTopics = unvisited(topics);
-    const showMore = moreOpen ?? visited.length === 0;
+    const otherTopics = unvisited(topics).filter((t) => !isStop(t));
+    const showMore = moreOpen ?? (stops.length === 0 && visited.length === 0);
+    // Postes à voir et points clés se comptent à part : un poste pas encore
+    // vu porte souvent lui-même un point clé.
+    const toSeeParts = departure ? [
+        departure.missing.length ? `${departure.missing.length} point${departure.missing.length > 1 ? 's' : ''} clé${departure.missing.length > 1 ? 's' : ''}` : '',
+        departure.unseenStops.length ? `${departure.unseenStops.length} poste${departure.unseenStops.length > 1 ? 's' : ''} à voir` : '',
+    ].filter(Boolean) : [];
+    const toSee = toSeeParts.length;
 
     const pick = (name) => { buzz(); onZoneChange(name); setMoreOpen(false); };
 
@@ -123,7 +144,7 @@ const VisiteExpressMode = ({
     }`;
 
     // Où ranger une dictée à la main : lieux de la visite, puis le reste.
-    const movePlaces = [...visited, ...otherRooms, ...unvisited(dictationTopics)];
+    const movePlaces = [...stops.map((s) => s.label), ...visited, ...otherRooms, ...unvisited(dictationTopics).filter((t) => !isStop(t))];
     const spokenExamples = [template.zonePresets?.[0] || 'Cuisine', template.hasTableau ? 'Tableau' : '']
         .filter(Boolean).map((n) => `« ${n}, … »`).join(' ou ');
 
@@ -177,8 +198,9 @@ const VisiteExpressMode = ({
                             </span>
                         </div>
                         <p className="text-xs text-red-100">
-                            {capture.zone ? 'Autre lieu ? Dites son nom en premier. Puis' : 'Le lieu, puis'}
-                            {' '}: l'existant · à faire · combien · qui fournit · les contraintes.
+                            {currentStop
+                                ? `À dire : ${currentStop.memo.join(' · ')}.`
+                                : `${capture.zone ? 'Autre lieu ? Dites son nom en premier. Puis' : 'Le lieu, puis'} : l'existant · à faire · combien · qui fournit · les contraintes.`}
                         </p>
                     </div>
                 ) : (
@@ -242,9 +264,84 @@ const VisiteExpressMode = ({
                 </>
             )}
 
-            {/* Lieux de la visite : un tap pour y revenir */}
+            {/* Points de passage : ce qui est vu, ce qui reste — sans ordre imposé */}
+            {stops.length > 0 && (
+                <div className="grid grid-cols-3 gap-1.5">
+                    {stops.map((stop) => {
+                        const { state } = stopStatus({ stop, template, survey, capture });
+                        const current = sameName(capture.zone, stop.label);
+                        const StateIcon = state === 'done' ? CircleCheck : state === 'partial' ? CircleAlert : Circle;
+                        const stateLabel = state === 'done' ? 'vu' : state === 'partial' ? 'une réponse manque' : 'pas encore vu';
+                        return (
+                            <button
+                                key={stop.key}
+                                type="button"
+                                onClick={() => pick(stop.label)}
+                                aria-pressed={current}
+                                aria-label={`${stop.label} — ${stateLabel}`}
+                                className={`flex flex-col items-start gap-1 px-2 py-2 rounded-xl text-left text-[13px] leading-tight font-semibold transition-colors active:scale-95 ${
+                                    current
+                                        ? 'bg-violet-600 text-white'
+                                        : state === 'done'
+                                            ? 'bg-emerald-50 border border-emerald-200 text-emerald-900'
+                                            : state === 'partial'
+                                                ? 'bg-amber-50 border border-amber-300 text-amber-900'
+                                                : 'bg-white border border-gray-200 text-gray-700'
+                                }`}
+                            >
+                                <StateIcon className={`w-4 h-4 ${
+                                    current ? 'text-violet-200'
+                                        : state === 'done' ? 'text-emerald-600'
+                                            : state === 'partial' ? 'text-amber-600' : 'text-gray-300'
+                                }`} />
+                                {stop.short || stop.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Le poste en cours : son pense-bête et ses réponses en un tap */}
+            {currentStop && (
+                <div className="p-3 bg-white border border-violet-200 rounded-2xl space-y-2.5">
+                    <div>
+                        <p className="text-sm font-bold text-gray-900">{currentStop.label}</p>
+                        <p className="text-xs text-gray-500 leading-snug">À dire : {currentStop.memo.join(' · ')}.</p>
+                    </div>
+                    {quickSpecs.map((spec) => {
+                        const value = getQuickValue(survey, spec.key);
+                        const isOn = (option) => (spec.multi ? Array.isArray(value) && value.includes(option) : value === option);
+                        return (
+                            <div key={spec.key}>
+                                <p className="text-xs font-semibold text-gray-500 mb-1">
+                                    {spec.label}{spec.multi ? ' — plusieurs choix' : ''}
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {spec.options.map((option) => (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            aria-pressed={isOn(option.value)}
+                                            onClick={() => { buzz(); onQuickToggle?.(spec, option.value); }}
+                                            className={`px-2.5 py-2 rounded-xl text-[13px] font-semibold transition-colors ${
+                                                isOn(option.value)
+                                                    ? 'bg-violet-600 text-white'
+                                                    : 'bg-white border border-gray-200 text-gray-700 active:scale-95'
+                                            }`}
+                                        >
+                                            {option.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Pièces de la visite : un tap pour y revenir */}
             <div className="space-y-2">
-                {visited.length > 0 && (
+                {(visited.length > 0 || stops.length > 0) && (
                     <div className="flex flex-wrap gap-1.5">
                         {visited.map((name) => (
                             <button key={name} type="button" onClick={() => pick(name)} className={chipClass(name)}>
@@ -258,7 +355,7 @@ const VisiteExpressMode = ({
                             className="flex items-center gap-1 px-3 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-dashed border-violet-200 text-violet-600 active:scale-95"
                         >
                             <Plus className="w-4 h-4" />
-                            Autre lieu
+                            {stops.length > 0 ? 'Pièce' : 'Autre lieu'}
                         </button>
                     </div>
                 )}
@@ -311,6 +408,26 @@ const VisiteExpressMode = ({
                     </div>
                 )}
             </div>
+
+            {/* Avant de partir : ce qui manque, tant qu'on est sur place */}
+            {departure && departure.total > 0 && entries.length > 0 && (
+                <button
+                    type="button"
+                    onClick={onOpenDeparture}
+                    className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-2xl text-sm font-semibold text-left active:scale-[0.99] ${
+                        toSee > 0
+                            ? 'bg-amber-50 border border-amber-300 text-amber-900'
+                            : 'bg-emerald-50 border border-emerald-200 text-emerald-900'
+                    }`}
+                >
+                    <ClipboardCheck className="w-4 h-4 flex-shrink-0" />
+                    <span className="flex-1">Avant de partir</span>
+                    <span className="text-xs font-bold">
+                        {toSee > 0 ? toSeeParts.join(' · ') : 'tout y est'}
+                    </span>
+                    <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                </button>
+            )}
 
             {/* Photos de la visite, avec leur état d'enregistrement */}
             {photos.length > 0 && (
@@ -419,8 +536,8 @@ const VisiteExpressMode = ({
                     <p className="font-semibold text-gray-700">Comment ça marche</p>
                     <p>1. Suivez le client, dans l'ordre où il vous emmène : le micro ne tourne que pendant vos dictées.</p>
                     <p>2. Touchez « Dicter » et commencez par le lieu — {spokenExamples} — puis l'existant, ce qu'il faut faire, les quantités, qui fournit. La dictée se range toute seule.</p>
-                    {dictationTopics.length > 0 && <p>3. « {dictationTopics.join(' », « ')} » se disent aussi : la demande du client, l'accès, le délai, l'alimentation.</p>}
-                    <p>{dictationTopics.length > 0 ? 4 : 3}. Le texte s'affiche sous chaque dictée : relisez, changez le lieu s'il est faux, supprimez et redictez au besoin.</p>
+                    {stops.length > 0 && <p>3. Les tuiles du haut sont les postes à ne pas oublier ({stops.map((s) => s.short || s.label).join(', ')}) : touchez-en une pour son pense-bête et ses réponses en un tap, ou dites son nom. Elles passent au vert une fois vues.</p>}
+                    <p>{stops.length > 0 ? 4 : 3}. Le texte s'affiche sous chaque dictée : relisez, changez le lieu s'il est faux, supprimez et redictez au besoin.</p>
                 </div>
             ) : entries.length === 0 ? (
                 <div className="p-4 bg-white border border-gray-100 rounded-2xl text-sm text-gray-500 space-y-1.5">
