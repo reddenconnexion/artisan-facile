@@ -30,12 +30,12 @@ Deno.serve(async (req) => {
 
         const { data: profile } = await supabase
             .from('profiles')
-            .select('email, full_name, company_name')
+            .select('email, professional_email, full_name, company_name')
             .eq('id', client.user_id)
             .single();
 
         const { data: authUser } = await supabase.auth.admin.getUserById(client.user_id);
-        const artisanEmail = profile?.email || authUser?.user?.email;
+        const artisanEmail = profile?.professional_email || profile?.email || authUser?.user?.email;
         const artisanName = profile?.company_name || profile?.full_name || 'Artisan';
         const clientDisplayName = sender_name || client.name;
         const preview = message_preview
