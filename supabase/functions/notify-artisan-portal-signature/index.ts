@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
         // Récupérer le profil artisan
         const { data: profile } = await supabase
             .from('profiles')
-            .select('email, full_name, company_name')
+            .select('email, professional_email, full_name, company_name')
             .eq('id', quote.user_id)
             .single();
 
@@ -120,7 +120,8 @@ Deno.serve(async (req) => {
             return json({ success: true, dev: true });
         }
 
-        let artisanEmail = profile.email;
+        // Priorité à l'email professionnel renseigné dans le profil, sinon email de connexion
+        let artisanEmail = profile.professional_email || profile.email;
         if (!artisanEmail) {
             const { data: authUser } = await supabase.auth.admin.getUserById(quote.user_id);
             artisanEmail = authUser?.user?.email ?? null;
