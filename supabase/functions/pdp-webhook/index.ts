@@ -579,11 +579,11 @@ Deno.serve(async (req) => {
 
       const { data: profile } = await supabaseAdmin
         .from('profiles')
-        .select('full_name, company_name, email')
+        .select('full_name, company_name, email, professional_email')
         .eq('id', quote!.user_id)
         .single();
 
-      const email = profile?.email || artisanEmail;
+      const email = profile?.professional_email || profile?.email || artisanEmail;
       const name = profile?.company_name || profile?.full_name || 'Artisan';
 
       if (email) {
