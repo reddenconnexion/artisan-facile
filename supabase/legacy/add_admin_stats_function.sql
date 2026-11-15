@@ -35,6 +35,16 @@ begin
       usr.email,
       usr.created_at,
       usr.last_sign_in_at,
+      -- Dernière activité réelle : la session est rafraîchie automatiquement
+      -- (~1 fois/heure) tant que l'appli est utilisée, sans reconnexion.
+      -- On prend aussi la dernière modification de devis/clients.
+      greatest(
+        usr.last_sign_in_at,
+        (select max(coalesce(s.refreshed_at, s.updated_at)) from auth.sessions s where s.user_id = usr.id),
+        (select max(rt.updated_at) from auth.refresh_tokens rt where rt.user_id = usr.id::text),
+        (select max(coalesce(q.updated_at, q.created_at)) from public.quotes q where q.user_id = usr.id),
+        (select max(coalesce(c.updated_at, c.created_at)) from public.clients c where c.user_id = usr.id)
+      ) as last_activity_at,
       -- Comptes de test/démo/anonymes à exclure des « vrais » artisans
       (usr.email is null
         or usr.email ilike '%@artisan-facile.local'
@@ -51,8 +61,8 @@ begin
       'all_accounts',   (select count(*) from u),
       'real_artisans',  (select count(*) from u where not is_demo),
       'other_artisans', (select count(*) from u where not is_demo and not is_owner),
-      'active_7d',      (select count(*) from u where not is_demo and last_sign_in_at > now() - interval '7 days'),
-      'active_30d',     (select count(*) from u where not is_demo and last_sign_in_at > now() - interval '30 days'),
+      'active_7d',      (select count(*) from u where not is_demo and last_activity_at > now() - interval '7 days'),
+      'active_30d',     (select count(*) from u where not is_demo and last_activity_at > now() - interval '30 days'),
       'new_30d',        (select count(*) from u where not is_demo and created_at > now() - interval '30 days'),
       'with_activity',  (select count(*) from u where not is_demo and (nb_clients > 0 or nb_quotes > 0)),
       'total_quotes',   (select coalesce(sum(nb_quotes), 0)  from u where not is_demo),
@@ -61,7 +71,7 @@ begin
     'artisans', (
       select coalesce(jsonb_agg(to_jsonb(r) order by r.created_at desc), '[]'::jsonb)
       from (
-        select email, created_at, last_sign_in_at, nb_clients, nb_quotes, is_owner
+        select email, created_at, last_sign_in_at, last_activity_at, nb_clients, nb_quotes, is_owner
         from u
         where not is_demo
       ) r
