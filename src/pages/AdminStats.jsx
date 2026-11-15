@@ -12,7 +12,7 @@ import { formatDate, formatDateTime } from '../utils/format';
 /* ─── Format date courte ─── */
 const fmtDate = (s) => formatDate(s, { day: '2-digit', month: 'short', year: '2-digit', fallback: '—' });
 
-/* ─── « il y a X » pour la dernière connexion ─── */
+/* ─── « il y a X » pour la dernière activité ─── */
 const relative = (s) => {
   if (!s) return 'jamais';
   const diff = Date.now() - new Date(s).getTime();
@@ -158,13 +158,15 @@ const AdminStats = () => {
                   <tr className="text-left text-xs text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-800">
                     <th className="px-4 py-2 font-medium">Email</th>
                     <th className="px-4 py-2 font-medium">Inscrit</th>
-                    <th className="px-4 py-2 font-medium">Dernière connexion</th>
+                    <th className="px-4 py-2 font-medium">Dernière activité</th>
                     <th className="px-4 py-2 font-medium text-right">Clients</th>
                     <th className="px-4 py-2 font-medium text-right">Devis</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {artisans.map((a) => (
+                  {[...artisans]
+                    .sort((x, y) => new Date(y.last_activity_at || 0) - new Date(x.last_activity_at || 0))
+                    .map((a) => (
                     <tr key={a.email} className="border-b border-gray-50 dark:border-gray-800/50 last:border-0">
                       <td className="px-4 py-2.5 text-gray-900 dark:text-white">
                         <span className="flex items-center gap-1.5">
@@ -173,7 +175,15 @@ const AdminStats = () => {
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">{fmtDate(a.created_at)}</td>
-                      <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">{relative(a.last_sign_in_at)}</td>
+                      <td
+                        className="px-4 py-2.5 text-gray-500 dark:text-gray-400"
+                        title={[
+                          a.last_activity_at && `Activité : ${formatDateTime(a.last_activity_at, { dateStyle: 'short', timeStyle: 'short' })}`,
+                          a.last_sign_in_at && `Connexion : ${formatDateTime(a.last_sign_in_at, { dateStyle: 'short', timeStyle: 'short' })}`,
+                        ].filter(Boolean).join('\n')}
+                      >
+                        {relative(a.last_activity_at ?? a.last_sign_in_at)}
+                      </td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-gray-700 dark:text-gray-300">{a.nb_clients}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-gray-700 dark:text-gray-300">{a.nb_quotes}</td>
                     </tr>
