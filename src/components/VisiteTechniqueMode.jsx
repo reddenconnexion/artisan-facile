@@ -31,7 +31,7 @@ import { readAudioInput, rememberAudioInput, readCaptureStyle, rememberCaptureSt
 import { useVisitRecorder } from '../hooks/useVisitRecorder';
 import {
     createCapture, addZoneChange, addCount, addVoice, removeVoice, addPhoto, addFlag,
-    undoLast, hasCaptureContent, ensureSurveyZone, bumpSurveyCounter,
+    undoLast, reinsertEntry, hasCaptureContent, ensureSurveyZone, bumpSurveyCounter,
     buildTimelineLines, photoZones, rezoneVoice,
 } from '../utils/visitCapture';
 import { detectSpokenZone } from '../utils/spokenZone';
@@ -100,6 +100,14 @@ const runPool = async (items, worker, size) => {
 
 const wait = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
+/** Remet un élément à sa place d'origine (ou en fin de liste). */
+const insertAt = (list, index, item) => {
+    if (list.some(x => x.id === item.id)) return list;
+    const at = index >= 0 && index <= list.length ? index : list.length;
+    return [...list.slice(0, at), item, ...list.slice(at)];
+};
+// Délai pendant lequel une photo ou une dictée annulée peut être rétablie.
+const UNDO_GRACE_MS = 5000;
 const omitKey = (obj, key) => Object.fromEntries(Object.entries(obj).filter(([k]) => k !== String(key)));
 
 // Horloge du fil de visite. Impure : appelée depuis les gestionnaires
@@ -688,18 +696,92 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
         uploadPhotos(added);
     };
 
+    // « Annuler » sur une photo ou une dictée : elle quitte la visite tout de
+    // suite, mais n'est effacée du stockage qu'à la fin du toast « Rétablir ».
+    // Un appui raté avec des gants ne coûte plus la photo du tableau.
+    const pendingPurgesRef = useRef(new Map());
+    useEffect(() => {
+        const pending = pendingPurgesRef.current;
+        return () => {
+            pending.forEach(({ timer, purge }) => { clearTimeout(timer); purge(); });
+            pending.clear();
+        };
+    }, []);
+
+    const deferPurge = (key, message, purge, restore) => {
+        const timer = setTimeout(() => {
+            pendingPurgesRef.current.delete(key);
+            purge();
+        }, UNDO_GRACE_MS);
+        pendingPurgesRef.current.set(key, { timer, purge });
+        toast(message, {
+            duration: UNDO_GRACE_MS,
+            action: {
+                label: 'Rétablir',
+                onClick: () => {
+                    const pending = pendingPurgesRef.current.get(key);
+                    if (!pending) return;
+                    clearTimeout(pending.timer);
+                    pendingPurgesRef.current.delete(key);
+                    restore();
+                },
+            },
+        });
+    };
+
     const handleUndo = () => {
         const { capture: next, undone } = undoLast(capture);
         if (!undone) return;
+        const restoreEntry = () => setCapture(c => reinsertEntry(c, undone));
         if (undone.type === 'count') {
             setSurvey(s => bumpSurveyCounter(s, undone.zone, undone.counterKey, -undone.delta));
         } else if (undone.type === 'photo') {
-            const gone = photos.find(p => p.id === undone.mediaId);
-            if (gone?.preview?.startsWith('blob:')) URL.revokeObjectURL(gone.preview);
+            const index = photos.findIndex(p => p.id === undone.mediaId);
+            const gone = photos[index];
             setPhotos(prev => prev.filter(p => p.id !== undone.mediaId));
-            if (gone?.path) forgetStoredPhoto(gone);
+            if (gone) {
+                // Hors de l'archive pendant le délai : « Terminer » ne l'emporte pas.
+                const stored = gone.path ? uploadedPhotosRef.current.find(p => p.path === gone.path) : null;
+                if (stored) uploadedPhotosRef.current = uploadedPhotosRef.current.filter(p => p !== stored);
+                deferPurge(
+                    undone.mediaId,
+                    'Photo retirée de la visite.',
+                    () => {
+                        if (gone.preview?.startsWith('blob:')) URL.revokeObjectURL(gone.preview);
+                        if (gone.path) forgetStoredPhoto(gone);
+                    },
+                    () => {
+                        setPhotos(prev => insertAt(prev, index, gone));
+                        if (stored && !uploadedPhotosRef.current.some(p => p.path === stored.path)) {
+                            uploadedPhotosRef.current = [...uploadedPhotosRef.current, stored];
+                        }
+                        restoreEntry();
+                    },
+                );
+            }
         } else if (undone.type === 'voice') {
-            handleDeleteVoice(undone.mediaId);
+            const id = undone.mediaId;
+            const index = voiceNotesRef.current.findIndex(n => n.id === id);
+            const note = voiceNotesRef.current[index];
+            const transcript = voiceTranscriptsRef.current[id];
+            const status = voiceStatusRef.current[id];
+            hideVoiceNote(id);
+            deferPurge(
+                id,
+                undone.kind === 'dictation' ? 'Dictée retirée de la visite.' : 'Enregistrement retiré de la visite.',
+                () => purgeVoiceNote(note),
+                () => {
+                    if (note) {
+                        voiceNotesRef.current = insertAt(voiceNotesRef.current, index, note);
+                        setVoiceNotes(prev => insertAt(prev, index, note));
+                    }
+                    if (transcript !== undefined) setVoiceTranscripts(prev => ({ ...prev, [id]: transcript }));
+                    if (status) setVoiceStatus(prev => (prev[id] ? prev : { ...prev, [id]: status }));
+                    // Retirée avant son tour : la file l'a sautée, on la remet.
+                    if (note?.blob && transcript === undefined && status?.state === 'pending') enqueueTranscription([note]);
+                    restoreEntry();
+                },
+            );
         }
         setCapture(next);
     };
@@ -1173,13 +1255,23 @@ const VisiteTechniqueMode = ({ onBack, resumeVisitId = null }) => {
         }
     };
 
-    const handleDeleteVoice = (id) => {
-        const note = voiceNotesRef.current.find(n => n.id === id);
+    /** Retire une note de la visite, sans toucher au stockage. */
+    const hideVoiceNote = (id) => {
         setVoiceNotes(prev => prev.filter(n => n.id !== id));
         setVoiceTranscripts(prev => omitKey(prev, id));
         setVoiceStatus(prev => omitKey(prev, id));
+    };
+
+    /** Efface l'audio et sa ligne `voice_memos`. */
+    const purgeVoiceNote = (note) => {
         if (note?.path) supabase.storage.from('visit-audio').remove([note.path]).then(() => {}, () => {});
         if (note?.dbId) supabase.from('voice_memos').delete().eq('id', note.dbId).then(() => {}, () => {});
+    };
+
+    const handleDeleteVoice = (id) => {
+        const note = voiceNotesRef.current.find(n => n.id === id);
+        hideVoiceNote(id);
+        purgeVoiceNote(note);
     };
 
     // ── Photos ─────────────────────────────────────────────────────────────
