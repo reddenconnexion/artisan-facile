@@ -406,6 +406,44 @@ describe('mails prévus : retouches de l\'artisan', () => {
     });
 });
 
+describe('relances après vérification', () => {
+    const settings = { enabled: true, relances_mode: 'validation' };
+    const docs = [invoice(), quote()];
+    const base = { settings, profile, now: NOW, docs };
+
+    it('par défaut, les relances partent seules', () => {
+        expect(readAutopilotSettings({}).relances_mode).toBe('auto');
+        expect(planAutopilotRun({ ...base, settings: { enabled: true } }).actions).toHaveLength(2);
+    });
+
+    it('rien ne part sans feu vert ; l\'aperçu les montre « à valider »', () => {
+        const run = planAutopilotRun(base);
+        expect(run.actions).toEqual([]);
+        expect(run.awaitingApproval.map((a) => a.kind)).toEqual(['invoice_reminder', 'quote_followup']);
+        const preview = planAutopilotRun({ ...base, preview: true }).actions;
+        expect(preview.every((a) => a.awaitingApproval)).toBe(true);
+    });
+
+    it('relance validée : elle part, avec la retouche éventuelle', () => {
+        const drafts = [{ action_key: actionKey('quote_followup', 1, 1), approved: true, body: 'Mon texte' }];
+        const run = planAutopilotRun({ ...base, drafts });
+        expect(run.actions).toHaveLength(1);
+        expect(run.actions[0]).toMatchObject({ kind: 'quote_followup', body: 'Mon texte' });
+        expect(run.awaitingApproval.map((a) => a.kind)).toEqual(['invoice_reminder']);
+    });
+
+    it('les demandes d\'avis ne sont pas concernées', () => {
+        const doc = quote({ status: 'accepted', work_stage: 'completed', work_completed_at: '2026-11-09T09:00:00Z' });
+        const run = planAutopilotRun({ ...base, docs: [doc] });
+        expect(run.actions.map((a) => a.kind)).toEqual(['review_request']);
+    });
+
+    it('le point du soir signale les relances en attente', () => {
+        const summary = buildEveningSummary({ awaitingApproval: [{}, {}] });
+        expect(summary.body).toContain('2 relances attendent votre feu vert');
+    });
+});
+
 describe('heure du prochain envoi', () => {
     it('dans la plage : prochain passage à h05', () => {
         expect(nextSendTime(new Date('2026-11-10T09:00:00Z')).toISOString()).toBe('2026-11-10T09:05:00.000Z'); // 10 h → 10 h 05

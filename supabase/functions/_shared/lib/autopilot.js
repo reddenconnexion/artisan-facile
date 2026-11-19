@@ -26,7 +26,17 @@ export const AUTOPILOT_DEFAULTS = {
     invoices: true,
     reviews: true,
     summary: true,
+    // Relances de devis et rappels de factures : 'auto' (ils partent seuls)
+    // ou 'validation' (ils attendent le feu vert de l'artisan dans l'écran
+    // Pilote). Les demandes d'avis de fin de chantier ne sont pas concernées.
+    relances_mode: 'auto',
 };
+
+/** Les relances attendent-elles le feu vert de l'artisan ? */
+export const relancesNeedApproval = (settings) => readAutopilotSettings(settings).relances_mode === 'validation';
+
+/** Types de mails soumis au feu vert en mode « après vérification ». */
+export const APPROVAL_KINDS = ['quote_followup', 'invoice_reminder'];
 
 /** Réglages de l'artisan complétés par les valeurs par défaut. */
 export const readAutopilotSettings = (raw) => ({ ...AUTOPILOT_DEFAULTS, ...(raw && typeof raw === 'object' ? raw : {}) });
@@ -427,6 +437,7 @@ export const applyDraft = (action, drafts) => {
         body: body || action.body,
         edited: Boolean(subject || body),
         skipped: Boolean(d.skipped),
+        approved: Boolean(d.approved),
     };
 };
 
@@ -449,7 +460,10 @@ export const actionKey = (kind, refId, step) => `${kind}:${refId}:${step}`;
  * @param {Date} [p.now]
  * @param {boolean} [p.preview]       aperçu : ignore l'interrupteur et le plafond
  * @param {object[]|Map<string, object>} [p.drafts] retouches de l'artisan (autopilot_drafts)
- * @returns {{ actions: object[], needsArtisan: object[] }}
+ * @returns {{ actions: object[], needsArtisan: object[], awaitingApproval: object[] }}
+ *   awaitingApproval : relances prêtes mais retenues tant que l'artisan ne les
+ *   a pas validées (mode « après vérification »). En aperçu, elles figurent
+ *   aussi dans `actions`, marquées `awaitingApproval: true`.
  */
 export const planAutopilotRun = ({
     settings, profile, docs, steps, doneKeys = new Set(), contactedToday = new Set(),
@@ -458,7 +472,9 @@ export const planAutopilotRun = ({
     const cfg = readAutopilotSettings(settings);
     const actions = [];
     const needsArtisan = [];
-    if (!cfg.enabled && !preview) return { actions, needsArtisan };
+    const awaitingApproval = [];
+    if (!cfg.enabled && !preview) return { actions, needsArtisan, awaitingApproval };
+    const approvalMode = cfg.relances_mode === 'validation';
 
     const list = Array.isArray(docs) ? docs : [];
     const sequence = Array.isArray(steps) && steps.length > 0 ? steps : DEFAULT_FOLLOW_UP_STEPS;
@@ -482,6 +498,12 @@ export const planAutopilotRun = ({
         const action = applyDraft(raw, draftByKey);
         // Mail retenu par l'artisan : il ne part pas (l'aperçu le montre barré).
         if (action.skipped && !preview) return;
+        // Mode « après vérification » : la relance attend le feu vert.
+        if (approvalMode && !action.skipped && !action.approved && APPROVAL_KINDS.includes(action.kind)) {
+            awaitingApproval.push(action);
+            if (preview) actions.push({ ...action, awaitingApproval: true });
+            return;
+        }
         actions.push(action);
         if (!action.skipped) contacted.add(action.client_id);
     };
@@ -536,7 +558,7 @@ export const planAutopilotRun = ({
         }
     }
 
-    return { actions, needsArtisan };
+    return { actions, needsArtisan, awaitingApproval };
 };
 
 const reviewAction = (doc, { client, profile, reviewUrl, key, settings }) => {
@@ -636,9 +658,9 @@ export const summarizeActions = (rows = []) => {
 
 /**
  * Notification du soir, en mots simples. null quand il n'y a rien à dire.
- * @param {{ sent?: object[], signed?: object[], paid?: object[], needsArtisan?: object[] }} day
+ * @param {{ sent?: object[], signed?: object[], paid?: object[], needsArtisan?: object[], awaitingApproval?: object[] }} day
  */
-export const buildEveningSummary = ({ sent = [], signed = [], paid = [], needsArtisan = [] } = {}) => {
+export const buildEveningSummary = ({ sent = [], signed = [], paid = [], needsArtisan = [], awaitingApproval = [] } = {}) => {
     const s = summarizeActions(sent);
     const lines = [];
     if (signed.length) lines.push(`✍️ ${plural(signed.length, 'devis signé', 'devis signés')} (${euros(sum(signed.map((d) => ({ amount: d.total_ttc }))))})`);
@@ -646,6 +668,7 @@ export const buildEveningSummary = ({ sent = [], signed = [], paid = [], needsAr
     if (s.quotes.count) lines.push(`📨 ${plural(s.quotes.count, 'devis relancé', 'devis relancés')} (${euros(s.quotes.amount)})`);
     if (s.invoices.count) lines.push(`💶 ${plural(s.invoices.count, 'rappel de facture envoyé', 'rappels de facture envoyés')} (${euros(s.invoices.amount)})`);
     if (s.reviews.count) lines.push(`⭐ ${plural(s.reviews.count, "demande d'avis envoyée", "demandes d'avis envoyées")}`);
+    if (awaitingApproval.length) lines.push(`📝 ${plural(awaitingApproval.length, 'relance attend', 'relances attendent')} votre feu vert`);
     if (needsArtisan.length) lines.push(`⚠️ ${plural(needsArtisan.length, 'facture très en retard attend', 'factures très en retard attendent')} votre décision`);
     if (lines.length === 0) return null;
 

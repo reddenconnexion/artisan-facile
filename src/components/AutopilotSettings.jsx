@@ -7,6 +7,7 @@ import { formatCurrencyRounded } from '../utils/format';
 import ReviewTemplateEditor from './ReviewTemplateEditor';
 import QuoteTemplatesEditor from './QuoteTemplatesEditor';
 import InvoiceTemplatesEditor from './InvoiceTemplatesEditor';
+import RelancesModeChoice from './RelancesModeChoice';
 
 const ITEMS = [
     { key: 'quotes', icon: FileText, title: 'Relancer mes devis pas encore signés', text: 'À J+7, J+14 et J+21, puis un dernier message avant de classer le devis.' },
@@ -68,7 +69,9 @@ const AutopilotSettings = () => {
                         <p className="font-bold text-gray-900 dark:text-white">Pilote automatique</p>
                         <p className="text-sm text-gray-600 dark:text-gray-300">
                             {settings.enabled
-                                ? "Activé : l'appli relance vos clients à votre place, du lundi au vendredi, de 9 h à 18 h."
+                                ? (settings.relances_mode === 'validation'
+                    ? "Activé : l'appli prépare vos relances et les envoie après votre feu vert, du lundi au vendredi, de 9 h à 18 h."
+                    : "Activé : l'appli relance vos clients à votre place, du lundi au vendredi, de 9 h à 18 h.")
                                 : ready > 0
                                     ? `En pause. ${ready} relance${ready > 1 ? 's' : ''} ${ready > 1 ? 'sont prêtes' : 'est prête'} à partir${readyAmount > 0 ? ` (${formatCurrencyRounded(readyAmount)} en jeu)` : ''}.`
                                     : "En pause. Activez-le : l'appli s'occupera de vos relances."}
@@ -81,6 +84,10 @@ const AutopilotSettings = () => {
                     label="Activer le pilote automatique"
                     onChange={(v) => update({ enabled: v }, v ? "Pilote automatique activé : l'appli s'occupe de vos relances." : 'Pilote automatique en pause.')}
                 />
+            </div>
+
+            <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+                <RelancesModeChoice settings={settings} save={save} disabled={!settings.enabled} />
             </div>
 
             <ul className="divide-y divide-gray-100 dark:divide-gray-700">

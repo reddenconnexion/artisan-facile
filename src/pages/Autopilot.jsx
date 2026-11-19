@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Bot, FileText, Receipt, Star, Clock, PauseCircle, PlayCircle, Pencil, RotateCcw, Loader2,
-    ChevronDown, ChevronUp, AlertTriangle, CheckCircle, Send, Settings,
+    ChevronDown, ChevronUp, AlertTriangle, CheckCircle, Send, Settings, ShieldCheck,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -17,6 +17,7 @@ import AutopilotSetup from '../components/AutopilotSetup';
 import AutopilotGains from '../components/AutopilotGains';
 import QuoteTemplatesEditor from '../components/QuoteTemplatesEditor';
 import InvoiceTemplatesEditor from '../components/InvoiceTemplatesEditor';
+import RelancesModeChoice from '../components/RelancesModeChoice';
 
 const KINDS = {
     quote_followup: { icon: FileText, label: 'Relance de devis', color: 'text-blue-600 dark:text-blue-400' },
@@ -26,8 +27,8 @@ const KINDS = {
 
 const card = 'bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm';
 
-/** Un mail prévu : lecture, modification, « Ne pas envoyer ». */
-const QueuedMail = ({ item, canEdit, onSave, onHold, onReset, onPostponed }) => {
+/** Un mail prévu : lecture, modification, feu vert, « Ne pas envoyer ». */
+const QueuedMail = ({ item, canEdit, onSave, onHold, onReset, onPostponed, onApprove }) => {
     const kind = KINDS[item.kind] || KINDS.quote_followup;
     const Icon = kind.icon;
     const [open, setOpen] = useState(false);
@@ -77,6 +78,10 @@ const QueuedMail = ({ item, canEdit, onSave, onHold, onReset, onPostponed }) => 
                 <div className="flex flex-col items-end gap-1 shrink-0">
                     {item.skipped ? (
                         <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">Retenu, ne partira pas</span>
+                    ) : item.awaitingApproval ? (
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                            <ShieldCheck size={11} /> Attend votre feu vert
+                        </span>
                     ) : (
                         <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 flex items-center gap-1">
                             <Clock size={11} /> {item.whenLabel}
@@ -133,6 +138,11 @@ const QueuedMail = ({ item, canEdit, onSave, onHold, onReset, onPostponed }) => 
 
             {canEdit && !editing && (
                 <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex flex-wrap gap-2">
+                    {item.awaitingApproval && !item.skipped && (
+                        <button type="button" disabled={busy} onClick={() => run(() => onApprove(item), 'Validé : il partira au prochain envoi.')} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-60">
+                            {busy ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />} Valider l'envoi
+                        </button>
+                    )}
                     {!item.skipped && (
                         <button type="button" onClick={startEdit} disabled={busy} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600">
                             <Pencil size={14} /> Modifier
@@ -197,7 +207,8 @@ const Autopilot = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { isPro, isFounder, loading: planLoading } = usePlanLimits();
-    const { settings, save, profile, preview, gains, recent, loading, reload, saveDraft, holdDraft, resetDraft } = useAutopilot();
+    const { settings, save, profile, preview, gains, recent, loading, reload, saveDraft, holdDraft, resetDraft, approveDrafts } = useAutopilot();
+    const [approvingAll, setApprovingAll] = useState(false);
 
     if (planLoading || loading || !preview) {
         return (
@@ -208,8 +219,20 @@ const Autopilot = () => {
     }
 
     const queue = preview.queue || [];
-    const active = queue.filter((q) => !q.skipped);
+    const toApprove = queue.filter((q) => q.awaitingApproval && !q.skipped);
+    const active = queue.filter((q) => !q.skipped && !q.awaitingApproval);
     const held = queue.filter((q) => q.skipped);
+    const approveAll = async () => {
+        setApprovingAll(true);
+        try {
+            await approveDrafts(toApprove);
+            toast.success(`${toApprove.length} relance${toApprove.length > 1 ? 's validées : elles partiront' : ' validée : elle partira'} au prochain envoi.`);
+        } catch (e) {
+            toast.error('Non enregistré : ' + e.message);
+        } finally {
+            setApprovingAll(false);
+        }
+    };
     const onHold = (key, value, item) => holdDraft(key, value, item.edited ? { subject: item.subject, body: item.body } : {});
 
     return (
@@ -257,19 +280,65 @@ const Autopilot = () => {
                 <div className="rounded-xl border border-green-200 dark:border-green-800/50 bg-green-50 dark:bg-green-900/20 p-4 mb-5 flex items-start gap-2">
                     <CheckCircle size={18} className="text-green-600 shrink-0 mt-0.5" />
                     <p className="text-sm text-gray-700 dark:text-gray-200">
-                        Activé. Les mails partent du lundi au vendredi entre 9 h et 18 h. Relisez-les ci-dessous : vous pouvez en modifier le texte ou les retenir.
+                        {settings.relances_mode === 'validation'
+                            ? "Activé, relances après vérification : l'appli prépare les relances, elles ne partent qu'une fois validées par vous (du lundi au vendredi entre 9 h et 18 h)."
+                            : 'Activé. Les mails partent du lundi au vendredi entre 9 h et 18 h. Relisez-les ci-dessous : vous pouvez en modifier le texte ou les retenir.'}
                     </p>
                 </div>
+            )}
+
+            {isPro && (
+                <div className={`${card} p-4 mb-5`}>
+                    <RelancesModeChoice settings={settings} save={save} />
+                </div>
+            )}
+
+            {toApprove.length > 0 && (
+                <section className="mb-6">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                            <ShieldCheck size={15} className="text-amber-600" /> À valider ({toApprove.length})
+                        </h2>
+                        {isPro && toApprove.length > 1 && (
+                            <button type="button" onClick={approveAll} disabled={approvingAll} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-60">
+                                {approvingAll ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />} Tout valider
+                            </button>
+                        )}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        Relisez, modifiez si besoin, puis validez : rien ne part sans votre feu vert.
+                    </p>
+                    <ul className="space-y-3">
+                        {toApprove.map((item) => (
+                            <QueuedMail
+                                key={`${item.key}:${item.edited ? 'e' : ''}a`}
+                                item={item}
+                                canEdit={isPro}
+                                onSave={saveDraft}
+                                onHold={onHold}
+                                onReset={resetDraft}
+                                onPostponed={reload}
+                                onApprove={approveDrafts}
+                            />
+                        ))}
+                    </ul>
+                </section>
             )}
 
             <section className="mb-6">
                 <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-2">
                     <Send size={15} /> Prochains mails ({active.length})
                 </h2>
-                {queue.length === 0 ? (
-                    <p className={`${card} p-4 text-sm text-gray-600 dark:text-gray-300`}>
-                        Rien à envoyer pour l'instant. Dès qu'un devis attend une réponse depuis 7 jours ou qu'une facture passe l'échéance, le mail apparaîtra ici avant de partir.
-                    </p>
+                {active.length + held.length === 0 ? (
+                    toApprove.length > 0 ? (
+                        <p className={`${card} p-4 text-sm text-gray-600 dark:text-gray-300`}>
+                            Aucun mail validé en attente de départ. Validez les relances ci-dessus pour qu'elles partent.
+                        </p>
+                    ) : (
+                        <p className={`${card} p-4 text-sm text-gray-600 dark:text-gray-300`}>
+                            Rien à envoyer pour l'instant. Dès qu'un devis attend une réponse depuis 7 jours ou qu'une facture passe l'échéance, le mail apparaîtra ici avant de partir.
+                        </p>
+                    )
                 ) : (
                     <ul className="space-y-3">
                         {[...active, ...held].map((item) => (
@@ -281,6 +350,7 @@ const Autopilot = () => {
                                 onHold={onHold}
                                 onReset={resetDraft}
                                 onPostponed={reload}
+                                onApprove={approveDrafts}
                             />
                         ))}
                     </ul>
