@@ -36,7 +36,7 @@ const fetchAutopilotData = async (userId, profile) => {
             .neq('kind', 'summary')
             .gte('day', since),
         supabase.from('autopilot_drafts')
-            .select('action_key, subject, body, skipped, updated_at')
+            .select('action_key, subject, body, skipped, approved, updated_at')
             .eq('user_id', userId),
     ]);
 
@@ -69,6 +69,8 @@ const fetchAutopilotData = async (userId, profile) => {
         const doc = docsById.get(a.quote_id);
         const item = { ...a, client_name: clientNames.get(a.client_id) || a.to, doc_title: doc?.title || '', doc_type: doc?.type || 'quote' };
         if (a.skipped) return { ...item, when: null };
+        // Mode « après vérification » : ne part qu'après le feu vert.
+        if (a.awaitingApproval) return { ...item, when: null, whenLabel: 'Attend votre feu vert' };
         if (budget > 0) {
             budget -= 1;
             return { ...item, when: next.toISOString(), whenLabel: sendTimeLabel(next) };
@@ -76,13 +78,15 @@ const fetchAutopilotData = async (userId, profile) => {
         return { ...item, when: null, whenLabel: 'un jour suivant (15 mails par jour au plus)' };
     });
     const active = actions.filter((a) => !a.skipped);
+    // Mode « après vérification » : relances prêtes qui attendent le feu vert.
+    const awaiting = active.filter((a) => a.awaitingApproval).length;
     // Projets reportés par le client : relances suspendues jusqu'à la reprise.
     const postponed = docs
         .filter((d) => (d.type || 'quote') !== 'invoice' && ['draft', 'sent'].includes(d.status) && !d.archived_at && isPostponedNow(d))
         .sort((a, b) => new Date(a.relance_snoozed_until) - new Date(b.relance_snoozed_until))
         .map((d) => ({ id: d.id, relance_postponed: true, relance_snoozed_until: d.relance_snoozed_until, title: d.title, amount: Number(d.total_ttc) || 0, client_name: d.clients?.name || '' }));
     return {
-        preview: { ...summarizeActions(active), actions: active, needsArtisan, queue, postponed },
+        preview: { ...summarizeActions(active), actions: active, awaiting, needsArtisan, queue, postponed },
         // Ce que le pilote a rapporté (devis et factures des 400 derniers jours).
         gains: computeAutopilotGains(log, docs),
         // Table absente tant que la migration n'est pas passée : journal vide.
@@ -152,6 +156,22 @@ export const useAutopilot = () => {
         reload();
     }, [user, reload]);
 
+    // Feu vert (mode « après vérification ») : le mail partira au prochain
+    // envoi. Plusieurs clés d'un coup pour « Tout valider ».
+    const approveDrafts = useCallback(async (items, approved = true) => {
+        const list = Array.isArray(items) ? items : [items];
+        if (list.length === 0) return;
+        const at = new Date().toISOString();
+        const { error } = await supabase.from('autopilot_drafts').upsert(list.map((it) => ({
+            user_id: user.id, action_key: it.key,
+            // Garder la retouche éventuelle : l'upsert remplace toute la ligne.
+            subject: it.edited ? it.subject : null, body: it.edited ? it.body : null,
+            skipped: false, approved, updated_at: at,
+        })));
+        if (error) throw error;
+        reload();
+    }, [user, reload]);
+
     const resetDraft = useCallback(async (key) => {
         const { error } = await supabase.from('autopilot_drafts').delete().eq('user_id', user.id).eq('action_key', key);
         if (error) throw error;
@@ -177,5 +197,6 @@ export const useAutopilot = () => {
         saveDraft,
         holdDraft,
         resetDraft,
+        approveDrafts,
     };
 };

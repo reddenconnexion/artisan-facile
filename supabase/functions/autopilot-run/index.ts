@@ -9,6 +9,11 @@
 //     (chantier terminé depuis 3 h à 7 jours, téléphone resté sans réseau).
 //   • À 18 h : résumé de la journée en notification.
 //
+// Mode « après vérification » (autopilot_settings.relances_mode =
+// 'validation') : les relances de devis et rappels de factures ne partent
+// qu'une fois validés par l'artisan dans l'écran Pilote
+// (autopilot_drafts.approved) ; le résumé du soir compte ceux en attente.
+//
 // Les règles (qui, quand, quel texte) vivent dans _shared/lib/autopilot.js,
 // partagées avec l'appli. Ici : lecture des données, envoi, journal.
 //
@@ -230,7 +235,7 @@ async function reviewNow(admin: SupabaseClient, userId: string, quoteId: unknown
         admin.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).single(),
         admin.from('quotes').select(`${DOC_COLUMNS}, clients (${CLIENT_COLUMNS})`).eq('id', quoteId).eq('user_id', userId).maybeSingle(),
         admin.from('autopilot_actions').select('client_id').eq('user_id', userId).eq('kind', 'review_request').eq('status', 'sent'),
-        admin.from('autopilot_drafts').select('action_key, subject, body, skipped').eq('user_id', userId),
+        admin.from('autopilot_drafts').select('action_key, subject, body, skipped, approved').eq('user_id', userId),
     ]);
     const profile = profileRes.data;
     if (!profile || !['pro', 'owner'].includes(profile.plan)) return json({ status: 'skipped', reason: 'not_pro' });
@@ -256,7 +261,7 @@ async function runForUser(admin: SupabaseClient, profile: Profile, opts: {
     const { now, sendNow, summaryNow, dryRun, appUrl } = opts;
     const settings = readAutopilotSettings(profile.autopilot_settings);
     const today = parisClock(now).dateKey;
-    const result = { user_id: profile.id, sent: 0, failed: 0, planned: [] as unknown[], needsArtisan: 0, summary: false, skipped: '' };
+    const result = { user_id: profile.id, sent: 0, failed: 0, planned: [] as unknown[], needsArtisan: 0, awaitingApproval: 0, summary: false, skipped: '' };
 
     const since = new Date(now.getTime() - 400 * 24 * 3600 * 1000).toISOString().slice(0, 10);
     const [docsRes, logRes, reviewsRes, draftsRes] = await Promise.all([
@@ -274,7 +279,7 @@ async function runForUser(admin: SupabaseClient, profile: Profile, opts: {
             .eq('user_id', profile.id)
             .eq('kind', 'review_request')
             .eq('status', 'sent'),
-        admin.from('autopilot_drafts').select('action_key, subject, body, skipped').eq('user_id', profile.id),
+        admin.from('autopilot_drafts').select('action_key, subject, body, skipped, approved').eq('user_id', profile.id),
     ]);
     if (docsRes.error) throw new Error(`lecture des devis : ${docsRes.error.message}`);
     if (logRes.error) throw new Error(`lecture du journal : ${logRes.error.message}`);
@@ -287,12 +292,13 @@ async function runForUser(admin: SupabaseClient, profile: Profile, opts: {
     const contactedToday = new Set(todayRows.filter((r) => r.status === 'sent').map((r) => r.client_id));
     const reviewedClients = new Set((reviewsRes.data ?? []).map((r) => r.client_id));
 
-    const { actions, needsArtisan } = planAutopilotRun({
+    const { actions, needsArtisan, awaitingApproval } = planAutopilotRun({
         settings, profile, docs: docsRes.data ?? [], steps: profile.follow_up_settings?.steps,
         doneKeys, contactedToday, reviewedClients, drafts: draftsRes.data ?? [],
         sentToday: todayRows.filter((r) => r.status === 'sent').length, appUrl, now,
-    }) as { actions: Action[]; needsArtisan: object[] };
+    }) as { actions: Action[]; needsArtisan: object[]; awaitingApproval: object[] };
     result.needsArtisan = needsArtisan.length;
+    result.awaitingApproval = awaitingApproval.length;
 
     if (dryRun) {
         result.planned = actions.map(({ kind, quote_id, to, subject, label, edited }) => ({ kind, quote_id, to, subject, label, edited: !!edited }));
@@ -320,6 +326,7 @@ async function runForUser(admin: SupabaseClient, profile: Profile, opts: {
             signed: (signedRes.data ?? []).filter((q) => isToday(q.signed_at)),
             paid: (paidRes.data ?? []).filter((q) => isToday(q.paid_at)),
             needsArtisan,
+            awaitingApproval,
         });
         if (summary) {
             const { error: dupErr } = await admin.from('autopilot_actions').insert({
