@@ -6,8 +6,10 @@
 //   2. Rappeler les factures en retard (rappel amiable puis 2e rappel). La
 //      mise en demeure n'est jamais envoyée seule : elle est signalée à
 //      l'artisan, qui décide.
-//   3. Demander un avis Google à la fin du chantier, quand l'artisan quitte
-//      les lieux (après son pointage).
+//   3. Demander un avis à la fin du chantier, quand l'artisan quitte les
+//      lieux (après son pointage) : Google d'abord, puis Facebook et
+//      PagesJaunes pour un client qui a déjà été sollicité ou déjà laissé un
+//      avis Google (second chantier chez lui).
 //   4. Résumer la journée le soir (notification).
 //
 // Logique pure, sans accès réseau : la même source sert l'Edge Function
@@ -338,7 +340,7 @@ export const dueInvoiceReminder = (invoice, billedIds = new Set(), now = new Dat
     return { status, needsArtisan, nextCount: (invoice.follow_up_count || 0) + 1 };
 };
 
-// ── 3. Demande d'avis Google ─────────────────────────────────────────────────
+// ── 3. Demande d'avis ────────────────────────────────────────────────────────
 //
 // Le bon moment : le chantier terminé, quand l'artisan quitte les lieux, après
 // avoir fermé son pointage s'il en avait ouvert un. L'appli envoie alors la
@@ -388,30 +390,102 @@ export const isReviewNowHour = (now = new Date()) => {
 //   {lien}       → le lien d'avis Google de l'artisan
 //   {entreprise} → le nom de l'entreprise
 // La signature est ajoutée à la fin, comme pour tous les mails.
-export const REVIEW_PLACEHOLDERS = ['{client}', '{chantier}', '{lien}', '{entreprise}'];
+//   {plateforme} → « Google », « Facebook » ou « PagesJaunes »
+//   {deja_avis}  → « Vous m'aviez déjà laissé un avis Google… » quand le
+//                  client en a déjà laissé un (ligne retirée sinon)
+export const REVIEW_PLACEHOLDERS = ['{client}', '{chantier}', '{lien}', '{entreprise}', '{plateforme}', '{deja_avis}'];
+
+// Plateformes d'avis, dans l'ordre où l'appli les propose à un client : un
+// client déjà sollicité pour Google (ou qui y a déjà laissé un avis) se voit
+// proposer Facebook au chantier suivant, puis PagesJaunes. Seules les
+// plateformes dont l'artisan a renseigné le lien sont proposées.
+export const REVIEW_PLATFORMS = [
+    { key: 'google', label: 'Google', field: 'google_review_url' },
+    { key: 'facebook', label: 'Facebook', field: 'facebook_review_url' },
+    { key: 'pages_jaunes', label: 'PagesJaunes', field: 'pages_jaunes_review_url' },
+];
+const PLATFORM_KEYS = REVIEW_PLATFORMS.map((p) => p.key);
+export const reviewPlatformLabel = (key) => REVIEW_PLATFORMS.find((p) => p.key === key)?.label || 'Google';
+
+/** Plateformes dont l'artisan a renseigné le lien d'avis. */
+export const configuredReviewPlatforms = (profile) => REVIEW_PLATFORMS
+    .map((p) => ({ ...p, url: String(profile?.[p.field] || '').trim() }))
+    .filter((p) => p.url);
+
+/** Avis que le client a déjà laissés (coché sur sa fiche). */
+export const clientReviewsLeft = (client) => (Array.isArray(client?.reviews_left) ? client.reviews_left : [])
+    .filter((k) => PLATFORM_KEYS.includes(k));
+
+/**
+ * Plateformes pour lesquelles le pilote a déjà sollicité ce client.
+ * `reviewedClients` : Map client_id → plateformes demandées, ou (ancien
+ * format) Set des clients sollicités, qui l'ont tous été pour Google.
+ */
+export const askedReviewPlatforms = (reviewedClients, clientId) => {
+    if (reviewedClients instanceof Map) return new Set(reviewedClients.get(clientId) || []);
+    if (reviewedClients?.has?.(clientId)) return new Set(['google']);
+    return new Set();
+};
+
+/**
+ * Regroupe les demandes d'avis déjà envoyées par client (lignes de
+ * autopilot_actions : client_id, platform). Les demandes d'avant le choix de
+ * plateforme étaient des demandes Google.
+ */
+export const reviewedClientsMap = (rows = []) => {
+    const map = new Map();
+    for (const r of rows) {
+        if (r?.client_id == null) continue;
+        if (!map.has(r.client_id)) map.set(r.client_id, new Set());
+        map.get(r.client_id).add(r.platform || 'google');
+    }
+    return map;
+};
+
+/**
+ * Plateforme à proposer à ce client : la première (Google, Facebook,
+ * PagesJaunes) dont l'artisan a le lien, pour laquelle le client n'a pas
+ * encore été sollicité et n'a pas déjà laissé d'avis. null : rien à demander.
+ */
+export const nextReviewPlatform = ({ profile, client, asked = new Set() }) => {
+    const left = new Set(clientReviewsLeft(client));
+    return configuredReviewPlatforms(profile).find((p) => !asked.has(p.key) && !left.has(p.key)) || null;
+};
 
 export const DEFAULT_REVIEW_SUBJECT = 'Merci pour votre confiance - {entreprise}';
 export const DEFAULT_REVIEW_BODY = 'Bonjour {client},\n\n' +
     "Merci encore de m'avoir fait confiance pour {chantier}. J'espère que tout fonctionne parfaitement.\n\n" +
-    "Si vous êtes satisfait, un avis Google m'aiderait beaucoup : pour un artisan, c'est le meilleur moyen de se faire connaître près de chez vous. " +
+    '{deja_avis}\n\n' +
+    "Si vous êtes satisfait, un avis {plateforme} m'aiderait beaucoup : pour un artisan, c'est le meilleur moyen de se faire connaître près de chez vous. " +
     "Cela prend moins d'une minute :\n{lien}\n\n" +
     "Et si quelque chose ne va pas, dites-le moi simplement en répondant à ce message : je reviens.";
 
-export const buildReviewRequestEmail = (invoice, { client, profile, reviewUrl, settings } = {}) => {
+export const buildReviewRequestEmail = (invoice, { client, profile, reviewUrl, settings, platform = 'google' } = {}) => {
     const cfg = readAutopilotSettings(settings);
+    const label = reviewPlatformLabel(platform);
+    const left = clientReviewsLeft(client).filter((k) => k !== platform).map(reviewPlatformLabel);
     const vars = {
         client: clientGreetingName(client?.name, 'fr', client?.civility) || '',
         chantier: invoice.title ? `« ${invoice.title} »` : 'vos travaux',
         lien: reviewUrl || '',
         entreprise: profile?.company_name || profile?.full_name || 'votre artisan',
+        plateforme: label,
+        deja_avis: left.length
+            ? `Vous m'aviez déjà laissé un avis ${left.join(' et ')} : merci encore, il m'aide beaucoup.`
+            : '',
     };
-    const subjectTpl = String(cfg.review_subject || '').trim() || DEFAULT_REVIEW_SUBJECT;
+    let subjectTpl = String(cfg.review_subject || '').trim() || DEFAULT_REVIEW_SUBJECT;
     let bodyTpl = String(cfg.review_body || '').trim() || DEFAULT_REVIEW_BODY;
+    // Modèle écrit pour Google (« un avis Google ») : adapté à la plateforme proposée.
+    if (platform !== 'google') {
+        subjectTpl = subjectTpl.replace(/\bGoogle\b/g, label);
+        bodyTpl = bodyTpl.replace(/\bGoogle\b/g, label);
+    }
     // Le lien est la raison d'être du mail : s'il a été effacé du modèle, on le remet.
     if (!bodyTpl.includes('{lien}')) bodyTpl += '\n\n{lien}';
     return {
-        subject: renderTemplate(subjectTpl, vars),
-        body: `${renderTemplate(bodyTpl, vars)}\n\n${signatureLines(profile)}`,
+        subject: renderTemplate(subjectTpl, vars, ['deja_avis']),
+        body: `${renderTemplate(bodyTpl, vars, ['deja_avis'])}\n\n${signatureLines(profile)}`,
     };
 };
 
@@ -454,7 +528,7 @@ export const actionKey = (kind, refId, step) => `${kind}:${refId}:${step}`;
  * @param {object[]} [p.steps]        séquence de relance des devis
  * @param {Set<string>} [p.doneKeys]  actions déjà envoyées (ou échouées aujourd'hui)
  * @param {Set<*>} [p.contactedToday] clients déjà contactés aujourd'hui
- * @param {Set<*>} [p.reviewedClients] clients à qui un avis a déjà été demandé
+ * @param {Map<*, Set<string>>|Set<*>} [p.reviewedClients] plateformes d'avis déjà demandées, par client (cf. reviewedClientsMap)
  * @param {number} [p.sentToday]      e-mails déjà envoyés aujourd'hui
  * @param {string} [p.appUrl]         adresse de l'appli (liens de signature)
  * @param {Date} [p.now]
@@ -481,7 +555,7 @@ export const planAutopilotRun = ({
     const billedIds = idsBilledByChildren(list);
     const contacted = new Set(contactedToday);
     const budget = preview ? Infinity : Math.max(0, MAX_EMAILS_PER_DAY - sentToday);
-    const reviewUrl = String(profile?.google_review_url || '').trim();
+    const hasReviewLink = configuredReviewPlatforms(profile).length > 0;
 
     const reachable = (doc) => {
         const client = doc.clients;
@@ -539,31 +613,38 @@ export const planAutopilotRun = ({
         }
     }
 
-    if (cfg.reviews && reviewUrl) {
+    if (cfg.reviews && hasReviewLink) {
         // Un chantier terminé décide seul de sa demande d'avis : sa facture
         // payée ne sert plus de repère (sinon, rattrapage manqué = demande
         // tardive au paiement).
         const finishedIds = new Set(list.filter(isChantierFinished).map((d) => d.id));
-        const asked = new Set(reviewedClients);
+        // Un client ne reçoit qu'une demande par exécution (plusieurs documents
+        // du même chantier), et jamais deux fois pour la même plateforme.
+        const askedThisRun = new Set();
         for (const doc of list) {
             const afterWork = dueReviewAfterWork(doc, now);
             const afterPayment = !afterWork && !isChantierFinished(doc) && !finishedIds.has(doc.parent_id) && dueReviewRequest(doc, now);
-            if ((!afterWork && !afterPayment) || asked.has(doc.client_id)) continue;
+            if ((!afterWork && !afterPayment) || askedThisRun.has(doc.client_id)) continue;
             const key = actionKey('review_request', doc.id, 1);
             if (doneKeys.has(key)) continue;
             const client = reachable(doc);
             if (!client) continue;
-            push(reviewAction(doc, { client, profile, reviewUrl, key, settings: cfg }));
-            asked.add(doc.client_id);
+            const platform = nextReviewPlatform({ profile, client, asked: askedReviewPlatforms(reviewedClients, doc.client_id) });
+            if (!platform) continue; // avis déjà demandés ou laissés partout
+            push(reviewAction(doc, { client, profile, platform, key, settings: cfg }));
+            askedThisRun.add(doc.client_id);
         }
     }
 
     return { actions, needsArtisan, awaitingApproval };
 };
 
-const reviewAction = (doc, { client, profile, reviewUrl, key, settings }) => {
-    const { subject, body } = buildReviewRequestEmail(doc, { client, profile, reviewUrl, settings });
-    return { kind: 'review_request', key, quote_id: doc.id, client_id: doc.client_id, step: 1, to: client.email.trim(), subject, body, amount: Number(doc.total_ttc) || 0, label: "Demande d'avis" };
+const reviewAction = (doc, { client, profile, platform, key, settings }) => {
+    const { subject, body } = buildReviewRequestEmail(doc, { client, profile, reviewUrl: platform.url, settings, platform: platform.key });
+    return {
+        kind: 'review_request', key, quote_id: doc.id, client_id: doc.client_id, step: 1, to: client.email.trim(),
+        subject, body, amount: Number(doc.total_ttc) || 0, label: `Avis ${platform.label}`, platform: platform.key,
+    };
 };
 
 /**
@@ -571,19 +652,21 @@ const reviewAction = (doc, { client, profile, reviewUrl, key, settings }) => {
  * quitte les lieux. Renvoie l'e-mail à envoyer, ou la raison de ne pas le faire.
  * @param {{ settings: object, profile: object, doc: object, reviewedClients?: Set<*>, now?: Date, drafts?: object[]|Map<string, object> }} p
  * @returns {{ action: object } | { skipped: 'pilote_off'|'no_review_link'|'not_finished'|'already_asked'|'client_paused'|'no_email'|'night'|'held_by_artisan' }}
+ *   already_asked : le client a déjà été sollicité (ou a déjà laissé un avis)
+ *   sur toutes les plateformes dont l'artisan a le lien.
  */
 export const planReviewNow = ({ settings, profile, doc, reviewedClients = new Set(), now = new Date(), drafts = [] }) => {
     const cfg = readAutopilotSettings(settings);
     if (!cfg.enabled || !cfg.reviews) return { skipped: 'pilote_off' };
-    const reviewUrl = String(profile?.google_review_url || '').trim();
-    if (!reviewUrl) return { skipped: 'no_review_link' };
+    if (configuredReviewPlatforms(profile).length === 0) return { skipped: 'no_review_link' };
     if (!isChantierFinished(doc)) return { skipped: 'not_finished' };
-    if (reviewedClients.has(doc.client_id)) return { skipped: 'already_asked' };
     const client = doc.clients;
+    const platform = nextReviewPlatform({ profile, client, asked: askedReviewPlatforms(reviewedClients, doc.client_id) });
+    if (!platform) return { skipped: 'already_asked' };
     if (client?.autopilot_paused) return { skipped: 'client_paused' };
     if (!client || !isValidEmail(client.email)) return { skipped: 'no_email' };
     if (!isReviewNowHour(now)) return { skipped: 'night' };
-    const action = applyDraft(reviewAction(doc, { client, profile, reviewUrl, key: actionKey('review_request', doc.id, 1), settings: cfg }), drafts);
+    const action = applyDraft(reviewAction(doc, { client, profile, platform, key: actionKey('review_request', doc.id, 1), settings: cfg }), drafts);
     if (action.skipped) return { skipped: 'held_by_artisan' };
     return { action };
 };

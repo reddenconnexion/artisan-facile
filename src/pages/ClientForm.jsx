@@ -16,6 +16,7 @@ import { Input, Field } from '../components/ui';
 import CivilityPicker from '../components/CivilityPicker';
 import { parseClientBlock, parseClientSms } from '../utils/addressParser';
 import { formatDate, formatDateTime } from '../utils/format';
+import ClientReviewsLeft from '../components/ClientReviewsLeft';
 
 // ProjectPhotos pulls in react-zoom-pan-pinch + react-easy-crop + heavy
 // canvas compositing logic (~80 KB). Only edit-mode users with photos
@@ -387,6 +388,8 @@ const ClientForm = () => {
     // Pilote automatique : hors du formulaire (enregistré au clic), pour que
     // l'enregistrement de la fiche ne dépende pas de cette colonne.
     const [autopilotPaused, setAutopilotPaused] = useState(undefined);
+    // Avis déjà laissés (null tant que la fiche n'est pas chargée).
+    const [reviewsLeft, setReviewsLeft] = useState(null);
 
     const [formData, setFormData] = useState({
         civility: '',
@@ -473,6 +476,7 @@ const ClientForm = () => {
                     contacts: data.contacts || []
                 });
                 setAutopilotPaused(data.autopilot_paused);
+                setReviewsLeft(Array.isArray(data.reviews_left) ? data.reviews_left : []);
             }
         } catch (error) {
             toast.error('Erreur lors du chargement du client');
@@ -1050,10 +1054,14 @@ const ClientForm = () => {
                             <span>
                                 <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">Relances automatiques</span>
                                 <span className="block text-xs text-gray-500 dark:text-gray-400">
-                                    Avec le pilote automatique (Pro), l'appli peut relancer ce client pour ses devis, ses factures et un avis Google. Décochez pour ne jamais le relancer.
+                                    Avec le pilote automatique (Pro), l'appli peut relancer ce client pour ses devis, ses factures et un avis (Google, Facebook ou PagesJaunes). Décochez pour ne jamais le relancer.
                                 </span>
                             </span>
                         </label>
+                    )}
+
+                    {isEditing && Array.isArray(reviewsLeft) && (
+                        <ClientReviewsLeft key={id} clientId={id} initial={reviewsLeft} />
                     )}
 
                     <div>

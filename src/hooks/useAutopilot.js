@@ -5,7 +5,7 @@ import { useUserProfile, useInvalidateCache } from './useDataCache';
 import { isPostponedNow } from '../utils/followUpPostpone';
 import {
     planAutopilotRun, readAutopilotSettings, summarizeActions, parisClock, nextSendTime, sendTimeLabel, MAX_EMAILS_PER_DAY,
-    computeAutopilotGains,
+    computeAutopilotGains, reviewedClientsMap,
 } from '../utils/autopilot';
 
 const DAY_MS = 24 * 3600 * 1000;
@@ -15,7 +15,7 @@ const fetchAutopilotData = async (userId, profile) => {
     const since = new Date(Date.now() - 400 * DAY_MS).toISOString().slice(0, 10);
     const [docsRes, logRes, reviewsRes, keysRes, draftsRes] = await Promise.all([
         supabase.from('quotes')
-            .select('id, type, status, date, created_at, valid_until, total_ttc, title, client_id, archived_at, signed_at, paid_at, parent_id, relance_snoozed_until, relance_postponed, follow_up_count, last_followup_at, public_token, invoice_number, quote_number, work_stage, work_completed_at, clients (id, name, email, civility, autopilot_paused, siren, tva_intracom)')
+            .select('id, type, status, date, created_at, valid_until, total_ttc, title, client_id, archived_at, signed_at, paid_at, parent_id, relance_snoozed_until, relance_postponed, follow_up_count, last_followup_at, public_token, invoice_number, quote_number, work_stage, work_completed_at, clients (id, name, email, civility, autopilot_paused, reviews_left, siren, tva_intracom)')
             .eq('user_id', userId)
             .not('status', 'in', '(draft,cancelled)')
             .gte('date', since),
@@ -26,7 +26,7 @@ const fetchAutopilotData = async (userId, profile) => {
             .order('created_at', { ascending: false })
             .limit(100),
         supabase.from('autopilot_actions')
-            .select('client_id')
+            .select('client_id, platform')
             .eq('user_id', userId)
             .eq('kind', 'review_request')
             .eq('status', 'sent'),
@@ -54,7 +54,7 @@ const fetchAutopilotData = async (userId, profile) => {
         steps: profile.follow_up_settings?.steps,
         doneKeys: new Set(log.filter((r) => r.action_key && (r.status === 'sent' || r.day === today)).map((r) => r.action_key)),
         contactedToday: new Set(sentTodayRows.map((r) => r.client_id)),
-        reviewedClients: new Set((reviewsRes.data || []).map((r) => r.client_id)),
+        reviewedClients: reviewedClientsMap(reviewsRes.error ? [] : (reviewsRes.data || [])),
         drafts,
         preview: true,
     });

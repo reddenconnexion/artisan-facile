@@ -5,8 +5,10 @@
 //
 //   • Du lundi au vendredi, 9 h – 18 h (Paris) : relance des devis non signés,
 //     rappel des factures en retard (amiable puis 2e rappel ; la mise en
-//     demeure reste à l'artisan), rattrapage des demandes d'avis Google
+//     demeure reste à l'artisan), rattrapage des demandes d'avis
 //     (chantier terminé depuis 3 h à 7 jours, téléphone resté sans réseau).
+//     Avis : Google d'abord ; un client déjà sollicité ou qui a déjà laissé
+//     un avis Google se voit proposer Facebook, puis PagesJaunes.
 //   • À 18 h : résumé de la journée en notification.
 //
 // Mode « après vérification » (autopilot_settings.relances_mode =
@@ -40,14 +42,14 @@ import { corsHeadersWith, corsPreflight, json as jsonResponse, requireUser } fro
 import { buildHtmlSignature, injectTrackingPixel, splitBodyAndSignature, textToHtml, toAsciiSubject } from '../_shared/email.ts';
 import {
     planAutopilotRun, planReviewNow, buildEveningSummary, readAutopilotSettings, parisClock,
-    isSendingWindow, isSummaryHour, isValidEmail,
+    isSendingWindow, isSummaryHour, isValidEmail, reviewedClientsMap,
 } from '../_shared/lib/autopilot.js';
 
 const corsHeaders = corsHeadersWith('x-cron-secret');
 const json = (body: unknown, status = 200) => jsonResponse(body, status, corsHeaders);
 
-const PROFILE_COLUMNS = 'id, plan, autopilot_settings, follow_up_settings, smtp_config, full_name, company_name, phone, professional_email, website, logo_url, google_review_url, email_signature_html, iban';
-const CLIENT_COLUMNS = 'id, name, email, civility, autopilot_paused, siren, tva_intracom';
+const PROFILE_COLUMNS = 'id, plan, autopilot_settings, follow_up_settings, smtp_config, full_name, company_name, phone, professional_email, website, logo_url, google_review_url, facebook_review_url, pages_jaunes_review_url, email_signature_html, iban';
+const CLIENT_COLUMNS = 'id, name, email, civility, autopilot_paused, reviews_left, siren, tva_intracom';
 const DOC_COLUMNS = 'id, type, status, date, created_at, valid_until, total_ttc, title, client_id, archived_at, signed_at, paid_at, parent_id, relance_snoozed_until, relance_postponed, follow_up_count, last_followup_at, public_token, invoice_number, quote_number, work_stage, work_completed_at';
 const KIND_LABELS: Record<string, string> = {
     quote_followup: 'Relance automatique du devis',
@@ -66,7 +68,7 @@ async function secretsMatch(a: string, b: string): Promise<boolean> {
 type Profile = Record<string, any>;
 type Action = {
     kind: string; key: string; quote_id: number; client_id: number; step: number;
-    to: string; subject: string; body: string; amount: number; label: string; edited?: boolean;
+    to: string; subject: string; body: string; amount: number; label: string; edited?: boolean; platform?: string;
 };
 
 // ── Envoi d'un e-mail au nom de l'artisan ────────────────────────────────────
@@ -181,7 +183,7 @@ async function sendActions(admin: SupabaseClient, profile: Profile, actions: Act
             const { data: claim, error: claimErr } = await admin.from('autopilot_actions').insert({
                 user_id: profile.id, kind: a.kind, action_key: a.key, quote_id: a.quote_id, client_id: a.client_id,
                 step: a.step, label: a.label, recipient: a.to, subject: a.subject, body: a.body, amount: a.amount,
-                channel: sender.channel, status: 'sent', day: today,
+                channel: sender.channel, status: 'sent', day: today, platform: a.platform ?? null,
             }).select('id').single();
             if (claimErr || !claim) continue; // déjà envoyé par une autre exécution
 
@@ -234,7 +236,7 @@ async function reviewNow(admin: SupabaseClient, userId: string, quoteId: unknown
     const [profileRes, docRes, reviewsRes, draftsRes] = await Promise.all([
         admin.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).single(),
         admin.from('quotes').select(`${DOC_COLUMNS}, clients (${CLIENT_COLUMNS})`).eq('id', quoteId).eq('user_id', userId).maybeSingle(),
-        admin.from('autopilot_actions').select('client_id').eq('user_id', userId).eq('kind', 'review_request').eq('status', 'sent'),
+        admin.from('autopilot_actions').select('client_id, platform').eq('user_id', userId).eq('kind', 'review_request').eq('status', 'sent'),
         admin.from('autopilot_drafts').select('action_key, subject, body, skipped, approved').eq('user_id', userId),
     ]);
     const profile = profileRes.data;
@@ -243,7 +245,7 @@ async function reviewNow(admin: SupabaseClient, userId: string, quoteId: unknown
 
     const plan = planReviewNow({
         settings: profile.autopilot_settings, profile, doc: docRes.data,
-        reviewedClients: new Set((reviewsRes.data ?? []).map((r) => r.client_id)), now, drafts: draftsRes.data ?? [],
+        reviewedClients: reviewedClientsMap(reviewsRes.data ?? []), now, drafts: draftsRes.data ?? [],
     }) as { action?: Action; skipped?: string };
     if (!plan.action) return json({ status: 'skipped', reason: plan.skipped });
 
@@ -275,7 +277,7 @@ async function runForUser(admin: SupabaseClient, profile: Profile, opts: {
             .eq('user_id', profile.id)
             .gte('day', since),
         admin.from('autopilot_actions')
-            .select('client_id')
+            .select('client_id, platform')
             .eq('user_id', profile.id)
             .eq('kind', 'review_request')
             .eq('status', 'sent'),
@@ -290,7 +292,7 @@ async function runForUser(admin: SupabaseClient, profile: Profile, opts: {
         .filter((r) => r.action_key && (r.status === 'sent' || r.day === today))
         .map((r) => r.action_key as string));
     const contactedToday = new Set(todayRows.filter((r) => r.status === 'sent').map((r) => r.client_id));
-    const reviewedClients = new Set((reviewsRes.data ?? []).map((r) => r.client_id));
+    const reviewedClients = reviewedClientsMap(reviewsRes.data ?? []);
 
     const { actions, needsArtisan, awaitingApproval } = planAutopilotRun({
         settings, profile, docs: docsRes.data ?? [], steps: profile.follow_up_settings?.steps,

@@ -22,7 +22,7 @@ import RelancesModeChoice from '../components/RelancesModeChoice';
 const KINDS = {
     quote_followup: { icon: FileText, label: 'Relance de devis', color: 'text-blue-600 dark:text-blue-400' },
     invoice_reminder: { icon: Receipt, label: 'Rappel de facture', color: 'text-orange-600 dark:text-orange-400' },
-    review_request: { icon: Star, label: "Demande d'avis Google", color: 'text-amber-500' },
+    review_request: { icon: Star, label: "Demande d'avis", color: 'text-amber-500' },
 };
 
 const card = 'bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm';
@@ -63,7 +63,7 @@ const QueuedMail = ({ item, canEdit, onSave, onHold, onReset, onPostponed, onApp
                     <Icon size={18} className={`${kind.color} shrink-0 mt-0.5`} />
                     <div className="min-w-0">
                         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            {kind.label}{item.label && item.kind !== 'review_request' ? ` · ${item.label}` : ''}
+                            {kind.label}{item.label ? ` · ${item.label}` : ''}
                         </p>
                         <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
                             {item.client_name} <span className="font-normal text-gray-500 dark:text-gray-400">· {item.to}</span>
@@ -356,7 +356,7 @@ const Autopilot = () => {
                     </ul>
                 )}
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Les demandes d'avis Google partent aussi quand vous terminez un chantier et quittez les lieux (après « Je repars » si vous pointez).
+                    Les demandes d'avis partent aussi quand vous terminez un chantier et quittez les lieux (après « Je repars » si vous pointez). Google d'abord ; pour un client déjà sollicité ou qui a déjà laissé un avis Google, l'appli propose Facebook, puis PagesJaunes (si vous avez renseigné ces liens dans <Link to="/app/settings?tab=entreprise" className="underline">Mon entreprise</Link>).
                 </p>
             </section>
 
@@ -382,7 +382,7 @@ const Autopilot = () => {
                     </div>
                     <div className="mt-3">
                         <p className="text-sm font-medium text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                            <Star size={15} className="text-amber-500" /> Demande d'avis Google (fin de chantier)
+                            <Star size={15} className="text-amber-500" /> Demande d'avis (fin de chantier)
                         </p>
                         <div className="ml-6"><ReviewTemplateEditor settings={settings} save={save} profile={profile} /></div>
                     </div>

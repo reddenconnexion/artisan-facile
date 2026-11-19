@@ -4,6 +4,7 @@ import { Bot, FileText, Receipt, Star, BellRing, Loader2, Mail, AlertTriangle } 
 import { toast } from 'sonner';
 import { useAutopilot } from '../hooks/useAutopilot';
 import { formatCurrencyRounded } from '../utils/format';
+import { configuredReviewPlatforms } from '../utils/autopilot';
 import ReviewTemplateEditor from './ReviewTemplateEditor';
 import QuoteTemplatesEditor from './QuoteTemplatesEditor';
 import InvoiceTemplatesEditor from './InvoiceTemplatesEditor';
@@ -12,7 +13,7 @@ import RelancesModeChoice from './RelancesModeChoice';
 const ITEMS = [
     { key: 'quotes', icon: FileText, title: 'Relancer mes devis pas encore signés', text: 'À J+7, J+14 et J+21, puis un dernier message avant de classer le devis.' },
     { key: 'invoices', icon: Receipt, title: 'Réclamer mes factures en retard', text: "Rappel aimable 3 jours après l'échéance, puis rappel ferme 10 jours plus tard. La mise en demeure, c'est vous qui décidez." },
-    { key: 'reviews', icon: Star, title: 'Demander un avis Google en fin de chantier', text: "Quand vous terminez le chantier et quittez les lieux (après « Je repars » si vous pointez). Un seul message par client." },
+    { key: 'reviews', icon: Star, title: 'Demander un avis en fin de chantier', text: "Quand vous terminez le chantier et quittez les lieux (après « Je repars » si vous pointez). Google d'abord ; au chantier suivant chez le même client, Facebook puis PagesJaunes si vous avez ces liens. Jamais deux fois la même plateforme, ni celle où le client a déjà laissé un avis." },
     { key: 'summary', icon: BellRing, title: 'Le point du soir à 18 h', text: 'Une notification : signé, payé, relancé.' },
 ];
 
@@ -58,7 +59,7 @@ const AutopilotSettings = () => {
 
     const ready = preview ? preview.total : 0;
     const readyAmount = preview ? preview.quotes.amount + preview.invoices.amount : 0;
-    const noReviewLink = !profile?.google_review_url;
+    const noReviewLink = configuredReviewPlatforms(profile).length === 0;
 
     return (
         <div id="pilote" ref={ref} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden mb-6">
@@ -100,7 +101,7 @@ const AutopilotSettings = () => {
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{text}</p>
                                 {key === 'reviews' && noReviewLink && (
                                     <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-                                        Ajoutez d'abord votre lien d'avis Google dans{' '}
+                                        Ajoutez d'abord votre lien d'avis Google (et Facebook, PagesJaunes si vous en avez) dans{' '}
                                         <Link to="/app/settings?tab=entreprise" className="underline">Mon entreprise</Link>.
                                     </p>
                                 )}

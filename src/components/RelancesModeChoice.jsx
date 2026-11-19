@@ -67,7 +67,7 @@ const RelancesModeChoice = ({ settings, save, disabled = false }) => {
                 })}
             </div>
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Les demandes d'avis Google de fin de chantier partent toujours seules.
+                Les demandes d'avis de fin de chantier partent toujours seules.
             </p>
         </fieldset>
     );
