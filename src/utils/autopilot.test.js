@@ -5,7 +5,7 @@ import {
     dueReviewAfterWork, planReviewNow, renderTemplate, quoteTemplateKind, DEFAULT_QUOTE_TEMPLATES,
     buildManualQuoteFollowUp, computeAutopilotGains, nextSendTime, sendTimeLabel, applyDraft,
     buildEveningSummary, summarizeActions, readAutopilotSettings, actionKey,
-    DEFAULT_FOLLOW_UP_STEPS, MAX_EMAILS_PER_DAY,
+    DEFAULT_FOLLOW_UP_STEPS, MAX_EMAILS_PER_DAY, nextReviewPlatform, reviewedClientsMap,
 } from './autopilot';
 
 // Mardi 10 novembre 2026, 10 h à Paris (9 h UTC).
@@ -198,6 +198,61 @@ describe('avis Google à la fin du chantier', () => {
         expect(planReviewNow({ ...base, doc: done({ clients: client(10, { autopilot_paused: true }) }) })).toEqual({ skipped: 'client_paused' });
         expect(planReviewNow({ ...base, doc: done({ clients: client(10, { email: '' }) }) })).toEqual({ skipped: 'no_email' });
         expect(planReviewNow({ ...base, now: new Date('2026-11-10T21:30:00Z') })).toEqual({ skipped: 'night' }); // 22 h 30
+    });
+});
+
+describe('avis sur plusieurs plateformes', () => {
+    const done = (extra) => quote({ status: 'accepted', work_stage: 'completed', work_completed_at: '2026-11-10T04:00:00Z', ...extra });
+    const all = { ...profile, facebook_review_url: 'https://facebook.com/rdc/reviews', pages_jaunes_review_url: 'https://pagesjaunes.fr/rdc' };
+    const base = { settings: { enabled: true }, profile: all, doc: done(), now: NOW };
+
+    it('Google d\'abord, puis Facebook, puis PagesJaunes', () => {
+        expect(nextReviewPlatform({ profile: all, client: client(10) }).key).toBe('google');
+        expect(nextReviewPlatform({ profile: all, client: client(10), asked: new Set(['google']) }).key).toBe('facebook');
+        expect(nextReviewPlatform({ profile: all, client: client(10), asked: new Set(['google', 'facebook']) }).key).toBe('pages_jaunes');
+        expect(nextReviewPlatform({ profile: all, client: client(10), asked: new Set(['google', 'facebook', 'pages_jaunes']) })).toBeNull();
+    });
+
+    it('saute les plateformes sans lien et celles où le client a déjà laissé un avis', () => {
+        const noFb = { ...all, facebook_review_url: '' };
+        expect(nextReviewPlatform({ profile: noFb, client: client(10), asked: new Set(['google']) }).key).toBe('pages_jaunes');
+        expect(nextReviewPlatform({ profile: all, client: client(10, { reviews_left: ['google'] }) }).key).toBe('facebook');
+        expect(nextReviewPlatform({ profile, client: client(10), asked: new Set(['google']) })).toBeNull(); // Google seul
+    });
+
+    it('second chantier chez un client déjà sollicité pour Google : avis Facebook', () => {
+        const reviewedClients = reviewedClientsMap([{ client_id: 10, platform: null }]); // ancienne demande = Google
+        const { action } = planReviewNow({ ...base, reviewedClients });
+        expect(action).toMatchObject({ platform: 'facebook', label: 'Avis Facebook' });
+        expect(action.body).toContain('https://facebook.com/rdc/reviews');
+        expect(action.body).toContain('un avis Facebook');
+        expect(action.body).not.toContain('Google');
+    });
+
+    it('client qui a déjà laissé un avis Google : merci, puis Facebook', () => {
+        const { action } = planReviewNow({ ...base, doc: done({ clients: client(10, { reviews_left: ['google'] }) }) });
+        expect(action.platform).toBe('facebook');
+        expect(action.body).toContain("Vous m'aviez déjà laissé un avis Google : merci encore");
+    });
+
+    it('premier chantier : pas de ligne de remerciement', () => {
+        const { action } = planReviewNow(base);
+        expect(action.platform).toBe('google');
+        expect(action.body).not.toContain('déjà laissé');
+        expect(action.body).not.toContain('{deja_avis}');
+        expect(action.body).not.toMatch(/\n{3,}/);
+    });
+
+    it('modèle de l\'artisan écrit pour Google : adapté à la plateforme', () => {
+        const settings = { enabled: true, review_body: 'Bonjour {client}, un petit avis Google ? {lien}' };
+        const { action } = planReviewNow({ ...base, settings, reviewedClients: reviewedClientsMap([{ client_id: 10, platform: 'google' }]) });
+        expect(action.body).toContain('un petit avis Facebook ? https://facebook.com/rdc/reviews');
+    });
+
+    it('le pilote propose la plateforme suivante ; partout sollicité : rien', () => {
+        const run = (reviewedClients) => planAutopilotRun({ settings: { enabled: true, quotes: false, invoices: false }, profile: all, docs: [done()], reviewedClients, now: NOW }).actions;
+        expect(run(reviewedClientsMap([{ client_id: 10, platform: 'google' }, { client_id: 10, platform: 'facebook' }]))[0].platform).toBe('pages_jaunes');
+        expect(run(reviewedClientsMap(['google', 'facebook', 'pages_jaunes'].map((platform) => ({ client_id: 10, platform }))))).toEqual([]);
     });
 });
 
