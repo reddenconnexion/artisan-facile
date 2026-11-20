@@ -1,26 +1,16 @@
-import { useMemo, useState } from 'react';
-import { X, Mail, MessageSquare, Copy, Star, RefreshCw, MapPin, MessageSquareQuote } from 'lucide-react';
+import { useState } from 'react';
+import { X, Mail, MessageSquare, Copy, Star, MessageSquareQuote } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTestMode } from '../context/TestModeContext';
 import { useModalA11y } from '../hooks/useModalA11y';
 import ReviewReplyPanel from './ReviewReplyPanel';
-import { buildReviewSuggestions, buildReviewSMS, resolveReviewCity } from '../utils/reviewSuggestions';
+import { buildReviewSMS, resolveReviewCity, REVIEW_OWN_WORDS_HINT } from '../utils/reviewSuggestions';
 import { clientGreetingName } from '../utils/clientGreeting';
 
 const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention = null }) => {
     const { isTestMode, captureEmail } = useTestMode();
     const containerRef = useModalA11y(isOpen, onClose);
 
-    // `seed` permet de régénérer un nouveau lot de suggestions à la demande.
-    const [seed, setSeed] = useState(0);
-    const suggestions = useMemo(
-        () => {
-            void seed; // régénère un nouveau lot quand l'utilisateur en demande d'autres
-            return buildReviewSuggestions({ userProfile, client, intervention: intervention || {} });
-        },
-        [userProfile, client, intervention, seed]
-    );
-    const [variantIndex, setVariantIndex] = useState(0);
     // « Demander un avis » au client, ou « Répondre » à un avis déjà reçu.
     const [tab, setTab] = useState('request');
     // Chaque ouverture repart sur « Demander un avis ».
@@ -34,7 +24,6 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
 
     const reviewUrl = userProfile?.google_review_url;
     const companyName = userProfile?.company_name || 'votre artisan';
-    const suggestedReview = suggestions[variantIndex] || suggestions[0] || '';
 
     const contextCity = resolveReviewCity({ intervention: intervention || {}, client: client || {} });
     const isPersonalized = Boolean(intervention && (intervention.city || intervention.workDone || intervention.title));
@@ -43,17 +32,12 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
     const emailBody = [
         `Bonjour ${clientGreetingName(client?.name, 'fr', client?.civility) || 'Madame, Monsieur'},`,
         `Merci encore pour votre confiance, j'espère que le travail vous donne entière satisfaction.`,
-        `Si c'est le cas, un avis Google m'aiderait beaucoup à me faire connaître${contextCity ? ` sur ${contextCity}` : ''}. Cela ne prend que 30 secondes :\n${reviewUrl}`,
-        `Si vous manquez de temps ou d'inspiration, voici une base que vous pouvez reprendre et tourner à votre façon :\n"${suggestedReview}"`,
+        `Si c'est le cas, un avis Google m'aiderait beaucoup à me faire connaître${contextCity ? ` sur ${contextCity}` : ''}. Voici le lien :\n${reviewUrl}`,
+        REVIEW_OWN_WORDS_HINT,
         `Encore merci, et n'hésitez pas à me contacter pour tout futur projet.\n\nBien cordialement,\n${userProfile?.full_name || ''}`
     ].join('\n\n');
 
-    const smsBody = buildReviewSMS({ userProfile, client, suggestion: suggestedReview, reviewUrl: reviewUrl || '' });
-
-    const handleCopyReview = () => {
-        navigator.clipboard.writeText(suggestedReview);
-        toast.success("Exemple d'avis copié !");
-    };
+    const smsBody = buildReviewSMS({ userProfile, client, reviewUrl: reviewUrl || '' });
 
     const handleCopySMS = () => {
         navigator.clipboard.writeText(smsBody);
@@ -94,18 +78,6 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
         toast.success("Application SMS ouverte");
     };
 
-    const handleNextVariant = () => {
-        const next = variantIndex + 1;
-        if (next >= suggestions.length) {
-            // Fin du lot courant : on régénère de nouvelles formulations pour
-            // varier davantage au lieu de boucler sur les mêmes.
-            setSeed(s => s + 1);
-            setVariantIndex(0);
-        } else {
-            setVariantIndex(next);
-        }
-    };
-
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
@@ -137,7 +109,7 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
                         {tab === 'reply'
                             ? 'Une réponse soignée sous chaque avis rassure les futurs clients.'
                             : isPersonalized
-                                ? 'Exemple personnalisé selon le chantier, prêt à envoyer en SMS.'
+                                ? 'Un message prêt à envoyer : le client écrit son avis avec ses mots.'
                                 : "C'est le moment idéal pour demander un avis."}
                     </p>
                 </div>
@@ -179,48 +151,11 @@ const ReviewRequestModal = ({ isOpen, onClose, client, userProfile, intervention
                         </div>
                     ) : (
                         <>
-                            {contextCity && (
-                                <div className="flex items-center gap-2 text-xs text-gray-500">
-                                    <MapPin className="w-3.5 h-3.5" />
-                                    <span>
-                                        Optimisé référencement local
-                                        {contextCity ? ` — ${contextCity}` : ''}
-                                    </span>
-                                </div>
-                            )}
-
-                            <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 relative">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                        Exemple d'avis à personnaliser ({variantIndex + 1}/{suggestions.length})
-                                    </h3>
-                                    <div className="flex items-center gap-1">
-                                        {suggestions.length > 1 && (
-                                            <button
-                                                onClick={handleNextVariant}
-                                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                                                title="Autre suggestion"
-                                            >
-                                                <RefreshCw className="w-4 h-4" />
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={handleCopyReview}
-                                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                                            title="Copier le texte"
-                                        >
-                                            <Copy className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                                <p className="text-gray-700 text-sm italic">
-                                    "{suggestedReview}"
-                                </p>
-                                <p className="text-[11px] text-gray-400 mt-2">
-                                    Une base à faire réécrire avec ses mots : un avis reformulé par le client
-                                    inspire plus confiance qu'un texte recopié tel quel.
-                                </p>
-                            </div>
+                            <p className="text-xs text-gray-500">
+                                Le message ne contient aucun texte d'avis tout prêt : Google supprime les avis
+                                rédigés par l'entreprise. Le client cite seulement la commune et les travaux,
+                                avec ses mots.
+                            </p>
 
                             <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-4">
                                 <div className="flex items-center justify-between mb-2">

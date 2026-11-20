@@ -458,6 +458,8 @@ export const DEFAULT_REVIEW_BODY = 'Bonjour {client},\n\n' +
     '{deja_avis}\n\n' +
     "Si vous êtes satisfait, un avis {plateforme} m'aiderait beaucoup : pour un artisan, c'est le meilleur moyen de se faire connaître près de chez vous. " +
     "Cela prend moins d'une minute :\n{lien}\n\n" +
+    // Jamais de texte d'avis prêt à recopier : Google supprime les avis rédigés par l'entreprise.
+    "Deux lignes avec vos mots suffisent : dites simplement dans quelle commune et pour quels travaux je suis intervenu.\n\n" +
     "Et si quelque chose ne va pas, dites-le moi simplement en répondant à ce message : je reviens.";
 
 export const buildReviewRequestEmail = (invoice, { client, profile, reviewUrl, settings, platform = 'google' } = {}) => {
