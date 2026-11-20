@@ -12,8 +12,8 @@
 //   • À 18 h : résumé de la journée en notification.
 //
 // Mode « après vérification » (autopilot_settings.relances_mode =
-// 'validation') : les relances de devis et rappels de factures ne partent
-// qu'une fois validés par l'artisan dans l'écran Pilote
+// 'validation') : les relances de devis, rappels de factures et demandes
+// d'avis ne partent qu'une fois validés par l'artisan dans l'écran Pilote
 // (autopilot_drafts.approved) ; le résumé du soir compte ceux en attente.
 //
 // Les règles (qui, quand, quel texte) vivent dans _shared/lib/autopilot.js,

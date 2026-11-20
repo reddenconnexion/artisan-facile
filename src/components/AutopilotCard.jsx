@@ -189,7 +189,7 @@ const AutopilotCard = () => {
                 )}
                 {preview.awaiting > 0 && (
                     <button type="button" onClick={() => navigate('/app/pilote')} className="mt-3 w-full inline-flex items-center justify-between gap-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-sm font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-100">
-                        <span>📝 {plural(preview.awaiting, 'relance attend', 'relances attendent')} votre feu vert</span>
+                        <span>📝 {plural(preview.awaiting, 'mail attend', 'mails attendent')} votre feu vert</span>
                         <ChevronRight size={16} className="shrink-0" />
                     </button>
                 )}

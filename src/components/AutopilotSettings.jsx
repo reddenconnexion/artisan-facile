@@ -71,7 +71,7 @@ const AutopilotSettings = () => {
                         <p className="text-sm text-gray-600 dark:text-gray-300">
                             {settings.enabled
                                 ? (settings.relances_mode === 'validation'
-                    ? "Activé : l'appli prépare vos relances et les envoie après votre feu vert, du lundi au vendredi, de 9 h à 18 h."
+                    ? "Activé : l'appli prépare vos relances et demandes d'avis et les envoie après votre feu vert, du lundi au vendredi, de 9 h à 18 h."
                     : "Activé : l'appli relance vos clients à votre place, du lundi au vendredi, de 9 h à 18 h.")
                                 : ready > 0
                                     ? `En pause. ${ready} relance${ready > 1 ? 's' : ''} ${ready > 1 ? 'sont prêtes' : 'est prête'} à partir${readyAmount > 0 ? ` (${formatCurrencyRounded(readyAmount)} en jeu)` : ''}.`

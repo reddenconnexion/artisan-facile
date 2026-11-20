@@ -28,9 +28,9 @@ export const AUTOPILOT_DEFAULTS = {
     invoices: true,
     reviews: true,
     summary: true,
-    // Relances de devis et rappels de factures : 'auto' (ils partent seuls)
-    // ou 'validation' (ils attendent le feu vert de l'artisan dans l'écran
-    // Pilote). Les demandes d'avis de fin de chantier ne sont pas concernées.
+    // Relances de devis, rappels de factures et demandes d'avis : 'auto' (ils
+    // partent seuls) ou 'validation' (ils attendent le feu vert de l'artisan
+    // dans l'écran Pilote).
     relances_mode: 'auto',
 };
 
@@ -38,7 +38,7 @@ export const AUTOPILOT_DEFAULTS = {
 export const relancesNeedApproval = (settings) => readAutopilotSettings(settings).relances_mode === 'validation';
 
 /** Types de mails soumis au feu vert en mode « après vérification ». */
-export const APPROVAL_KINDS = ['quote_followup', 'invoice_reminder'];
+export const APPROVAL_KINDS = ['quote_followup', 'invoice_reminder', 'review_request'];
 
 /** Réglages de l'artisan complétés par les valeurs par défaut. */
 export const readAutopilotSettings = (raw) => ({ ...AUTOPILOT_DEFAULTS, ...(raw && typeof raw === 'object' ? raw : {}) });
@@ -362,11 +362,15 @@ const HOUR_MS = 3600 * 1000;
 /** Chantier marqué « terminé » par l'artisan. */
 export const isChantierFinished = (doc) => doc?.work_stage === 'completed';
 
-/** Rattrapage : chantier terminé depuis 3 h à 7 jours. */
-export const dueReviewAfterWork = (doc, now = new Date()) => {
+/**
+ * Rattrapage : chantier terminé depuis 3 h à 7 jours. `minHours` à 0 en mode
+ * « après vérification » : la demande n'est pas partie à la fin du chantier,
+ * elle se présente tout de suite au feu vert de l'artisan.
+ */
+export const dueReviewAfterWork = (doc, now = new Date(), minHours = REVIEW_CATCH_UP_HOURS) => {
     if (!isChantierFinished(doc) || !doc.work_completed_at) return false;
     const hours = (now.getTime() - new Date(doc.work_completed_at).getTime()) / HOUR_MS;
-    return hours >= REVIEW_CATCH_UP_HOURS && hours <= REVIEW_CATCH_UP_DAYS * 24;
+    return hours >= minHours && hours <= REVIEW_CATCH_UP_DAYS * 24;
 };
 
 /** Repère de secours : facture payée récemment (travail jamais marqué terminé). */
@@ -537,7 +541,7 @@ export const actionKey = (kind, refId, step) => `${kind}:${refId}:${step}`;
  * @param {boolean} [p.preview]       aperçu : ignore l'interrupteur et le plafond
  * @param {object[]|Map<string, object>} [p.drafts] retouches de l'artisan (autopilot_drafts)
  * @returns {{ actions: object[], needsArtisan: object[], awaitingApproval: object[] }}
- *   awaitingApproval : relances prêtes mais retenues tant que l'artisan ne les
+ *   awaitingApproval : mails prêts (relances, demandes d'avis) mais retenus tant que l'artisan ne les
  *   a pas validées (mode « après vérification »). En aperçu, elles figurent
  *   aussi dans `actions`, marquées `awaitingApproval: true`.
  */
@@ -574,7 +578,7 @@ export const planAutopilotRun = ({
         const action = applyDraft(raw, draftByKey);
         // Mail retenu par l'artisan : il ne part pas (l'aperçu le montre barré).
         if (action.skipped && !preview) return;
-        // Mode « après vérification » : la relance attend le feu vert.
+        // Mode « après vérification » : le mail attend le feu vert.
         if (approvalMode && !action.skipped && !action.approved && APPROVAL_KINDS.includes(action.kind)) {
             awaitingApproval.push(action);
             if (preview) actions.push({ ...action, awaitingApproval: true });
@@ -624,7 +628,7 @@ export const planAutopilotRun = ({
         // du même chantier), et jamais deux fois pour la même plateforme.
         const askedThisRun = new Set();
         for (const doc of list) {
-            const afterWork = dueReviewAfterWork(doc, now);
+            const afterWork = dueReviewAfterWork(doc, now, approvalMode ? 0 : REVIEW_CATCH_UP_HOURS);
             const afterPayment = !afterWork && !isChantierFinished(doc) && !finishedIds.has(doc.parent_id) && dueReviewRequest(doc, now);
             if ((!afterWork && !afterPayment) || askedThisRun.has(doc.client_id)) continue;
             const key = actionKey('review_request', doc.id, 1);
@@ -653,7 +657,9 @@ const reviewAction = (doc, { client, profile, platform, key, settings }) => {
  * Demande d'avis immédiate, au moment où l'artisan termine le chantier et
  * quitte les lieux. Renvoie l'e-mail à envoyer, ou la raison de ne pas le faire.
  * @param {{ settings: object, profile: object, doc: object, reviewedClients?: Set<*>, now?: Date, drafts?: object[]|Map<string, object> }} p
- * @returns {{ action: object } | { skipped: 'pilote_off'|'no_review_link'|'not_finished'|'already_asked'|'client_paused'|'no_email'|'night'|'held_by_artisan' }}
+ * @returns {{ action: object } | { skipped: 'pilote_off'|'no_review_link'|'not_finished'|'already_asked'|'client_paused'|'no_email'|'night'|'held_by_artisan'|'awaiting_approval' }}
+ *   awaiting_approval : mode « après vérification », la demande attend le
+ *   feu vert de l'artisan dans l'écran Pilote (l'envoi horaire l'enverra).
  *   already_asked : le client a déjà été sollicité (ou a déjà laissé un avis)
  *   sur toutes les plateformes dont l'artisan a le lien.
  */
@@ -670,6 +676,7 @@ export const planReviewNow = ({ settings, profile, doc, reviewedClients = new Se
     if (!isReviewNowHour(now)) return { skipped: 'night' };
     const action = applyDraft(reviewAction(doc, { client, profile, platform, key: actionKey('review_request', doc.id, 1), settings: cfg }), drafts);
     if (action.skipped) return { skipped: 'held_by_artisan' };
+    if (cfg.relances_mode === 'validation' && !action.approved) return { skipped: 'awaiting_approval' };
     return { action };
 };
 
@@ -753,7 +760,7 @@ export const buildEveningSummary = ({ sent = [], signed = [], paid = [], needsAr
     if (s.quotes.count) lines.push(`📨 ${plural(s.quotes.count, 'devis relancé', 'devis relancés')} (${euros(s.quotes.amount)})`);
     if (s.invoices.count) lines.push(`💶 ${plural(s.invoices.count, 'rappel de facture envoyé', 'rappels de facture envoyés')} (${euros(s.invoices.amount)})`);
     if (s.reviews.count) lines.push(`⭐ ${plural(s.reviews.count, "demande d'avis envoyée", "demandes d'avis envoyées")}`);
-    if (awaitingApproval.length) lines.push(`📝 ${plural(awaitingApproval.length, 'relance attend', 'relances attendent')} votre feu vert`);
+    if (awaitingApproval.length) lines.push(`📝 ${plural(awaitingApproval.length, 'mail attend', 'mails attendent')} votre feu vert`);
     if (needsArtisan.length) lines.push(`⚠️ ${plural(needsArtisan.length, 'facture très en retard attend', 'factures très en retard attendent')} votre décision`);
     if (lines.length === 0) return null;
 
