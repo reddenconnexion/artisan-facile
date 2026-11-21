@@ -33,6 +33,8 @@ export const announceReviewResult = (result) => {
         toast.success(`⭐ Demande d'avis Google envoyée à ${result.to}`);
     } else if (result?.status === 'deferred') {
         toast.info("La demande d'avis Google partira quand vous direz « Je repars ».");
+    } else if (result?.status === 'skipped' && result.reason === 'awaiting_approval') {
+        toast.info("⭐ Demande d'avis prête : elle attend votre feu vert dans l'écran Pilote.");
     } else if (result?.status === 'skipped' && result.reason === 'no_review_link') {
         toast.info("Ajoutez votre lien d'avis Google dans Réglages : l'appli le demandera à vos clients en fin de chantier.");
     }

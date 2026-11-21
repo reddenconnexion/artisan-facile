@@ -281,7 +281,7 @@ const Autopilot = () => {
                     <CheckCircle size={18} className="text-green-600 shrink-0 mt-0.5" />
                     <p className="text-sm text-gray-700 dark:text-gray-200">
                         {settings.relances_mode === 'validation'
-                            ? "Activé, relances après vérification : l'appli prépare les relances, elles ne partent qu'une fois validées par vous (du lundi au vendredi entre 9 h et 18 h)."
+                            ? "Activé, envois après vérification : l'appli prépare relances et demandes d'avis, elles ne partent qu'une fois validées par vous (du lundi au vendredi entre 9 h et 18 h)."
                             : 'Activé. Les mails partent du lundi au vendredi entre 9 h et 18 h. Relisez-les ci-dessous : vous pouvez en modifier le texte ou les retenir.'}
                     </p>
                 </div>

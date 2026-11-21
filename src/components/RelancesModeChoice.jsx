@@ -7,18 +7,19 @@ const OPTIONS = [
         value: 'auto',
         icon: Zap,
         title: 'Envoi automatique',
-        text: "Les relances partent seules aux dates prévues. Vous pouvez toujours les relire et en retenir une avant son départ.",
+        text: "Relances et demandes d'avis partent seules : les relances aux dates prévues, la demande d'avis à la fin du chantier.",
     },
     {
         value: 'validation',
         icon: ShieldCheck,
         title: 'Après ma vérification',
-        text: "L'appli prépare les relances ; elles attendent votre feu vert dans l'écran Pilote. Rien ne part sans vous.",
+        text: "L'appli prépare relances et demandes d'avis ; elles attendent votre feu vert dans l'écran Pilote. Rien ne part sans vous.",
     },
 ];
 
 /**
- * Choix du mode d'envoi des relances de devis et rappels de factures :
+ * Choix du mode d'envoi des relances de devis, rappels de factures et
+ * demandes d'avis :
  * automatique, ou après vérification par l'artisan.
  */
 const RelancesModeChoice = ({ settings, save, disabled = false }) => {
@@ -31,8 +32,8 @@ const RelancesModeChoice = ({ settings, save, disabled = false }) => {
         try {
             await save({ relances_mode: value });
             toast.success(value === 'validation'
-                ? "Les relances attendront votre feu vert dans l'écran Pilote."
-                : 'Les relances partiront automatiquement.');
+                ? "Relances et demandes d'avis attendront votre feu vert dans l'écran Pilote."
+                : "Relances et demandes d'avis partiront automatiquement.");
         } catch (e) {
             toast.error('Réglage non enregistré : ' + e.message);
         } finally {
@@ -42,7 +43,7 @@ const RelancesModeChoice = ({ settings, save, disabled = false }) => {
 
     return (
         <fieldset disabled={disabled || saving}>
-            <legend className="text-sm font-medium text-gray-800 dark:text-gray-100">Envoi des relances (devis et factures)</legend>
+            <legend className="text-sm font-medium text-gray-800 dark:text-gray-100">Envoi des relances et des demandes d'avis</legend>
             <div role="radiogroup" className="mt-2 grid gap-2 sm:grid-cols-2">
                 {OPTIONS.map(({ value, icon: Icon, title, text }) => {
                     const selected = current === value;
@@ -66,9 +67,6 @@ const RelancesModeChoice = ({ settings, save, disabled = false }) => {
                     );
                 })}
             </div>
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Les demandes d'avis de fin de chantier partent toujours seules.
-            </p>
         </fieldset>
     );
 };

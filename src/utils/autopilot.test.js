@@ -487,15 +487,26 @@ describe('relances après vérification', () => {
         expect(run.awaitingApproval.map((a) => a.kind)).toEqual(['invoice_reminder']);
     });
 
-    it('les demandes d\'avis ne sont pas concernées', () => {
+    it('les demandes d\'avis attendent aussi le feu vert', () => {
         const doc = quote({ status: 'accepted', work_stage: 'completed', work_completed_at: '2026-11-09T09:00:00Z' });
         const run = planAutopilotRun({ ...base, docs: [doc] });
-        expect(run.actions.map((a) => a.kind)).toEqual(['review_request']);
+        expect(run.actions).toEqual([]);
+        expect(run.awaitingApproval.map((a) => a.kind)).toEqual(['review_request']);
+        const drafts = [{ action_key: actionKey('review_request', 1, 1), approved: true }];
+        expect(planAutopilotRun({ ...base, docs: [doc], drafts }).actions.map((a) => a.kind)).toEqual(['review_request']);
+    });
+
+    it('chantier tout juste terminé : la demande d\'avis ne part pas, elle se présente au feu vert', () => {
+        const doc = quote({ status: 'accepted', work_stage: 'completed', work_completed_at: new Date(NOW.getTime() - 60 * 1000).toISOString() });
+        expect(planReviewNow({ settings, profile, doc, now: NOW })).toEqual({ skipped: 'awaiting_approval' });
+        expect(planAutopilotRun({ ...base, docs: [doc] }).awaitingApproval).toHaveLength(1);
+        // Envoi automatique : rien avant le délai de rattrapage (3 h).
+        expect(planAutopilotRun({ ...base, settings: { enabled: true }, docs: [doc] }).actions).toEqual([]);
     });
 
     it('le point du soir signale les relances en attente', () => {
         const summary = buildEveningSummary({ awaitingApproval: [{}, {}] });
-        expect(summary.body).toContain('2 relances attendent votre feu vert');
+        expect(summary.body).toContain('2 mails attendent votre feu vert');
     });
 });
 
