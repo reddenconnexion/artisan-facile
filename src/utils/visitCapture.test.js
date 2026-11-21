@@ -7,6 +7,7 @@ import {
     addPhoto,
     addFlag,
     undoLast,
+    reinsertEntry,
     hasCaptureContent,
     ensureSurveyZone,
     bumpSurveyCounter,
@@ -86,6 +87,24 @@ describe('undoLast', () => {
         const { capture, undone } = undoLast(createCapture());
         expect(undone).toBeNull();
         expect(capture.entries).toEqual([]);
+    });
+});
+
+describe('reinsertEntry (« Rétablir »)', () => {
+    it('remet une photo annulée à sa place, même si d\'autres actions ont suivi', () => {
+        let c = addZoneChange(createCapture(), 'Cuisine', T0);
+        c = addPhoto(c, { mediaId: 'p1', at: min(1) });
+        const { capture: undoneCapture, undone } = undoLast(c);
+        const later = addFlag(undoneCapture, { at: min(2) });
+        const restored = reinsertEntry(later, undone);
+        expect(restored.entries.map((e) => e.type)).toEqual(['zone', 'photo', 'flag']);
+        expect(restored.zone).toBe('Cuisine');
+    });
+
+    it('ne double pas une entrée déjà présente', () => {
+        const c = addPhoto(addZoneChange(createCapture(), 'Cuisine', T0), { mediaId: 'p1', at: min(1) });
+        const photo = c.entries[1];
+        expect(reinsertEntry(c, photo)).toBe(c);
     });
 });
 

@@ -118,6 +118,19 @@ export const undoLast = (capture) => {
     return { capture: { ...capture, zone, entries: remaining }, undone };
 };
 
+/**
+ * Remet dans le fil une entrée annulée (« Rétablir »), à sa place dans
+ * l'ordre chronologique : d'autres actions ont pu suivre entre-temps.
+ * La pièce courante ne bouge pas.
+ */
+export const reinsertEntry = (capture, entry) => {
+    const entries = capture.entries || [];
+    if (entries.some((e) => e.id === entry.id)) return capture;
+    const at = entries.findIndex((e) => (e.at ?? 0) > (entry.at ?? 0));
+    const next = at === -1 ? [...entries, entry] : [...entries.slice(0, at), entry, ...entries.slice(at)];
+    return { ...capture, entries: next };
+};
+
 export const hasCaptureContent = (capture) => (capture?.entries || []).length > 0;
 
 // ── Trame : le comptage tapé alimente directement les pièces du relevé ─────

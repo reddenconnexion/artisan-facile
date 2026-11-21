@@ -50,6 +50,22 @@ const ENTRY_STYLES = {
     flag: 'bg-orange-100 text-orange-700',
 };
 
+/**
+ * Ce que « Annuler » va défaire, écrit sur le bouton : un appui raté ne doit
+ * pas effacer une photo ou une dictée sans qu'on l'ait vu venir.
+ */
+const undoLabel = (entry, template) => {
+    if (!entry) return 'Annuler';
+    switch (entry.type) {
+        case 'count': return `Annuler ${entryLabel(entry, template)}`;
+        case 'photo': return 'Annuler la photo';
+        case 'voice': return entry.kind === 'dictation' ? 'Annuler la dictée' : "Annuler l'enreg.";
+        case 'flag': return 'Annuler le point';
+        case 'zone': return 'Annuler la pièce';
+        default: return 'Annuler';
+    }
+};
+
 const clock = (at) => new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
 /** Choix de la façon d'enregistrer, tant que le micro est coupé. */
@@ -574,41 +590,55 @@ const VisiteExpressMode = ({
                                             : null
                             )}
                             {isDictation && onMoveVoice ? (
-                                // Le lieu d'une dictée se corrige ici, sans la refaire.
-                                <select
-                                    value={entry.zone || ''}
-                                    onChange={(e) => { if (e.target.value) onMoveVoice(entry.mediaId, e.target.value); }}
-                                    className={`ml-auto min-w-0 max-w-[45%] text-xs font-semibold bg-transparent text-right focus:outline-none ${
-                                        entry.zone ? 'text-violet-700' : 'text-orange-600'
+                                // Le lieu d'une dictée se corrige ici, sans la refaire :
+                                // une vraie pastille à toucher, la liste native par-dessus.
+                                <label
+                                    className={`relative ml-auto flex items-center gap-1 min-w-0 max-w-[50%] min-h-[40px] px-3 rounded-xl border text-sm font-semibold active:scale-95 transition-transform ${
+                                        entry.zone
+                                            ? 'bg-violet-50 border-violet-200 text-violet-700'
+                                            : 'bg-orange-50 border-orange-300 text-orange-700'
                                     }`}
-                                    aria-label="Lieu de cette dictée"
                                 >
-                                    {!entry.zone && <option value="">À ranger…</option>}
-                                    {[entry.zone, ...movePlaces.filter((p) => !sameName(p, entry.zone))].filter(Boolean).map((name) => (
-                                        <option key={name} value={name}>{name}</option>
-                                    ))}
-                                </select>
+                                    <span className="truncate">{entry.zone || 'À ranger…'}</span>
+                                    <ChevronDown className="w-4 h-4 flex-shrink-0" />
+                                    <select
+                                        value={entry.zone || ''}
+                                        onChange={(e) => { if (e.target.value) onMoveVoice(entry.mediaId, e.target.value); }}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        aria-label="Lieu de cette dictée"
+                                    >
+                                        {!entry.zone && <option value="">À ranger…</option>}
+                                        {[entry.zone, ...movePlaces.filter((p) => !sameName(p, entry.zone))].filter(Boolean).map((name) => (
+                                            <option key={name} value={name}>{name}</option>
+                                        ))}
+                                    </select>
+                                </label>
                             ) : entry.type !== 'zone' && (
                                 <span className="text-xs text-gray-400 truncate ml-auto">{entry.zone || '—'}</span>
                             )}
-                            {isDictation && onDeleteVoice && (
-                                <button
-                                    type="button"
-                                    onClick={() => onDeleteVoice(entry.mediaId)}
-                                    className="p-1 -m-1 text-gray-300 hover:text-red-500 flex-shrink-0"
-                                    aria-label="Supprimer cette dictée"
-                                >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                            )}
                         </div>
-                        {/* Le texte d'une dictée, pour la vérifier sur place. */}
+                        {/* Le texte d'une dictée, pour la vérifier sur place, et sa
+                            poubelle à l'écart de la pastille de lieu. */}
                         {isDictation && (
-                            String(transcripts[entry.mediaId] ?? '').trim() ? (
-                                <p className="mt-1 text-sm text-gray-700 leading-snug">{transcripts[entry.mediaId]}</p>
-                            ) : transcripts[entry.mediaId] !== undefined ? (
-                                <p className="mt-1 text-xs text-orange-600">Rien d'audible — redictez.</p>
-                            ) : null
+                            <div className="mt-1 flex items-start gap-2">
+                                <div className="flex-1 min-w-0 pt-1">
+                                    {String(transcripts[entry.mediaId] ?? '').trim() ? (
+                                        <p className="text-sm text-gray-700 leading-snug">{transcripts[entry.mediaId]}</p>
+                                    ) : transcripts[entry.mediaId] !== undefined ? (
+                                        <p className="text-xs text-orange-600">Rien d'audible — redictez.</p>
+                                    ) : null}
+                                </div>
+                                {onDeleteVoice && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onDeleteVoice(entry.mediaId)}
+                                        className="w-11 h-11 -mr-1.5 flex items-center justify-center rounded-xl text-gray-400 hover:text-red-500 active:bg-red-50 flex-shrink-0"
+                                        aria-label="Supprimer cette dictée"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+                                )}
+                            </div>
                         )}
                         </div>
                         );
@@ -671,6 +701,7 @@ export const ExpressActionPad = ({
     // Un poste dicté (général, tableau) n'a pas de compteurs de pièce.
     const counters = isTopic ? [] : (template.zoneCounters || []);
     const dictating = captureStyle === 'dictation';
+    const lastEntry = capture.entries?.[capture.entries.length - 1];
 
     if (!dictating && !isRecording && !hasCaptured) {
         return (
@@ -698,22 +729,36 @@ export const ExpressActionPad = ({
             {/* Compteurs de la pièce en cours — facultatifs */}
             {counters.length > 0 && (
                 <div className={`grid gap-1.5 ${counters.length >= 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                    {counters.map(({ key, label, short }) => (
-                        <button
-                            key={key}
-                            type="button"
-                            onClick={() => { buzz(); onCount(key, 1); }}
-                            className="py-2.5 rounded-2xl bg-violet-50 border border-violet-200 text-violet-700 active:scale-95 active:bg-violet-100 transition-all"
-                            aria-label={`Ajouter : ${label}`}
-                        >
-                            <span className="block text-2xl font-bold tabular-nums leading-none">
-                                {Number(counts[key]) || 0}
-                            </span>
-                            <span className="block text-[11px] font-semibold mt-0.5 truncate px-1">
-                                {short || label}
-                            </span>
-                        </button>
-                    ))}
+                    {counters.map(({ key, label, short }) => {
+                        const count = Number(counts[key]) || 0;
+                        return (
+                            <div key={key} className="flex flex-col gap-1">
+                                <button
+                                    type="button"
+                                    onClick={() => { buzz(); onCount(key, 1); }}
+                                    className="py-2.5 rounded-2xl bg-violet-50 border border-violet-200 text-violet-700 active:scale-95 active:bg-violet-100 transition-all"
+                                    aria-label={`Ajouter : ${label} (${count})`}
+                                >
+                                    <span className="block text-2xl font-bold tabular-nums leading-none">
+                                        {count}
+                                    </span>
+                                    <span className="block text-[11px] font-semibold mt-0.5 truncate px-1">
+                                        {short || label}
+                                    </span>
+                                </button>
+                                {/* Corriger un comptage sans défaire ce qui a suivi */}
+                                <button
+                                    type="button"
+                                    onClick={() => { buzz(); onCount(key, -1); }}
+                                    disabled={count === 0}
+                                    className="min-h-[40px] rounded-xl bg-white border border-gray-200 text-gray-600 text-xl font-bold leading-none active:scale-95 transition-transform disabled:opacity-30"
+                                    aria-label={`Retirer 1 : ${label}`}
+                                >
+                                    −
+                                </button>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 
@@ -746,10 +791,11 @@ export const ExpressActionPad = ({
                     type="button"
                     onClick={() => { buzz(); onUndo(); }}
                     disabled={!capture.entries?.length}
+                    aria-label={undoLabel(lastEntry, template)}
                     className="py-2.5 rounded-2xl bg-white border border-gray-200 text-gray-500 flex flex-col items-center gap-0.5 active:scale-95 transition-transform disabled:opacity-40"
                 >
                     <Undo2 className="w-5 h-5" />
-                    <span className="text-[11px] font-semibold">Annuler</span>
+                    <span className="text-[11px] font-semibold max-w-full truncate px-1">{undoLabel(lastEntry, template)}</span>
                 </button>
             </div>
 
