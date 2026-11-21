@@ -122,8 +122,8 @@ Deno.serve(async (req) => {
             );
         }
 
-        // Générer un OTP à 6 chiffres
-        const otp = String(Math.floor(100000 + Math.random() * 900000));
+        // Générer un OTP à 6 chiffres (aléa cryptographique, pas Math.random)
+        const otp = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
 
         // Hasher l'OTP en SHA-256
         const otpHash = await sha256hex(otp);
