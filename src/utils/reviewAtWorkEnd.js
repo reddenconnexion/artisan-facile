@@ -40,15 +40,20 @@ export const announceReviewResult = (result) => {
     }
 };
 
-/** Termine le chantier puis demande l'avis (bouton « Chantier terminé » du pointage). */
+/**
+ * Termine le chantier puis demande l'avis (bouton « Chantier terminé » du
+ * pointage et du suivi de chantier).
+ * @returns {Promise<boolean>} true si le chantier est bien passé en « terminé ».
+ */
 export const finishChantierAndAskReview = async (quoteId) => {
     const { error } = await supabase.from('quotes').update({ work_stage: 'completed' }).eq('id', quoteId);
     if (error) {
         toast.error('Chantier non mis à jour : ' + error.message);
-        return;
+        return false;
     }
     toast.success('Chantier terminé');
     announceReviewResult(await requestReviewAtWorkEnd(quoteId));
+    return true;
 };
 
 // Délai laissé au bouton « Annuler » des déplacements de chantier (6 s) : si
