@@ -4,9 +4,11 @@ import { toast } from 'sonner';
 import {
     ArrowLeft, Search, X, Loader2, CheckSquare, Square, FileText, ExternalLink,
     Package, Wrench, Plus, Trash2, Eye, EyeOff, Phone, MapPin, ClipboardCheck,
-    CloudOff, Check, RotateCcw, AlertTriangle, StickyNote, ChevronDown, Archive,
+    CloudOff, Check, RotateCcw, AlertTriangle, StickyNote, ChevronDown, Archive, PartyPopper, Receipt,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
+import { finishChantierAndAskReview } from '../utils/reviewAtWorkEnd';
 import { fetchWorksites, WORKSITE_STAGE_MAP } from '../utils/worksites';
 import { formatQuantity } from '../utils/quoteInternalDetail';
 import {
@@ -63,6 +65,7 @@ const ProgressBar = ({ ratio, className = '' }) => (
 const ChantierSuiviMode = ({ onBack }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const confirm = useConfirm();
 
     // ── Liste des chantiers ───────────────────────────────────────────────────
     const [loading, setLoading] = useState(true);
@@ -101,6 +104,12 @@ const ChantierSuiviMode = ({ onBack }) => {
     const [showPrices, setShowPrices] = useState(() => localStorage.getItem('af-chantier-prices') !== 'off');
     const [showNotes, setShowNotes] = useState(false);
     const [extraDraft, setExtraDraft] = useState('');
+    const [finishing, setFinishing] = useState(false);
+
+    // Dernier état connu, pour les boutons « Annuler » des toasts : ils sont
+    // touchés plusieurs secondes après l'action, parfois après d'autres coches.
+    const live = useRef({ quoteId: null, progress: emptyProgress() });
+    live.current = { quoteId: quote?.id ?? null, progress };
 
     const saveTimer = useRef(null);
     const pending = useRef(null);
@@ -158,6 +167,59 @@ const ChantierSuiviMode = ({ onBack }) => {
     const update = (next) => {
         setProgress(next);
         if (quote) persist(quote.id, next);
+    };
+
+    // « Annuler » d'un toast : ne s'applique que si le même chantier est encore
+    // ouvert, et repart de l'état du moment (pas de celui d'avant le toast).
+    const undoOn = (quoteId, apply) => () => {
+        if (live.current.quoteId !== quoteId) return;
+        const next = apply(live.current.progress);
+        setProgress(next);
+        persist(quoteId, next);
+    };
+
+    // « Tout cocher » et « Remettre à zéro » écrasent tout l'avancement d'un
+    // seul appui : on garde les coches d'avant pour pouvoir revenir en arrière.
+    const replaceAllDone = (nextDone, message) => {
+        const previous = progress.done;
+        update({ ...progress, done: nextDone });
+        toast(message, {
+            duration: 10000,
+            action: { label: 'Annuler', onClick: undoOn(quote.id, (p) => ({ ...p, done: previous })) },
+        });
+    };
+
+    const checkAll = () => replaceAllDone(setAll(sections, true), 'Tout le devis est coché');
+
+    const resetAll = async () => {
+        const ok = await confirm({
+            title: 'Remettre à zéro ?',
+            message: `Les ${stats.doneUnits} opération${stats.doneUnits > 1 ? 's' : ''} cochée${stats.doneUnits > 1 ? 's' : ''} seront décochées.`,
+            confirmLabel: 'Tout décocher',
+            danger: true,
+        });
+        if (ok) replaceAllDone({}, 'Avancement remis à zéro');
+    };
+
+    // ── Fin de chantier ───────────────────────────────────────────────────────
+    const finishChantier = async () => {
+        if (finishing || !quote) return;
+        setFinishing(true);
+        try {
+            await flush();
+            const ok = await finishChantierAndAskReview(quote.id);
+            if (!ok) return;
+            const id = quote.id;
+            setQuote((prev) => (prev && prev.id === id ? { ...prev, work_stage: 'completed' } : prev));
+            setWorksites((prev) => prev.map((w) => (w.id === id ? { ...w, work_stage: 'completed' } : w)));
+        } finally {
+            setFinishing(false);
+        }
+    };
+
+    const leaveTo = async (path) => {
+        await flush();
+        navigate(path);
     };
 
     const togglePrices = () => {
@@ -223,15 +285,30 @@ const ChantierSuiviMode = ({ onBack }) => {
         toast.success('Noté hors devis — à chiffrer en avenant');
     };
 
-    const removeExtra = (id) => {
-        const now = new Date().toISOString();
-        update({
-            ...progress,
-            // On marque supprimé plutôt que d'effacer : la fusion avec le suivi
-            // distant ne doit pas faire réapparaître la ligne.
-            extras: (progress.extras || []).map((e) =>
-                e.id === id ? { ...e, deleted: true, updated_at: now } : e
-            ).filter((e) => !e.deleted),
+    // On marque supprimé plutôt que d'effacer, et la marque reste enregistrée :
+    // sans elle, une ligne supprimée hors ligne revenait du suivi distant à la
+    // réouverture. Elle n'est masquée qu'à l'affichage.
+    const markExtra = (list, id, deleted) => (list || []).map((e) =>
+        e.id === id ? { ...e, deleted, updated_at: new Date().toISOString() } : e
+    );
+
+    const removeExtra = async (extra) => {
+        if (extra.amendment_id) {
+            const ok = await confirm({
+                title: 'Supprimer ce travail ?',
+                message: `« ${extra.description} » est déjà chiffré en avenant. L'avenant, lui, ne sera pas modifié.`,
+                confirmLabel: 'Supprimer',
+                danger: true,
+            });
+            if (!ok) return;
+        }
+        update({ ...progress, extras: markExtra(progress.extras, extra.id, true) });
+        toast('Travail hors devis supprimé', {
+            duration: 10000,
+            action: {
+                label: 'Annuler',
+                onClick: undoOn(quote.id, (p) => ({ ...p, extras: markExtra(p.extras, extra.id, false) })),
+            },
         });
     };
 
@@ -312,6 +389,7 @@ const ChantierSuiviMode = ({ onBack }) => {
                         const done = progressMap[w.id]?.done || {};
                         const s = progressStats(checklistSections(w.items), done);
                         const stage = WORKSITE_STAGE_MAP[w.work_stage];
+                        const toClose = s.totalUnits > 0 && s.ratio >= 1 && w.work_stage !== 'completed';
                         return (
                             <button
                                 key={w.id}
@@ -325,7 +403,11 @@ const ChantierSuiviMode = ({ onBack }) => {
                                         </p>
                                         <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{quoteLabel(w)}</p>
                                     </div>
-                                    {stage && (
+                                    {toClose ? (
+                                        <span className="shrink-0 text-[11px] font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                            À clôturer
+                                        </span>
+                                    ) : stage && (
                                         <span className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded-full ${stage.badge}`}>
                                             {stage.title}
                                         </span>
@@ -361,7 +443,9 @@ const ChantierSuiviMode = ({ onBack }) => {
     // ═══ Écran 2 : le devis, cochable ═════════════════════════════════════════
 
     const client = quote.clients || {};
-    const extras = progress.extras || [];
+    const extras = (progress.extras || []).filter((e) => !e.deleted);
+    const unpricedExtras = extras.filter((e) => !e.amendment_id).length;
+    const allDone = stats.totalUnits > 0 && stats.ratio >= 1;
 
     const renderComponent = (line, component) => {
         const done = !!progress.done[component.key];
@@ -482,7 +566,7 @@ const ChantierSuiviMode = ({ onBack }) => {
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-2 mt-1.5">
+                    <div className="flex items-center gap-1 mt-0.5">
                         {synced ? (
                             <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
                                 <Check className="w-3 h-3" /> Enregistré
@@ -494,18 +578,20 @@ const ChantierSuiviMode = ({ onBack }) => {
                         )}
                         {stats.totalUnits > 0 && (
                             <>
-                                <button
-                                    onClick={() => update({ ...progress, done: setAll(sections, true) })}
-                                    className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-400"
-                                >
-                                    <CheckSquare className="w-3 h-3" /> Tout cocher
-                                </button>
+                                {!allDone && (
+                                    <button
+                                        onClick={checkAll}
+                                        className="ml-auto inline-flex items-center gap-1.5 min-h-[44px] px-2.5 rounded-xl text-xs font-semibold text-blue-600 dark:text-blue-400 active:bg-blue-50 dark:active:bg-blue-900/30"
+                                    >
+                                        <CheckSquare className="w-4 h-4" /> Tout cocher
+                                    </button>
+                                )}
                                 {stats.doneUnits > 0 && (
                                     <button
-                                        onClick={() => update({ ...progress, done: {} })}
-                                        className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                        onClick={resetAll}
+                                        className={`${allDone ? 'ml-auto ' : ''}inline-flex items-center gap-1.5 min-h-[44px] px-2.5 rounded-xl text-xs font-semibold text-gray-500 dark:text-gray-400 active:bg-gray-100 dark:active:bg-gray-800`}
                                     >
-                                        <RotateCcw className="w-3 h-3" /> Remettre à zéro
+                                        <RotateCcw className="w-4 h-4" /> Remettre à zéro
                                     </button>
                                 )}
                             </>
@@ -631,11 +717,11 @@ const ChantierSuiviMode = ({ onBack }) => {
                                             )}
                                         </span>
                                         <button
-                                            onClick={() => removeExtra(extra.id)}
-                                            className="p-1 text-gray-300 hover:text-red-500 shrink-0"
-                                            aria-label="Supprimer"
+                                            onClick={() => removeExtra(extra)}
+                                            className="p-3 -my-2 -mr-2 rounded-xl text-gray-400 hover:text-red-500 active:bg-red-50 dark:active:bg-red-900/20 shrink-0"
+                                            aria-label={`Supprimer « ${extra.description} »`}
                                         >
-                                            <Trash2 className="w-4 h-4" />
+                                            <Trash2 className="w-5 h-5" />
                                         </button>
                                     </li>
                                 ))}
@@ -684,6 +770,45 @@ const ChantierSuiviMode = ({ onBack }) => {
                     </div>
                 )}
             </div>
+
+            {/* ── Tout est coché : clôturer sans quitter l'écran ────────────── */}
+            {allDone && !opening && (
+                <div className="shrink-0 bg-emerald-50 dark:bg-emerald-900/20 border-t border-emerald-200 dark:border-emerald-900/50 px-3 py-3">
+                    <p className="flex items-center gap-2 text-sm font-bold text-emerald-800 dark:text-emerald-200">
+                        <PartyPopper className="w-4 h-4 shrink-0" />
+                        {quote.work_stage === 'completed' ? 'Chantier terminé' : 'Tout est fait'}
+                    </p>
+                    {unpricedExtras > 0 && (
+                        <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                            {unpricedExtras} trava{unpricedExtras > 1 ? 'ux' : 'il'} hors devis à chiffrer en avenant.
+                        </p>
+                    )}
+                    {quote.work_stage !== 'completed' && (
+                        <button
+                            onClick={finishChantier}
+                            disabled={finishing}
+                            className="mt-2 w-full inline-flex items-center justify-center gap-2 min-h-[48px] bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-base font-bold rounded-2xl disabled:opacity-60 transition-colors"
+                        >
+                            {finishing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                            Chantier terminé
+                        </button>
+                    )}
+                    <div className="mt-2 flex gap-2">
+                        <button
+                            onClick={() => leaveTo('/app/interventions/new')}
+                            className="flex-1 inline-flex items-center justify-center gap-2 min-h-[44px] bg-white dark:bg-gray-900 border border-emerald-200 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-200 text-sm font-semibold rounded-2xl"
+                        >
+                            <ClipboardCheck className="w-4 h-4" /> Rapport
+                        </button>
+                        <button
+                            onClick={() => leaveTo(`/app/devis/${quote.id}`)}
+                            className="flex-1 inline-flex items-center justify-center gap-2 min-h-[44px] bg-white dark:bg-gray-900 border border-emerald-200 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-200 text-sm font-semibold rounded-2xl"
+                        >
+                            <Receipt className="w-4 h-4" /> Facturer
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* ── Accès direct au devis complet ─────────────────────────────── */}
             <div className="shrink-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-3 py-3 flex gap-2 safe-area-bottom">
