@@ -388,6 +388,7 @@ function selectTool(type) {
   state.tool = type;
   state.selected = null;
   if (CABLE_TOOLS.includes(type)) {
+    _lastCableTool = type;
     state.mode = 'cable';
     state.cablePoints = [];
     state.cableStart = null;
@@ -542,6 +543,47 @@ function updateDrawBar() {
   document.getElementById('drawBarLabel').textContent = label;
   document.getElementById('drawBarDone').disabled = !ready;
 }
+// ── Écran d'accueil : proposé tant que le plan est vide ──
+let _welcomeDismissed = false;
+function planIsEmpty() {
+  return !state.elements.length && !state.walls.length && !state.rooms.length && !state.cables.length;
+}
+function updateWelcome() {
+  const card = document.getElementById('welcomeCard');
+  if (!card) return;
+  const show = !_welcomeDismissed && planIsEmpty() && !state.bgPdf.dataUrl
+    && state.mode === 'select' && !state.roomPoints.length;
+  card.style.display = show ? 'block' : 'none';
+}
+function dismissWelcome() { _welcomeDismissed = true; updateWelcome(); }
+function welcomeStartRoom() { addRoom(); }
+function loadDemoPlan() {
+  historyReset();
+  state.rooms.push({ id: uid(), name: 'Séjour',  points: [{x:40,y:40},{x:300,y:40},{x:300,y:280},{x:40,y:280}] });
+  state.rooms.push({ id: uid(), name: 'Cuisine', points: [{x:300,y:40},{x:520,y:40},{x:520,y:180},{x:300,y:180}] });
+  state.rooms.push({ id: uid(), name: 'Chambre', points: [{x:40,y:280},{x:300,y:280},{x:300,y:500},{x:40,y:500}] });
+  state.walls.push({ id: uid(), x1:40,  y1:40,  x2:520, y2:40  });
+  state.walls.push({ id: uid(), x1:40,  y1:40,  x2:40,  y2:500 });
+  state.walls.push({ id: uid(), x1:520, y1:40,  x2:520, y2:180 });
+  state.walls.push({ id: uid(), x1:40,  y1:500, x2:300, y2:500 });
+  state.walls.push({ id: uid(), x1:300, y1:40,  x2:300, y2:500 });
+  state.walls.push({ id: uid(), x1:300, y1:180, x2:520, y2:180 });
+  state.elements.push({ id: uid(), type:'tableau',     x:60,  y:60,  label:'TGBT',    circuitId:1 });
+  state.elements.push({ id: uid(), type:'luminaire',   x:170, y:160, label:'Séjour',  circuitId:1 });
+  state.elements.push({ id: uid(), type:'interrupteur',x:80,  y:260, label:'',        circuitId:1 });
+  state.elements.push({ id: uid(), type:'prise',       x:120, y:240, label:'',        circuitId:2 });
+  state.elements.push({ id: uid(), type:'prise',       x:240, y:240, label:'',        circuitId:2 });
+  state.elements.push({ id: uid(), type:'prise20',     x:380, y:140, label:'Cuisson', circuitId:3 });
+  state.elements.push({ id: uid(), type:'luminaire',   x:410, y:100, label:'Cuisine', circuitId:1 });
+  state.elements.push({ id: uid(), type:'luminaire',   x:170, y:380, label:'Chambre', circuitId:1 });
+  state.elements.push({ id: uid(), type:'prise',       x:100, y:440, label:'',        circuitId:2 });
+  state.elements.push({ id: uid(), type:'cumulus',     x:460, y:140, label:'ECS',     circuitId:4 });
+  state.cables.push({ id: uid(), type:'cable-phase', points:[{x:60,y:60},{x:60,y:240},{x:120,y:240}] });
+  state.cables.push({ id: uid(), type:'cable-phase', points:[{x:60,y:60},{x:170,y:60},{x:170,y:160}] });
+  updateRoomList(); renderCircuits(); draw();
+  toast('Exemple chargé — « Effacer tout » pour repartir de zéro');
+}
+
 // ── Barre de sélection : actions directes sur l'élément choisi, sans ouvrir le tiroir ──
 function updateSelBar() {
   const bar = document.getElementById('selBar');
@@ -1742,6 +1784,19 @@ function drawWallDimension(wall) {
 // ══════════════════════════════════════════════════════════════
 //  DRAW ROOMS
 // ══════════════════════════════════════════════════════════════
+// Position du nom de pièce : au centre, ou décalé si un appareil s'y trouve déjà.
+function roomLabelPos(room) {
+  const cx = room.points.reduce((a, p) => a + p.x, 0) / room.points.length;
+  const cy = room.points.reduce((a, p) => a + p.y, 0) / room.points.length;
+  const halfW = Math.max(24, (room.name || 'Pièce').length * 3.6) + 14;
+  for (const dy of [0, -32, 32, -64, 64]) {
+    const y = cy + dy;
+    const hit = state.elements.some(e => Math.abs(e.x - cx) < halfW && e.y - y > -30 && e.y - y < 20);
+    if (!hit) return { x: cx, y };
+  }
+  return { x: cx, y: cy };
+}
+
 function drawRoom(room, isSelected) {
   if (room.points.length < 3) return;
   ctx.save();
@@ -1760,9 +1815,8 @@ function drawRoom(room, isSelected) {
   ctx.fill(); ctx.stroke();
   ctx.setLineDash([]);
   // Label
-  const cx = room.points.reduce((a,p)=>a+p.x,0)/room.points.length;
-  const cy = room.points.reduce((a,p)=>a+p.y,0)/room.points.length;
-  const sc = worldToScreen(cx, cy);
+  const lp = roomLabelPos(room);
+  const sc = worldToScreen(lp.x, lp.y);
   ctx.fillStyle = 'rgba(245,166,35,0.7)';
   ctx.font = `bold ${12 * state.zoom}px system-ui, sans-serif`;
   ctx.textAlign = 'center';
@@ -1884,6 +1938,7 @@ function draw() {
   updateRoomList();
   updateDrawBar();
   updateSelBar();
+  updateWelcome();
   saveToLocalStorage();
   historySchedule();
 }
@@ -2285,15 +2340,36 @@ function finishCable() {
   draw();
 }
 
+// Fin de tracé d'une pièce : on demande son nom dans une liste rapide.
 function finishRoom() {
-  const name = prompt('Nom de la pièce :', 'Salon');
-  state.rooms.push({ id: uid(), name: name || 'Pièce', points: [...state.roomPoints] });
+  if (state.roomPoints.length < 3) return;
+  const input = document.getElementById('roomNameInput');
+  input.value = '';
+  document.getElementById('roomNameModal').classList.add('open');
+  if (state.hasMouse) input.focus();
+}
+function confirmRoomName(name) {
+  document.getElementById('roomNameModal').classList.remove('open');
+  if (state.roomPoints.length < 3) return;
+  const clean = (name || '').trim() || 'Pièce';
+  state.rooms.push({ id: uid(), name: clean, points: [...state.roomPoints] });
   state.roomPoints = [];
   updateRoomList();
-  toast('Pièce créée');
+  toast(`Pièce « ${clean} » créée`);
   setMode('select');
   draw();
 }
+function confirmRoomNameInput() {
+  confirmRoomName(document.getElementById('roomNameInput').value);
+}
+// Fermer sans nommer : le tracé reste en place, on peut le reprendre ou le terminer plus tard.
+function cancelRoomName() {
+  document.getElementById('roomNameModal').classList.remove('open');
+}
+document.getElementById('roomNameInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); confirmRoomNameInput(); }
+  if (e.key === 'Escape') { e.preventDefault(); cancelRoomName(); }
+});
 
 function handleSelect(sx, sy, isTouch = false) {
   // Au doigt, la zone de touche garde une taille minimale quel que soit le zoom.
@@ -2345,9 +2421,8 @@ function handleSelect(sx, sy, isTouch = false) {
   // Check rooms
   for (let i = state.rooms.length - 1; i >= 0; i--) {
     const room = state.rooms[i];
-    const cx = room.points.reduce((a,p)=>a+p.x,0)/room.points.length;
-    const cy = room.points.reduce((a,p)=>a+p.y,0)/room.points.length;
-    const sc = worldToScreen(cx, cy);
+    const lp = roomLabelPos(room);
+    const sc = worldToScreen(lp.x, lp.y);
     if (Math.hypot(sc.x - sx, sc.y - sy) < 30) {
       state.selected = room;
       updateProps();
@@ -2406,6 +2481,21 @@ function duplicateSelected() {
   toast('Dupliqué — glissez la copie à sa place');
 }
 
+// Raccourcis d'outils (R et F restent rotation et sens de porte).
+let _lastCableTool = 'cable-phase';
+const TOOL_KEYS = { p: 'prise', i: 'interrupteur', v: 'va-et-vient', l: 'luminaire', t: 'tableau' };
+const TOOL_SHORTCUTS = {
+  ...Object.fromEntries(Object.entries(TOOL_KEYS).map(([k, type]) => [k, () => selectTool(type)])),
+  c: () => selectTool(_lastCableTool),
+  m: () => addWall(),
+  s: () => setMode('select'),
+};
+// Le raccourci s'affiche dans l'info-bulle du bouton.
+for (const [k, type] of Object.entries(TOOL_KEYS)) {
+  const b = document.querySelector(`#panelLeft .tool-btn[data-type="${type}"]`);
+  if (b) b.title = `${b.textContent.trim()} — touche ${k.toUpperCase()}`;
+}
+
 document.addEventListener('keydown', (e) => {
   if (document.activeElement.tagName === 'INPUT') return;
   // Ctrl/Cmd+Z annuler · Ctrl+Maj+Z ou Ctrl+Y rétablir · Ctrl+D dupliquer
@@ -2414,6 +2504,12 @@ document.addEventListener('keydown', (e) => {
     if (k === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if (k === 'y') { e.preventDefault(); redo(); return; }
     if (k === 'd') { e.preventDefault(); duplicateSelected(); return; }
+    return;
+  }
+  // Lettre seule → outil courant
+  if (!e.altKey && TOOL_SHORTCUTS[e.key.toLowerCase()]) {
+    e.preventDefault();
+    TOOL_SHORTCUTS[e.key.toLowerCase()]();
     return;
   }
   // Espace → mode pan temporaire
@@ -2453,7 +2549,7 @@ document.addEventListener('keyup', (e) => {
 function updateProps() {
   const panel = document.getElementById('propsPanel');
   const el = state.selected;
-  if (!el) { panel.innerHTML = '<div style="color:var(--text2);font-size:10px;">Sélectionnez un élément.</div>'; return; }
+  if (!el) { panel.innerHTML = '<div style="color:var(--text2);font-size:12px;">Sélectionnez un élément.</div>'; return; }
 
   const circuitOpts = state.circuits.map(c =>
     `<option value="${c.id}" ${el.circuitId === c.id ? 'selected' : ''}>${c.name}</option>`
@@ -2484,7 +2580,7 @@ function updateProps() {
             <option value="10"   ${sec==='10'  ?'selected':''}>10 mm²</option>
             <option value="16"   ${sec==='16'  ?'selected':''}>16 mm²</option>
           </select>
-        </div>` : `<div style="font-size:10px;color:var(--text2);margin-top:4px;">Câble télécom / VDI</div>`}
+        </div>` : `<div style="font-size:12px;color:var(--text2);margin-top:4px;">Câble télécom / VDI</div>`}
       </div>`;
     } else {
       html += `<div class="prop-row"><div class="prop-label">Type</div>
@@ -2520,7 +2616,7 @@ function updateProps() {
         <button class="prop-rot-btn prop-rot-preset" data-onclick="setRotation(180)" title="Sud">↓ 180°</button>
         <button class="prop-rot-btn prop-rot-preset" data-onclick="setRotation(270)" title="Ouest">← 270°</button>
       </div>
-      <div style="font-size:9px;color:var(--text2);margin-top:4px;">Raccourcis : <b>R</b> = +90° · <b>Shift+R</b> = −90°</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px;">Raccourcis : <b>R</b> = +90° · <b>Shift+R</b> = −90°</div>
     </div>`;
     // Dimensions sur mesure — uniquement pour plan-travail-perso
     if (el.type === 'plan-travail-perso') {
@@ -2528,19 +2624,19 @@ function updateProps() {
         <div class="prop-label">Dimensions cuisine</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px;">
           <div>
-            <div style="font-size:9px;color:var(--text2);margin-bottom:2px;">Largeur (cm)</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:2px;">Largeur (cm)</div>
             <input class="prop-input" type="number" min="30" max="600" step="5"
               value="${el.widthCm || 120}"
               data-oninput="updatePropNum('widthCm',this.value)" style="width:100%"/>
           </div>
           <div>
-            <div style="font-size:9px;color:var(--text2);margin-bottom:2px;">Profondeur (cm)</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:2px;">Profondeur (cm)</div>
             <input class="prop-input" type="number" min="30" max="120" step="5"
               value="${el.depthCm || 60}"
               data-oninput="updatePropNum('depthCm',this.value)" style="width:100%"/>
           </div>
         </div>
-        <div style="font-size:9px;color:var(--text2);margin-top:4px;">Standard : 60 cm de profondeur · largeur libre</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;">Standard : 60 cm de profondeur · largeur libre</div>
       </div>`;
     }
     // Sens d'ouverture — uniquement pour les portes
@@ -2556,7 +2652,7 @@ function updateProps() {
             ↓ Arrière
           </button>
         </div>
-        <div style="font-size:9px;color:var(--text2);margin-top:3px;">Raccourci : <b>F</b> = basculer le sens</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px;">Raccourci : <b>F</b> = basculer le sens</div>
       </div>`;
     }
     html += `<div class="prop-row"><div class="prop-label">Position</div>
@@ -2587,9 +2683,9 @@ function updateProps() {
         <input class="prop-input" type="number" id="propWallLen"
           min="0.01" step="0.01" value="${lenM.toFixed(2)}"
           data-oninput="resizeWallTo(parseFloat(this.value))" style="width:80px;"/>
-        <span style="font-size:10px;color:var(--text2);">m</span>
+        <span style="font-size:12px;color:var(--text2);">m</span>
       </div>
-      <div style="font-size:9px;color:var(--text2);margin-top:3px;">Ajusté depuis le point de départ.</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px;">Ajusté depuis le point de départ.</div>
     </div>`;
     html += `<div class="prop-row">
       <div class="prop-label">Étiquette</div>
@@ -2716,14 +2812,14 @@ function renderCircuits() {
           <span class="circuit-dot" style="background:${c.color};flex-shrink:0;"></span>${c.name}
         </div>
         <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
-          <span style="font-family:var(--font-mono);font-size:10px;color:var(--text2);">${c.ampere}</span>
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--text2);">${c.ampere}</span>
           <button class="circuit-edit-btn" title="Modifier" data-onclick="editCircuitFromList(event,${cidx})">✎</button>
         </div>
       </div>
       ${total > 0
-        ? `<div style="font-size:9px;color:var(--text2);margin-top:3px;line-height:1.4;">${summary}</div>
-           <div style="font-size:9px;font-weight:700;color:var(--accent);margin-top:2px;">${total} élément${total > 1 ? 's' : ''}</div>`
-        : `<div style="font-size:9px;color:var(--text2);margin-top:2px;font-style:italic;">Circuit actif — aucun élément</div>`
+        ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;line-height:1.4;">${summary}</div>
+           <div style="font-size:11px;font-weight:700;color:var(--accent);margin-top:2px;">${total} élément${total > 1 ? 's' : ''}</div>`
+        : `<div style="font-size:11px;color:var(--text2);margin-top:2px;font-style:italic;">Circuit actif — aucun élément</div>`
       }`;
 
     div.onclick = () => {
@@ -2745,7 +2841,7 @@ function renderCircuits() {
   // ── Circuits utilisés (+ circuit actif) ───────────────────────
   if (used.length === 0) {
     const tip = document.createElement('div');
-    tip.style.cssText = 'font-size:10px;color:var(--text2);padding:6px 4px;font-style:italic;';
+    tip.style.cssText = 'font-size:12px;color:var(--text2);padding:6px 4px;font-style:italic;';
     tip.textContent = 'Pose des éléments pour les voir apparaître ici.';
     list.appendChild(tip);
   }
@@ -2756,7 +2852,7 @@ function renderCircuits() {
     const details = document.createElement('details');
     details.style.cssText = 'margin-top:6px;';
     const summary = document.createElement('summary');
-    summary.style.cssText = 'font-size:9px;color:var(--text2);cursor:pointer;padding:5px 4px;'
+    summary.style.cssText = 'font-size:11px;color:var(--text2);cursor:pointer;padding:5px 4px;'
       + 'text-transform:uppercase;letter-spacing:0.05em;list-style:none;user-select:none;';
     const updateSummary = () => {
       summary.textContent = (details.open ? '▾ ' : '▸ ')
@@ -2772,7 +2868,7 @@ function renderCircuits() {
   // ── Nouveau circuit ────────────────────────────────────────────
   const btn = document.createElement('button');
   btn.className = 'btn';
-  btn.style.cssText = 'width:100%;font-size:10px;margin-top:6px;';
+  btn.style.cssText = 'width:100%;font-size:12px;margin-top:6px;';
   btn.textContent = '+ Nouveau circuit';
   btn.onclick = addCircuit;
   list.appendChild(btn);
@@ -2804,14 +2900,14 @@ function editCircuit(cidx) {
       <input type="color" id="ec_color_${cidx}" value="${c.color}"
         style="width:26px;height:26px;border:none;padding:1px;cursor:pointer;border-radius:4px;background:var(--surface2);flex-shrink:0;">
       <input type="text" id="ec_name_${cidx}" value="${c.name}" placeholder="Nom"
-        style="flex:1;font-size:10px;padding:3px 6px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
+        style="flex:1;font-size:12px;padding:3px 6px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
       <input type="text" id="ec_ampere_${cidx}" value="${c.ampere}" placeholder="16A"
-        style="width:38px;font-size:10px;padding:3px 4px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--font-mono);">
+        style="width:38px;font-size:12px;padding:3px 4px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--font-mono);">
     </div>
     <div style="display:flex;gap:3px;">
-      <button class="btn" style="flex:1;font-size:9px;padding:3px;" data-onclick="saveCircuit(${cidx})">✓ Enregistrer</button>
-      <button class="btn" style="font-size:9px;padding:3px 6px;" data-onclick="renderCircuits()">✕</button>
-      <button class="btn" style="font-size:9px;padding:3px 6px;color:#ef9a9a;" data-onclick="deleteCircuit(${cidx})">🗑</button>
+      <button class="btn" style="flex:1;font-size:11px;padding:3px;" data-onclick="saveCircuit(${cidx})">✓ Enregistrer</button>
+      <button class="btn" style="font-size:11px;padding:3px 6px;" data-onclick="renderCircuits()">✕</button>
+      <button class="btn" style="font-size:11px;padding:3px 6px;color:#ef9a9a;" data-onclick="deleteCircuit(${cidx})">🗑</button>
     </div>`;
   card.replaceWith(form);
   const nameInput = document.getElementById(`ec_name_${cidx}`);
@@ -2899,7 +2995,7 @@ function updateStats() {
 
   const cablesEl = document.getElementById('statCablesList');
   if (!rows.length) {
-    cablesEl.innerHTML = '<div style="color:var(--text2);font-size:10px;padding:4px 0;">Aucun câble tracé</div>';
+    cablesEl.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:4px 0;">Aucun câble tracé</div>';
   } else {
     cablesEl.innerHTML = rows.map(r =>
       `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
@@ -2908,7 +3004,7 @@ function updateStats() {
       </div>`
     ).join('') +
     `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0 0;">
-      <span style="font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);">Total plan</span>
+      <span style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);">Total plan</span>
       <span style="font-weight:800;color:var(--accent);">${totalLen.toFixed(1)} m</span>
     </div>`;
   }
@@ -4954,36 +5050,10 @@ function toast(msg) {
     touch = {};
   }, { passive: false });
 
-  // Plan demo uniquement si aucun paramètre ET aucune donnée locale
-  let _demoTimer = null;
-  if (!chantier && !client && !planB64 && state.elements.length === 0 && state.walls.length === 0 && state.rooms.length === 0) {
-    _demoTimer = setTimeout(() => {
-      state.rooms.push({ id: uid(), name: 'Séjour',  points: [{x:40,y:40},{x:300,y:40},{x:300,y:280},{x:40,y:280}] });
-      state.rooms.push({ id: uid(), name: 'Cuisine', points: [{x:300,y:40},{x:520,y:40},{x:520,y:180},{x:300,y:180}] });
-      state.rooms.push({ id: uid(), name: 'Chambre', points: [{x:40,y:280},{x:300,y:280},{x:300,y:500},{x:40,y:500}] });
-      state.walls.push({ id: uid(), x1:40,  y1:40,  x2:520, y2:40  });
-      state.walls.push({ id: uid(), x1:40,  y1:40,  x2:40,  y2:500 });
-      state.walls.push({ id: uid(), x1:520, y1:40,  x2:520, y2:180 });
-      state.walls.push({ id: uid(), x1:40,  y1:500, x2:300, y2:500 });
-      state.walls.push({ id: uid(), x1:300, y1:40,  x2:300, y2:500 });
-      state.walls.push({ id: uid(), x1:300, y1:180, x2:520, y2:180 });
-      state.elements.push({ id: uid(), type:'tableau',     x:60,  y:60,  label:'TGBT',    circuitId:1 });
-      state.elements.push({ id: uid(), type:'luminaire',   x:170, y:160, label:'Séjour',  circuitId:1 });
-      state.elements.push({ id: uid(), type:'interrupteur',x:80,  y:260, label:'',        circuitId:1 });
-      state.elements.push({ id: uid(), type:'prise',       x:120, y:240, label:'',        circuitId:2 });
-      state.elements.push({ id: uid(), type:'prise',       x:240, y:240, label:'',        circuitId:2 });
-      state.elements.push({ id: uid(), type:'prise20',     x:380, y:140, label:'Cuisson', circuitId:3 });
-      state.elements.push({ id: uid(), type:'luminaire',   x:410, y:100, label:'Cuisine', circuitId:1 });
-      state.elements.push({ id: uid(), type:'luminaire',   x:170, y:380, label:'Chambre', circuitId:1 });
-      state.elements.push({ id: uid(), type:'prise',       x:100, y:440, label:'',        circuitId:2 });
-      state.elements.push({ id: uid(), type:'cumulus',     x:460, y:140, label:'ECS',     circuitId:4 });
-      state.cables.push({ id: uid(), type:'cable-phase', points:[{x:60,y:60},{x:60,y:240},{x:120,y:240}] });
-      state.cables.push({ id: uid(), type:'cable-phase', points:[{x:60,y:60},{x:170,y:60},{x:170,y:160}] });
-      updateRoomList(); draw();
-    }, 100);
-  } else {
-    updateRoomList(); draw();
-  }
+  // Plus de plan de démonstration automatique : un plan vide affiche l'écran
+  // d'accueil (voir updateWelcome), d'où l'exemple reste accessible.
+  const _demoTimer = null;
+  updateRoomList(); draw();
 })();
 
 // ══════════════════════════════════════════════════════════════
