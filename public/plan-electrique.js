@@ -304,6 +304,8 @@ const WALL_SNAP_TYPES = new Set([
   'prise-rj45', 'volet', ...OPENING_TYPES,
 ]);
 const WALL_OFFSET = 14; // distance mur → centre du symbole (unités plan)
+// Symboles plus profonds que le rond d'une prise : demi-profondeur + jeu, pour ne pas mordre le mur.
+const WALL_OFFSETS = { tableau: 22, compteur: 20, convecteur: 10, 'seche-serviette': 24, clim: 11, 'prise-rj45': 12, volet: 16 };
 
 function toggleWallSnap() {
   state.wallSnap = !state.wallSnap;
@@ -359,7 +361,10 @@ function snapForElement(type, wx, wy, el) {
     return { x: r2(px + nx * half), y: r2(py + ny * half), rotation: norm(angle + (turn ? 180 : 0)) };
   }
   if (OPENING_TYPES.has(type)) return { x: r2(px), y: r2(py), rotation: norm(angle) % 180 };
-  return { x: r2(px + nx * WALL_OFFSET), y: r2(py + ny * WALL_OFFSET) };
+  // Appareil mural : le haut du symbole (côté fixation) se tourne vers le mur.
+  // L'étiquette reste droite, voir drawElement.
+  const off = (WALL_OFFSETS[type] || WALL_OFFSET) * (el?.scale || 1);
+  return { x: r2(px + nx * off), y: r2(py + ny * off), rotation: norm(Math.atan2(-nx, ny) * 180 / Math.PI) };
 }
 
 // Point de câble : accroché au centre de l'appareil le plus proche, sinon à la grille.
@@ -435,7 +440,7 @@ try {
 
 function _paletteButton(type) {
   return [...document.querySelectorAll('#panelLeft .tool-btn')]
-    .find(b => b.dataset.type === type && !b.closest('#recentTools'));
+    .find(b => b.dataset.type === type && !b.closest('#recentTools, #favTools'));
 }
 function toolLabel(type) {
   return _paletteButton(type)?.textContent.trim() || type;
@@ -453,19 +458,57 @@ function noteRecentTool(type) {
   try { localStorage.setItem(RECENT_KEY, JSON.stringify(_recentTools)); } catch { /* stockage indisponible */ }
   renderRecentTools();
 }
+// Favoris : épinglés à la main (étoile sur chaque bouton), au-dessus des récents.
+const FAV_KEY = 'planelec-fav-tools';
+let _favTools = [];
+try {
+  const saved = JSON.parse(localStorage.getItem(FAV_KEY) || 'null');
+  if (Array.isArray(saved)) _favTools = saved.filter(t => typeof t === 'string');
+} catch { /* stockage indisponible */ }
+// Une étoile dans chaque bouton de la palette (le glyphe vient du CSS : le libellé reste propre).
+document.querySelectorAll('#panelLeft .tool-btn[data-type]').forEach(b => {
+  const star = document.createElement('span');
+  star.className = 'fav-star';
+  star.setAttribute('role', 'button');
+  star.title = 'Ajouter aux favoris';
+  star.setAttribute('data-onclick', `toggleFavorite(event, '${b.dataset.type}')`);
+  b.appendChild(star);
+});
+function toggleFavorite(ev, type) {
+  ev.stopPropagation();
+  const i = _favTools.indexOf(type);
+  if (i >= 0) _favTools.splice(i, 1); else _favTools.push(type);
+  try { localStorage.setItem(FAV_KEY, JSON.stringify(_favTools)); } catch { /* stockage indisponible */ }
+  renderRecentTools();
+  toast(i >= 0 ? `${toolLabel(type)} retiré des favoris` : `${toolLabel(type)} ajouté aux favoris`);
+}
 function renderRecentTools() {
+  const favBox = document.getElementById('favTools');
   const box = document.getElementById('recentTools');
-  if (!box) return;
-  box.textContent = '';
-  for (const { type } of _recentTools) {
-    const src = _paletteButton(type);
-    if (!src) continue;
-    const b = src.cloneNode(true);
-    b.classList.remove('tool-btn-wide');
-    b.style.display = '';
-    b.classList.toggle('active', state.tool === type);
-    box.appendChild(b);
-  }
+  if (!box || !favBox) return;
+  const fill = (target, types) => {
+    target.textContent = '';
+    for (const type of types) {
+      const src = _paletteButton(type);
+      if (!src) continue;
+      const b = src.cloneNode(true);
+      b.classList.remove('tool-btn-wide');
+      b.style.display = '';
+      b.classList.toggle('active', state.tool === type);
+      target.appendChild(b);
+    }
+  };
+  fill(favBox, _favTools);
+  fill(box, _recentTools.map(r => r.type).filter(t => !_favTools.includes(t)));
+  document.getElementById('favSection').style.display = favBox.children.length ? '' : 'none';
+  document.getElementById('recentTitle').style.display = box.children.length ? '' : 'none';
+  // Étoiles pleines sur les favoris, partout dans la palette
+  document.querySelectorAll('#panelLeft .tool-btn[data-type]').forEach(b => {
+    const on = _favTools.includes(b.dataset.type);
+    b.classList.toggle('is-fav', on);
+    const star = b.querySelector('.fav-star');
+    if (star) star.title = on ? 'Retirer des favoris' : 'Ajouter aux favoris';
+  });
 }
 function _plain(str) {
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -474,7 +517,7 @@ function filterTools(query) {
   const q = _plain(query.trim());
   let shown = 0;
   document.querySelectorAll('#panelLeft .panel-section').forEach(sec => {
-    const btns = [...sec.querySelectorAll('.tool-btn')].filter(b => !b.closest('#recentTools'));
+    const btns = [...sec.querySelectorAll('.tool-btn')].filter(b => !b.closest('#recentTools, #favTools'));
     if (!btns.length) return;
     let any = false;
     for (const b of btns) {
@@ -707,6 +750,40 @@ function setMultiCircuit(circuitId) {
   toast(`${targets.length} appareil${targets.length > 1 ? 's' : ''} → ${c.name}`);
 }
 
+// ── Câbles attachés : un point de câble posé sur un appareil le suit quand on le déplace ──
+// Lien = point de câble confondu avec le centre d'un appareil au début du geste.
+// Si le segment voisin était horizontal ou vertical, il le reste : le point voisin
+// (s'il est libre) glisse sur l'autre axe au lieu de laisser une diagonale.
+let _cableLinks = [];
+function cableLinksFor(elements, skipCables = []) {
+  const links = [];
+  const centers = state.elements.filter(e => !FURNITURE_TYPES.has(e.type));
+  const isAnchored = (p) => centers.some(e => Math.abs(e.x - p.x) < 1 && Math.abs(e.y - p.y) < 1);
+  for (const cable of state.cables) {
+    if (skipCables.includes(cable)) continue;
+    cable.points.forEach((p, i) => {
+      const el = elements.find(e => Math.abs(e.x - p.x) < 1 && Math.abs(e.y - p.y) < 1);
+      if (!el) return;
+      const link = { el, elOrig: { x: el.x, y: el.y }, p, pOrig: { x: p.x, y: p.y }, nb: null };
+      const end = i === 0 ? 1 : (i === cable.points.length - 1 ? i - 1 : -1);
+      if (end >= 0 && cable.points.length >= 3) {
+        const q = cable.points[end];
+        const axis = Math.abs(q.y - p.y) < 1 ? 'y' : (Math.abs(q.x - p.x) < 1 ? 'x' : null);
+        if (axis && !isAnchored(q)) link.nb = { q, qOrig: { x: q.x, y: q.y }, axis };
+      }
+      links.push(link);
+    });
+  }
+  return links;
+}
+function applyCableLinks() {
+  for (const l of _cableLinks) {
+    const dx = l.el.x - l.elOrig.x, dy = l.el.y - l.elOrig.y;
+    l.p.x = l.pOrig.x + dx; l.p.y = l.pOrig.y + dy;
+    if (l.nb) l.nb.q[l.nb.axis] = l.nb.qOrig[l.nb.axis] + (l.nb.axis === 'y' ? dy : dx);
+  }
+}
+
 // ── Déplacement groupé : glisser un élément de la sélection déplace tout ──
 let isDraggingGroup = false, _groupStartW = null, _groupOrigins = null;
 let _marquee = null; // cadre de sélection (Maj+glisser), en coordonnées écran
@@ -732,6 +809,8 @@ function tryStartGroupDrag(sx, sy, isTouch) {
   isDraggingGroup = true;
   _groupStartW = screenToWorld(sx, sy);
   _groupOrigins = items.map(o => [o, _posSnapshot(o)]);
+  // Les câbles hors sélection restent accrochés aux appareils déplacés.
+  _cableLinks = cableLinksFor(items.filter(o => state.elements.includes(o)), items.filter(o => state.cables.includes(o)));
   return true;
 }
 // Renvoie true si la sélection a effectivement bougé.
@@ -739,6 +818,7 @@ function moveGroupDrag(sx, sy) {
   const cur = screenToWorld(sx, sy);
   const d = snapPoint(cur.x - _groupStartW.x, cur.y - _groupStartW.y);
   for (const [o, orig] of _groupOrigins) _posApply(o, orig, d.x, d.y);
+  applyCableLinks();
   draw();
   return d.x !== 0 || d.y !== 0;
 }
@@ -929,11 +1009,18 @@ function drawElement(el, isSelected) {
     ctx.fillText(label, 0, -hDist - hr - 3/state.zoom);
   }
   if (el.label) {
-    const { hh: labelHh } = getElHalfSizes(el);
+    // L'étiquette reste droite quelle que soit la rotation du symbole.
+    const { hw: lHw, hh: lHh } = getElHalfSizes(el);
+    const th = (el.rotation || 0) * Math.PI / 180;
+    const ext = Math.abs(lHw * Math.sin(th)) + Math.abs(lHh * Math.cos(th));
+    if (el.rotation) ctx.rotate(-th);
     ctx.fillStyle = '#8a9ab5';
     ctx.font = `bold ${9/state.zoom}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(el.label, 0, labelHh + 6);
+    // Appareil mural retourné (mur en dessous) : étiquette au-dessus, côté pièce.
+    const above = WALL_SNAP_TYPES.has(el.type) && !OPENING_TYPES.has(el.type)
+      && (el.rotation || 0) > 90 && (el.rotation || 0) < 270;
+    ctx.fillText(el.label, 0, above ? -(ext + 3) : ext + 6);
   }
   ctx.restore();
 }
@@ -2247,6 +2334,7 @@ canvas.addEventListener('mousedown', (e) => {
       isDraggingEl = true;
       dragStartW   = screenToWorld(sx, sy);
       dragElOrigin = { x: state.selected.x, y: state.selected.y };
+      _cableLinks  = cableLinksFor([state.selected]);
       mouseDownPos = null;
       e.preventDefault();
       return;
@@ -2320,6 +2408,7 @@ canvas.addEventListener('mousemove', (e) => {
     state.selected.x = sp2.x;
     state.selected.y = sp2.y;
     if (sp2.rotation !== undefined) state.selected.rotation = sp2.rotation;
+    applyCableLinks();
     mouseDragged = true;
     updateProps(); draw();
     return;
@@ -5151,6 +5240,7 @@ function toast(msg) {
           isDraggingEl = true;
           dragStartW   = screenToWorld(sx, sy);
           dragElOrigin = { x: state.selected.x, y: state.selected.y };
+          _cableLinks  = cableLinksFor([state.selected]);
           touch = { fingers: 1, sx: ts[0].clientX, sy: ts[0].clientY, moved: false, t: Date.now(), isDrag: true };
           return;
         }
@@ -5202,6 +5292,7 @@ function toast(msg) {
       state.selected.x = sp2.x;
       state.selected.y = sp2.y;
       if (sp2.rotation !== undefined) state.selected.rotation = sp2.rotation;
+      applyCableLinks();
       touch.moved = true;
       updateProps(); draw();
       return;
