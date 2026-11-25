@@ -99,6 +99,32 @@
   .btn:hover { border-color: var(--accent); color: var(--accent); }
   .btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
   .btn.danger:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn:disabled, .mob-tb-btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+
+  /* ── BARRE DE TRACÉ (câble / mur / pièce en cours) ── */
+  .draw-bar {
+    position: absolute;
+    top: 44px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px 6px 12px;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+    z-index: 30;
+    max-width: calc(100% - 20px);
+  }
+  .draw-bar-label { font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .draw-bar .btn { min-height: 40px; padding: 6px 14px; font-size: 13px; }
+  .draw-bar .btn.primary { background: var(--accent); border-color: var(--accent); color: #000; }
+  .draw-bar .btn.primary:hover { color: #000; }
+
+  /* Menu « Plus » (mobile) — masqué par défaut, affiché en feuille basse */
+  .mob-menu { display: none; }
 
   .header-right { display: flex; gap: 4px; align-items: center; }
 
@@ -562,6 +588,33 @@
     .mob-tb-btn.danger:active { border-color: var(--accent2); color: var(--accent2); }
     .mob-tb-btn svg { width: 20px; height: 20px; }
 
+    /* Menu « Plus » : feuille basse avec toutes les actions de l'en-tête */
+    .mob-menu.open {
+      display: block;
+      position: fixed;
+      left: 0; right: 0; bottom: 58px;
+      max-height: calc(100% - 120px);
+      overflow-y: auto;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-radius: 14px 14px 0 0;
+      padding: 12px 10px 10px;
+      z-index: 60;
+      box-shadow: 0 -8px 24px rgba(0,0,0,0.5);
+    }
+    .mob-menu-title {
+      font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+      color: var(--text2); margin: 8px 4px 6px;
+    }
+    .mob-menu-title:first-child { margin-top: 0; }
+    .mob-menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .mob-menu-grid .btn {
+      flex-direction: column; justify-content: center; gap: 3px;
+      min-height: 56px; padding: 6px 4px; font-size: 12px; white-space: normal; text-align: center;
+    }
+    .mob-menu-grid .btn span { font-size: 18px; line-height: 1; }
+    .draw-bar { top: 10px; }
+
     /* Canvas : espace pour la barre du bas */
     .canvas-wrap { padding-bottom: 58px; }
 
@@ -653,13 +706,16 @@
     <!-- ── ACTIONS ─────────────────────────────────────────────── -->
     <div class="panel-section">
       <div class="action-grid">
+        <button class="btn" id="btnUndo" data-onclick="undo()" title="Annuler (Ctrl+Z)" disabled>↶ Annuler</button>
+        <button class="btn" id="btnRedo" data-onclick="redo()" title="Rétablir (Ctrl+Maj+Z)" disabled>↷ Rétablir</button>
         <button class="btn" id="btnSelectMode" data-onclick="setMode('select')" title="Mode sélection">↖ Sélect.</button>
         <button class="btn" id="btnResizeMode" data-onclick="setMode('resize')" title="Redimensionner le plan">⇲ Redim.</button>
         <button class="btn" data-onclick="addWall()" title="Dessiner un mur">🧱 Mur</button>
         <button class="btn" data-onclick="addRoom()" title="Ajouter une pièce">🏠 Pièce</button>
         <button class="btn" id="btnCotation" data-onclick="toggleCotation()" title="Afficher/masquer les cotations">📏 Cotation</button>
-        <button class="btn danger" data-onclick="deleteSelected()" title="Supprimer l'élément sélectionné">🗑 Suppr.</button>
+        <button class="btn" data-onclick="duplicateSelected()" title="Dupliquer la sélection (Ctrl+D)">⧉ Dupliquer</button>
       </div>
+      <button class="btn action-btn-full danger" data-onclick="deleteSelected()" title="Supprimer l'élément sélectionné (Suppr)">🗑 Supprimer la sélection</button>
       <button class="btn action-btn-full danger" data-onclick="clearAll()" title="Effacer tout le plan">✕ Effacer tout</button>
     </div>
 
@@ -1014,6 +1070,12 @@
     <button class="panel-toggle panel-toggle-left"  id="toggleLeft"  data-onclick="toggleLeftPanel()"  title="Masquer/afficher le panneau gauche">‹</button>
     <button class="panel-toggle panel-toggle-right" id="toggleRight" data-onclick="toggleRightPanel()" title="Masquer/afficher le panneau droit">›</button>
     <div class="mode-indicator" id="modeIndicator"></div>
+    <!-- Barre de tracé : visible pendant un tracé de câble, de mur ou de pièce -->
+    <div class="draw-bar" id="drawBar">
+      <span class="draw-bar-label" id="drawBarLabel"></span>
+      <button class="btn primary" id="drawBarDone" data-onclick="finishDrawing()" title="Terminer le tracé (double-clic)">✓ Terminer</button>
+      <button class="btn" data-onclick="cancelDrawing()" title="Abandonner le tracé (Échap)">✕</button>
+    </div>
     <!-- Contrôles fond PDF (visibles uniquement quand un fond est actif) -->
     <div id="bgPdfControls" style="display:none;position:absolute;top:10px;right:52px;
       background:var(--surface);border:1px solid var(--border);border-radius:8px;
@@ -1202,6 +1264,34 @@
 <!-- MOBILE : fond sombre derrière les tiroirs -->
 <div class="mob-overlay" id="mobOverlay" data-onclick="closePanels()"></div>
 
+<!-- MOBILE : menu « Plus » — les actions de l'en-tête, masquées sur petit écran -->
+<div class="mob-menu" id="mobMenu">
+  <div class="mob-menu-title">Plan</div>
+  <div class="mob-menu-grid">
+    <button class="btn" data-onclick="closePanels();saveToClient()" style="border-color:#66bb6a;color:#66bb6a;"><span>🏠</span>Fiche client</button>
+    <button class="btn" data-onclick="closePanels();saveProject()"><span>💾</span>Sauvegarder</button>
+    <button class="btn" data-onclick="closePanels();loadProject()"><span>📂</span>Charger</button>
+    <button class="btn" data-onclick="closePanels();importPDFBackground()"><span>🗺</span>Fond de plan</button>
+    <button class="btn" data-onclick="closePanels();openAIImport()"><span>🤖</span>Import IA</button>
+    <button class="btn" data-onclick="togglePanel('right')"><span>📊</span>Stats</button>
+  </div>
+  <div class="mob-menu-title">Sorties</div>
+  <div class="mob-menu-grid">
+    <button class="btn" data-onclick="closePanels();exportDevis()"><span>📋</span>Devis</button>
+    <button class="btn" data-onclick="closePanels();openCableCalc()"><span>📐</span>Câbles</button>
+    <button class="btn" data-onclick="closePanels();exportPDF()"><span>📄</span>PDF</button>
+    <button class="btn" data-onclick="closePanels();exportPNG()"><span>📥</span>PNG</button>
+    <button class="btn" data-onclick="closePanels();printPlan()"><span>🖨</span>Imprimer</button>
+    <button class="btn" data-onclick="closePanels();toggleCotation()"><span>📏</span>Cotation</button>
+  </div>
+  <div class="mob-menu-title">Édition</div>
+  <div class="mob-menu-grid">
+    <button class="btn" id="mobBtnRedo" data-onclick="closePanels();redo()" disabled><span>↷</span>Rétablir</button>
+    <button class="btn" data-onclick="closePanels();duplicateSelected()"><span>⧉</span>Dupliquer</button>
+    <button class="btn" data-onclick="closePanels();setMode('resize')"><span>⇲</span>Redim. plan</button>
+  </div>
+</div>
+
 <!-- MOBILE : barre d'outils en bas -->
 <div class="mob-toolbar">
   <button class="mob-tb-btn" id="mobBtnTools" data-onclick="togglePanel('left')">
@@ -1220,13 +1310,17 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="3" y1="12" x2="21" y2="12" stroke-width="3"/></svg>
     Mur
   </button>
+  <button class="mob-tb-btn" id="mobBtnUndo" data-onclick="undo()" disabled>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+    Annuler
+  </button>
   <button class="mob-tb-btn danger" data-onclick="deleteSelected()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
     Suppr.
   </button>
-  <button class="mob-tb-btn" id="mobBtnStats" data-onclick="togglePanel('right')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>
-    Stats
+  <button class="mob-tb-btn" id="mobBtnMore" data-onclick="toggleMobMenu()">
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+    Plus
   </button>
 </div>
 

@@ -70,6 +70,82 @@ let state = {
 };
 
 // ══════════════════════════════════════════════════════════════
+//  HISTORIQUE — Annuler / Rétablir
+//  Chaque draw() programme un point de contrôle : si le contenu du plan
+//  a changé depuis le dernier, l'ancien état part dans la pile d'annulation.
+//  Aucune mutation à instrumenter une par une.
+// ══════════════════════════════════════════════════════════════
+const HISTORY_MAX = 80;
+const HISTORY_DELAY = 300;
+let _histUndo = [], _histRedo = [], _histLast = null, _histTimer = null;
+
+function _histSnapshot() {
+  return JSON.stringify({
+    elements: state.elements, walls: state.walls, rooms: state.rooms,
+    cables: state.cables, circuits: state.circuits,
+  });
+}
+// Geste en cours (glisser, rotation, redimensionnement) : on attend qu'il finisse.
+function _histBusy() {
+  return isDraggingEl || isRotating || isResizingEl || !!_resizeHandle;
+}
+// Pas de report si un contrôle est déjà programmé : deux poses rapprochées
+// restent deux étapes distinctes, même si la souris bouge sans arrêt.
+function historySchedule() {
+  if (_histTimer) return;
+  _histTimer = setTimeout(historyCommit, HISTORY_DELAY);
+}
+function historyCommit() {
+  clearTimeout(_histTimer); _histTimer = null;
+  if (_histBusy()) { historySchedule(); return; }
+  const snap = _histSnapshot();
+  if (_histLast === null) { _histLast = snap; return; }
+  if (snap === _histLast) return;
+  _histUndo.push(_histLast);
+  if (_histUndo.length > HISTORY_MAX) _histUndo.shift();
+  _histRedo = [];
+  _histLast = snap;
+  updateHistoryButtons();
+}
+// Nouveau plan chargé : l'historique repart de zéro.
+function historyReset() {
+  clearTimeout(_histTimer); _histTimer = null;
+  _histUndo = []; _histRedo = []; _histLast = null;
+  updateHistoryButtons();
+}
+function _histApply(snap) {
+  const d = JSON.parse(snap);
+  state.elements = d.elements; state.walls = d.walls; state.rooms = d.rooms;
+  state.cables = d.cables; state.circuits = d.circuits;
+  state.selected = null;
+  state.wallStart = null;
+  _histLast = snap;
+  updateHistoryButtons();
+  updateProps(); updateRoomList(); renderCircuits(); draw();
+}
+function undo() {
+  // Tracé en cours : on retire d'abord le dernier point posé.
+  if (state.mode === 'cable' && state.cablePoints.length) { state.cablePoints.pop(); draw(); return; }
+  if (state.mode === 'room' && state.roomPoints.length) { state.roomPoints.pop(); draw(); return; }
+  historyCommit();
+  if (!_histUndo.length) { toast('Rien à annuler'); return; }
+  _histRedo.push(_histLast);
+  _histApply(_histUndo.pop());
+  toast('Annulé');
+}
+function redo() {
+  historyCommit();
+  if (!_histRedo.length) { toast('Rien à rétablir'); return; }
+  _histUndo.push(_histLast);
+  _histApply(_histRedo.pop());
+  toast('Rétabli');
+}
+function updateHistoryButtons() {
+  for (const id of ['btnUndo', 'mobBtnUndo']) { const b = document.getElementById(id); if (b) b.disabled = !_histUndo.length; }
+  for (const id of ['btnRedo', 'mobBtnRedo']) { const b = document.getElementById(id); if (b) b.disabled = !_histRedo.length; }
+}
+
+// ══════════════════════════════════════════════════════════════
 //  CONSTANTES DE DESSIN (déclarées avant tout appel à draw())
 // ══════════════════════════════════════════════════════════════
 const CABLE_COLORS = {
@@ -277,6 +353,46 @@ function showMode(label) {
   el.classList.add('visible');
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove('visible'), 2500);
+  updateDrawBar();
+}
+
+// ── Barre de tracé : « Terminer » / « Abandonner » visibles pendant un tracé ──
+function updateDrawBar() {
+  const bar = document.getElementById('drawBar');
+  if (!bar) return;
+  const m = state.mode;
+  const drawing = m === 'cable' || m === 'wall' || m === 'room';
+  bar.style.display = drawing ? 'flex' : 'none';
+  if (!drawing) return;
+  let label, ready;
+  if (m === 'cable') {
+    const n = state.cablePoints.length;
+    label = n ? `Câble · ${n} point${n > 1 ? 's' : ''}` : 'Câble · touchez le départ';
+    ready = n >= 2;
+  } else if (m === 'room') {
+    const n = state.roomPoints.length;
+    label = n ? `Pièce · ${n} coin${n > 1 ? 's' : ''}` : 'Pièce · touchez les coins';
+    ready = n >= 3;
+  } else {
+    label = state.wallStart ? 'Mur · touchez le point suivant' : 'Mur · touchez le départ';
+    ready = true;
+  }
+  document.getElementById('drawBarLabel').textContent = label;
+  document.getElementById('drawBarDone').disabled = !ready;
+}
+function finishDrawing() {
+  if (state.mode === 'cable') {
+    if (state.cablePoints.length >= 2) finishCable();
+  } else if (state.mode === 'room') {
+    if (state.roomPoints.length >= 3) finishRoom();
+  } else if (state.mode === 'wall') {
+    state.wallStart = null;
+    setMode('select');
+  }
+}
+function cancelDrawing() {
+  state.cablePoints = []; state.wallStart = null; state.roomPoints = [];
+  setMode('select');
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1574,7 +1690,9 @@ function draw() {
 
   updateStats();
   updateRoomList();
+  updateDrawBar();
   saveToLocalStorage();
+  historySchedule();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1978,19 +2096,24 @@ function finishRoom() {
   draw();
 }
 
-function handleSelect(sx, sy) {
-  // Check elements
+function handleSelect(sx, sy, isTouch = false) {
+  // Au doigt, la zone de touche garde une taille minimale quel que soit le zoom.
+  const elRadius   = Math.max(18 * state.zoom, isTouch ? 24 : 12);
+  const lineRadius = isTouch ? 16 : 0;
+  // Éléments : le plus proche du point touché l'emporte (à distance égale, celui du dessus)
+  let best = null, bestD = elRadius;
   for (let i = state.elements.length - 1; i >= 0; i--) {
     const el = state.elements[i];
     const s = worldToScreen(el.x, el.y);
     const d = Math.hypot(s.x - sx, s.y - sy);
-    if (d < 18 * state.zoom) {
-      state.selected = el;
-      updateProps();
-      focusPropsPanel();
-      draw();
-      return;
-    }
+    if (d < bestD) { best = el; bestD = d; }
+  }
+  if (best) {
+    state.selected = best;
+    updateProps();
+    focusPropsPanel();
+    draw();
+    return;
   }
   // Check cables
   for (let i = state.cables.length - 1; i >= 0; i--) {
@@ -1998,7 +2121,7 @@ function handleSelect(sx, sy) {
     for (let j = 0; j < cable.points.length - 1; j++) {
       const a = worldToScreen(cable.points[j].x, cable.points[j].y);
       const b = worldToScreen(cable.points[j+1].x, cable.points[j+1].y);
-      if (distToSegment(sx, sy, a.x, a.y, b.x, b.y) < 6) {
+      if (distToSegment(sx, sy, a.x, a.y, b.x, b.y) < Math.max(6, lineRadius)) {
         state.selected = cable;
         updateProps();
         focusPropsPanel();
@@ -2012,7 +2135,7 @@ function handleSelect(sx, sy) {
     const wall = state.walls[i];
     const a = worldToScreen(wall.x1, wall.y1);
     const b = worldToScreen(wall.x2, wall.y2);
-    if (distToSegment(sx, sy, a.x, a.y, b.x, b.y) < 8) {
+    if (distToSegment(sx, sy, a.x, a.y, b.x, b.y) < Math.max(8, lineRadius)) {
       state.selected = wall;
       updateProps();
       focusPropsPanel();
@@ -2059,8 +2182,41 @@ function deleteSelected() {
   toast('Supprimé');
 }
 
+// Copie de la sélection, décalée d'un carreau, avec son circuit et ses réglages.
+function duplicateSelected() {
+  const src = state.selected;
+  if (!src) { toast('Sélectionnez d\'abord un élément'); return; }
+  const g = state.grid;
+  const copy = JSON.parse(JSON.stringify(src));
+  copy.id = uid();
+  if (state.elements.includes(src)) {
+    copy.x += g; copy.y += g;
+    state.elements.push(copy);
+  } else if (state.cables.includes(src)) {
+    copy.points.forEach(p => { p.x += g; p.y += g; });
+    state.cables.push(copy);
+  } else if (state.walls.includes(src)) {
+    copy.x1 += g; copy.y1 += g; copy.x2 += g; copy.y2 += g;
+    state.walls.push(copy);
+  } else if (state.rooms.includes(src)) {
+    copy.points.forEach(p => { p.x += g; p.y += g; });
+    state.rooms.push(copy);
+  } else return;
+  state.selected = copy;
+  updateProps(); updateRoomList(); renderCircuits(); draw();
+  toast('Dupliqué — glissez la copie à sa place');
+}
+
 document.addEventListener('keydown', (e) => {
   if (document.activeElement.tagName === 'INPUT') return;
+  // Ctrl/Cmd+Z annuler · Ctrl+Maj+Z ou Ctrl+Y rétablir · Ctrl+D dupliquer
+  if (e.ctrlKey || e.metaKey) {
+    const k = e.key.toLowerCase();
+    if (k === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+    if (k === 'y') { e.preventDefault(); redo(); return; }
+    if (k === 'd') { e.preventDefault(); duplicateSelected(); return; }
+    return;
+  }
   // Espace → mode pan temporaire
   if (e.key === ' ' && !spaceDown) {
     spaceDown = true;
@@ -2243,6 +2399,8 @@ function updateProps() {
   } else {
     html += `<div class="prop-row"><div class="prop-label">Sélection</div></div>`;
   }
+
+  html += `<button class="btn action-btn-full" style="margin-top:8px;" data-onclick="duplicateSelected()" title="Dupliquer (Ctrl+D)">⧉ Dupliquer</button>`;
 
   panel.innerHTML = html;
 }
@@ -3217,6 +3375,7 @@ function handleFileLoad(e) {
   reader.onload = (ev) => {
     try {
       const data = JSON.parse(ev.target.result);
+      historyReset();
       document.getElementById('projectName').value = data.projectName || '';
       state.elements = data.elements || [];
       state.walls = data.walls || [];
@@ -4404,6 +4563,7 @@ function toast(msg) {
     if (e.data?.type === 'planelec-load') {
       // Annuler le plan démo si encore en attente
       clearTimeout(_demoTimer);
+      historyReset();
       const p = e.data.plan;
       state.elements = p.elements || [];
       state.walls    = p.walls    || [];
@@ -4459,7 +4619,7 @@ function toast(msg) {
         }
         // Déplacer l'élément ?
         const s = worldToScreen(state.selected.x, state.selected.y);
-        if (Math.hypot(sx - s.x, sy - s.y) < getElHitRadius(state.selected)) {
+        if (Math.hypot(sx - s.x, sy - s.y) < Math.max(getElHitRadius(state.selected), 24)) {
           isDraggingEl = true;
           dragStartW   = screenToWorld(sx, sy);
           dragElOrigin = { x: state.selected.x, y: state.selected.y };
@@ -4553,7 +4713,7 @@ function toast(msg) {
     const now = Date.now();
 
     if (state.mode === 'select') {
-      handleSelect(sx, sy);
+      handleSelect(sx, sy, true);
     } else if (state.mode === 'place' && state.tool) {
       placeElement(sp.x, sp.y);
     } else if (state.mode === 'cable') {
@@ -4649,15 +4809,25 @@ function togglePanel(side) {
     right.classList.remove('mob-open');
     ov.classList.toggle('open', !isOpen);
     document.getElementById('mobBtnTools').classList.toggle('active', !isOpen);
-    document.getElementById('mobBtnStats').classList.remove('active');
   } else {
     const isOpen = right.classList.contains('mob-open');
     right.classList.toggle('mob-open', !isOpen);
     left.classList.remove('mob-open');
     ov.classList.toggle('open', !isOpen);
-    document.getElementById('mobBtnStats').classList.toggle('active', !isOpen);
     document.getElementById('mobBtnTools').classList.remove('active');
   }
+  document.getElementById('mobMenu').classList.remove('open');
+  document.getElementById('mobBtnMore').classList.remove('active');
+}
+
+// Menu « Plus » : toutes les actions de l'en-tête, masquées sur petit écran.
+function toggleMobMenu() {
+  const menu = document.getElementById('mobMenu');
+  const open = !menu.classList.contains('open');
+  closePanels();
+  menu.classList.toggle('open', open);
+  document.getElementById('mobOverlay').classList.toggle('open', open);
+  document.getElementById('mobBtnMore').classList.toggle('active', open);
 }
 
 function closePanels() {
@@ -4665,7 +4835,8 @@ function closePanels() {
   document.getElementById('panelRight').classList.remove('mob-open');
   document.getElementById('mobOverlay').classList.remove('open');
   document.getElementById('mobBtnTools').classList.remove('active');
-  document.getElementById('mobBtnStats').classList.remove('active');
+  document.getElementById('mobMenu').classList.remove('open');
+  document.getElementById('mobBtnMore').classList.remove('active');
 }
 
 // ══════════════════════════════════════════════════════════════
