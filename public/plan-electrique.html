@@ -701,6 +701,9 @@
     .sel-bar { top: 10px; }
     .sel-bar .btn { min-height: 42px; padding: 6px 11px; font-size: 14px; }
     .sel-bar .sel-bar-props { display: flex; }
+    .sel-bar { gap: 4px; padding-left: 10px; }
+    .sel-bar .btn { padding: 6px 9px; }
+    .sel-bar .sel-bar-text { display: none; }
     .tool-search { font-size: 16px; padding: 10px 12px; }
 
     /* Canvas : espace pour la barre du bas */
@@ -1183,10 +1186,13 @@
     <!-- Barre de sélection : actions directes sur l'élément choisi -->
     <div class="sel-bar" id="selBar">
       <span class="sel-bar-label" id="selBarLabel"></span>
-      <button class="btn sel-bar-props" data-onclick="focusPropsPanel(true)" title="Ouvrir les réglages de l'élément">⚙ Réglages</button>
+      <button class="btn sel-bar-props" id="selBarProps" data-onclick="focusPropsPanel(true)" title="Ouvrir les réglages de la sélection">⚙<span class="sel-bar-text"> Réglages</span></button>
       <button class="btn" id="selBarRotate" data-onclick="rotateSelected(90)" title="Pivoter de 90° (R)">⟳</button>
-      <button class="btn" data-onclick="duplicateSelected()" title="Dupliquer (Ctrl+D)">⧉</button>
-      <button class="btn danger" data-onclick="deleteSelected()" title="Supprimer (Suppr)">🗑</button>
+      <button class="btn" id="selBarContent" data-onclick="selectRoomContent()" title="Sélectionner la pièce avec ses murs, son appareillage et ses câbles">＋ Contenu</button>
+      <button class="btn" id="selBarMulti" data-onclick="toggleMultiMode()" title="Sélection multiple (Maj+clic, Maj+glisser)">☑</button>
+      <button class="btn" id="selBarDup" data-onclick="duplicateSelected()" title="Dupliquer (Ctrl+D)">⧉</button>
+      <button class="btn danger" id="selBarDel" data-onclick="deleteSelected()" title="Supprimer (Suppr)">🗑</button>
+      <button class="btn" id="selBarClear" data-onclick="clearSelection()" title="Désélectionner (Échap)">✕</button>
     </div>
     <!-- Barre de tracé : visible pendant un tracé de câble, de mur ou de pièce -->
     <div class="draw-bar" id="drawBar">
@@ -1215,7 +1221,7 @@
       <button data-onclick="zoom(0.1)" title="Zoom avant">+</button>
       <button data-onclick="resetView()" style="font-size:11px;margin-left:4px;" title="Réinitialiser la vue">⟲</button>
     </div>
-    <div class="nav-hint" id="navHint">Espace+glisser : déplacer · Molette : zoom · P I V L T C M : outils · R : pivoter</div>
+    <div class="nav-hint" id="navHint">Espace+glisser : déplacer · Molette : zoom · P I V L T C M : outils · R : pivoter · Maj+clic : sélection multiple</div>
   </div>
 
   <!-- RIGHT PANEL -->
@@ -1434,6 +1440,8 @@
     <button class="btn" data-onclick="closePanels();duplicateSelected()"><span>⧉</span>Dupliquer</button>
     <button class="btn" data-onclick="closePanels();setMode('resize')"><span>⇲</span>Redim. plan</button>
     <button class="btn" data-onclick="closePanels();toggleWallSnap()"><span>🧲</span>Aimant murs</button>
+    <button class="btn" data-onclick="closePanels();toggleMultiMode()"><span>☑</span>Sélection multiple</button>
+    <button class="btn" data-onclick="closePanels();selectAll()"><span>▣</span>Tout sélectionner</button>
   </div>
 </div>
 

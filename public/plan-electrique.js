@@ -46,6 +46,8 @@ let state = {
     { id: 12, name: 'Garage / Portail',    color: '#bcaaa4', ampere: '16A' },
   ],
   selected: null,
+  multi: [],          // sélection multiple (2 éléments ou plus) ; selected vaut alors null
+  multiMode: false,   // au doigt : chaque toucher ajoute ou retire de la sélection
   pan: { x: 60, y: 60 },
   zoom: 1,
   grid: 20,
@@ -89,7 +91,7 @@ function _histSnapshot() {
 }
 // Geste en cours (glisser, rotation, redimensionnement) : on attend qu'il finisse.
 function _histBusy() {
-  return isDraggingEl || isRotating || isResizingEl || !!_resizeHandle;
+  return isDraggingEl || isRotating || isResizingEl || !!_resizeHandle || isDraggingGroup;
 }
 // Pas de report si un contrôle est déjà programmé : deux poses rapprochées
 // restent deux étapes distinctes, même si la souris bouge sans arrêt.
@@ -120,6 +122,7 @@ function _histApply(snap) {
   state.elements = d.elements; state.walls = d.walls; state.rooms = d.rooms;
   state.cables = d.cables; state.circuits = d.circuits;
   state.selected = null;
+  state.multi = [];
   state.wallStart = null;
   _histLast = snap;
   updateHistoryButtons();
@@ -387,6 +390,8 @@ const WALL_TOOLS = [];
 function selectTool(type) {
   state.tool = type;
   state.selected = null;
+  state.multi = [];
+  state.multiMode = false;
   if (CABLE_TOOLS.includes(type)) {
     _lastCableTool = type;
     state.mode = 'cable';
@@ -498,6 +503,8 @@ function setMode(mode) {
   state.wallStart = null;
   state.roomPoints = [];
   state.selected = null;
+  state.multi = [];
+  state.multiMode = false;
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('btnSelectMode').classList.toggle('active', mode === 'select');
   document.getElementById('btnResizeMode').classList.toggle('active', mode === 'resize');
@@ -589,17 +596,167 @@ function updateSelBar() {
   const bar = document.getElementById('selBar');
   if (!bar) return;
   const el = state.selected;
-  const show = !!el && state.mode === 'select' && !isDraggingEl && !isRotating && !isResizingEl;
+  const n = state.multi.length;
+  // Évalué de gauche à droite : au tout premier draw() rien n'est sélectionné et les
+  // drapeaux de glisser (déclarés plus bas) ne sont pas encore lus.
+  const show = (!!el || n > 0 || state.multiMode) && state.mode === 'select'
+    && !(isDraggingEl || isRotating || isResizingEl || isDraggingGroup || !!_marquee);
   bar.style.display = show ? 'flex' : 'none';
   if (!show) return;
-  const isElement = state.elements.includes(el);
+  const isElement = !!el && state.elements.includes(el);
+  const isRoom = !!el && state.rooms.includes(el);
   let label;
-  if (isElement) label = el.label ? `${toolLabel(el.type)} · ${el.label}` : toolLabel(el.type);
+  if (n) label = `${n} éléments`;
+  else if (!el) label = 'Touchez les éléments';
+  else if (isElement) label = el.label ? `${toolLabel(el.type)} · ${el.label}` : toolLabel(el.type);
   else if (state.cables.includes(el)) label = `Câble ${el.nConductors || 3}G${el.section || '2.5'}`;
   else if (state.walls.includes(el)) label = 'Mur';
   else label = el.name || 'Pièce';
+  const vis = (id, on) => { document.getElementById(id).style.display = on ? '' : 'none'; };
   document.getElementById('selBarLabel').textContent = label;
-  document.getElementById('selBarRotate').style.display = isElement ? '' : 'none';
+  vis('selBarProps', !!el || n > 0);
+  vis('selBarRotate', isElement);
+  vis('selBarContent', isRoom);
+  vis('selBarDup', !!el || n > 0);
+  vis('selBarDel', !!el || n > 0);
+  vis('selBarClear', n > 0 || state.multiMode);
+  document.getElementById('selBarMulti').classList.toggle('active', state.multiMode);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SÉLECTION MULTIPLE
+//  state.selected reste la sélection simple ; dès qu'il y a 2 éléments ou
+//  plus, ils passent dans state.multi et state.selected vaut null.
+// ══════════════════════════════════════════════════════════════
+function selectionItems() {
+  return state.multi.length ? state.multi : (state.selected ? [state.selected] : []);
+}
+function setSelection(items) {
+  const uniq = [...new Set(items)];
+  if (uniq.length <= 1) { state.selected = uniq[0] || null; state.multi = []; }
+  else { state.selected = null; state.multi = uniq; }
+  updateProps();
+  draw();
+}
+function toggleInSelection(item) {
+  const cur = [...selectionItems()];
+  const i = cur.indexOf(item);
+  if (i >= 0) cur.splice(i, 1); else cur.push(item);
+  setSelection(cur);
+}
+function clearSelection() {
+  state.multiMode = false;
+  setSelection([]);
+}
+function toggleMultiMode() {
+  state.multiMode = !state.multiMode;
+  if (state.mode !== 'select') { const keep = state.multiMode; setMode('select'); state.multiMode = keep; }
+  toast(state.multiMode ? 'Sélection multiple : touchez les éléments' : 'Sélection multiple terminée');
+  draw();
+}
+function selectAll() {
+  if (state.mode !== 'select') setMode('select');
+  setSelection([...state.rooms, ...state.walls, ...state.cables, ...state.elements]);
+}
+// Retire de la sélection multiple ce qui n'existe plus (suppression, annulation, chargement).
+function _pruneMulti() {
+  if (!state.multi.length) return;
+  if (state.selected || state.mode !== 'select') { state.multi = []; return; }
+  const alive = state.multi.filter(o => state.elements.includes(o) || state.walls.includes(o)
+    || state.cables.includes(o) || state.rooms.includes(o));
+  if (alive.length === state.multi.length) return;
+  if (alive.length <= 1) { state.selected = alive[0] || null; state.multi = []; }
+  else state.multi = alive;
+}
+
+function _pointInPolygon(x, y, pts) {
+  // Sur le contour = dedans
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    if (distToSegment(x, y, a.x, a.y, b.x, b.y) < 1) return true;
+  }
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const a = pts[i], b = pts[j];
+    if ((a.y > y) !== (b.y > y) && x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+// Pièce sélectionnée → la pièce, ses murs, son appareillage et ses câbles.
+function selectRoomContent() {
+  const room = state.selected;
+  if (!room || !state.rooms.includes(room)) return;
+  const inside = (x, y) => _pointInPolygon(x, y, room.points);
+  const items = [
+    room,
+    ...state.walls.filter(w => inside(w.x1, w.y1) && inside(w.x2, w.y2)),
+    ...state.cables.filter(c => c.points.length && c.points.every(p => inside(p.x, p.y))),
+    ...state.elements.filter(e => inside(e.x, e.y)),
+  ];
+  setSelection(items);
+  toast(`${items.length} éléments sélectionnés — glissez pour déplacer`);
+}
+// Affecte un circuit à tous les appareils de la sélection.
+function setMultiCircuit(circuitId) {
+  const c = state.circuits.find(c => c.id === circuitId);
+  if (!c) return;
+  const targets = selectionItems().filter(o => state.elements.includes(o));
+  for (const el of targets) { el.circuitId = c.id; el.circuit = c.name; }
+  setActiveCircuit(c.id);
+  renderCircuits(); updateProps(); draw();
+  toast(`${targets.length} appareil${targets.length > 1 ? 's' : ''} → ${c.name}`);
+}
+
+// ── Déplacement groupé : glisser un élément de la sélection déplace tout ──
+let isDraggingGroup = false, _groupStartW = null, _groupOrigins = null;
+let _marquee = null; // cadre de sélection (Maj+glisser), en coordonnées écran
+
+function _posSnapshot(o) {
+  if (o.points) return { points: o.points.map(p => ({ x: p.x, y: p.y })) };
+  if (o.x1 !== undefined) return { x1: o.x1, y1: o.y1, x2: o.x2, y2: o.y2 };
+  return { x: o.x, y: o.y };
+}
+function _posApply(o, orig, dx, dy) {
+  if (orig.points) o.points.forEach((p, i) => { p.x = orig.points[i].x + dx; p.y = orig.points[i].y + dy; });
+  else if (orig.x1 !== undefined) { o.x1 = orig.x1 + dx; o.y1 = orig.y1 + dy; o.x2 = orig.x2 + dx; o.y2 = orig.y2 + dy; }
+  else { o.x = orig.x + dx; o.y = orig.y + dy; }
+}
+// Démarre un déplacement groupé si le point touche un élément de la sélection.
+// Un appareil seul garde son propre glisser (avec aimant aux murs).
+function tryStartGroupDrag(sx, sy, isTouch) {
+  const items = selectionItems();
+  if (!items.length) return false;
+  if (items.length === 1 && state.elements.includes(items[0])) return false;
+  const hit = pickAt(sx, sy, isTouch);
+  if (!hit || !items.includes(hit)) return false;
+  isDraggingGroup = true;
+  _groupStartW = screenToWorld(sx, sy);
+  _groupOrigins = items.map(o => [o, _posSnapshot(o)]);
+  return true;
+}
+// Renvoie true si la sélection a effectivement bougé.
+function moveGroupDrag(sx, sy) {
+  const cur = screenToWorld(sx, sy);
+  const d = snapPoint(cur.x - _groupStartW.x, cur.y - _groupStartW.y);
+  for (const [o, orig] of _groupOrigins) _posApply(o, orig, d.x, d.y);
+  draw();
+  return d.x !== 0 || d.y !== 0;
+}
+function endGroupDrag() {
+  isDraggingGroup = false; _groupStartW = null; _groupOrigins = null;
+  saveToLocalStorage(); updateProps(); draw();
+}
+function _selectInMarquee(m, additive) {
+  const a = screenToWorld(Math.min(m.x0, m.x1), Math.min(m.y0, m.y1));
+  const b = screenToWorld(Math.max(m.x0, m.x1), Math.max(m.y0, m.y1));
+  const inR = (x, y) => x >= a.x && x <= b.x && y >= a.y && y <= b.y;
+  const found = [
+    ...state.rooms.filter(r => r.points.every(p => inR(p.x, p.y))),
+    ...state.walls.filter(w => inR(w.x1, w.y1) && inR(w.x2, w.y2)),
+    ...state.cables.filter(c => c.points.every(p => inR(p.x, p.y))),
+    ...state.elements.filter(e => inR(e.x, e.y)),
+  ];
+  setSelection(additive ? [...selectionItems(), ...found] : found);
 }
 
 function finishDrawing() {
@@ -1828,6 +1985,7 @@ function drawRoom(room, isSelected) {
 //  MAIN DRAW
 // ══════════════════════════════════════════════════════════════
 function draw() {
+  _pruneMulti();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // Fond PDF importé (calque derrière tout)
@@ -1857,16 +2015,16 @@ function draw() {
   ctx.restore();
 
   // Rooms
-  state.rooms.forEach(r => drawRoom(r, state.selected === r));
+  state.rooms.forEach(r => drawRoom(r, state.selected === r || state.multi.includes(r)));
 
   // Walls
-  state.walls.forEach(w => drawWall(w, state.selected === w));
+  state.walls.forEach(w => drawWall(w, state.selected === w || state.multi.includes(w)));
 
   // Cotations (dimensions)
   if (state.showDimensions) state.walls.forEach(drawWallDimension);
 
   // Cables
-  state.cables.forEach(c => drawCable(c, state.selected === c));
+  state.cables.forEach(c => drawCable(c, state.selected === c || state.multi.includes(c)));
 
   // In-progress cable
   if (state.mode === 'cable' && state.cablePoints.length > 0) {
@@ -1907,6 +2065,29 @@ function draw() {
 
   // Elements
   state.elements.forEach(el => drawElement(el, state.selected === el));
+
+  // Sélection multiple : cadre autour de chaque appareil retenu
+  if (state.multi.length) {
+    ctx.save();
+    ctx.strokeStyle = '#f5a623'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]);
+    for (const o of state.multi) {
+      if (!state.elements.includes(o)) continue;
+      const sc = worldToScreen(o.x, o.y);
+      const { hw, hh } = getElHalfSizes(o);
+      const r = Math.max(hw, hh) * state.zoom;
+      ctx.strokeRect(sc.x - r, sc.y - r, r * 2, r * 2);
+    }
+    ctx.restore();
+  }
+  // Cadre de sélection en cours (Maj+glisser)
+  if (_marquee) {
+    ctx.save();
+    ctx.strokeStyle = '#f5a623'; ctx.fillStyle = 'rgba(245,166,35,0.08)'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+    const x = Math.min(_marquee.x0, _marquee.x1), y = Math.min(_marquee.y0, _marquee.y1);
+    const w = Math.abs(_marquee.x1 - _marquee.x0), h = Math.abs(_marquee.y1 - _marquee.y0);
+    ctx.fillRect(x, y, w, h); ctx.strokeRect(x, y, w, h);
+    ctx.restore();
+  }
 
   // Overlay redimensionnement
   if (state.mode === 'resize') drawResizeOverlay();
@@ -1999,6 +2180,18 @@ canvas.addEventListener('mousedown', (e) => {
   mouseDragged = false;
   mouseDownPos = { x: e.clientX, y: e.clientY };
 
+  if (state.mode === 'select') {
+    const r0 = canvas.getBoundingClientRect();
+    const mx = e.clientX - r0.left, my = e.clientY - r0.top;
+    // Glisser un élément de la sélection → déplacement groupé
+    if (!e.shiftKey && tryStartGroupDrag(mx, my, false)) { mouseDownPos = null; e.preventDefault(); return; }
+    // Maj+glisser dans le vide → cadre de sélection
+    if (e.shiftKey && !pickAt(mx, my, false)) {
+      _marquee = { x0: mx, y0: my, x1: mx, y1: my };
+      mouseDownPos = null; e.preventDefault(); return;
+    }
+  }
+
   // Mode redimensionnement — détecter la poignée cliquée
   if (state.mode === 'resize') {
     const r = canvas.getBoundingClientRect();
@@ -2069,6 +2262,8 @@ canvas.addEventListener('mousemove', (e) => {
     if (isDraggingEl)  { isDraggingEl = false;  saveToLocalStorage(); updateProps(); draw(); return; }
     if (isRotating)    { isRotating = false;    saveToLocalStorage(); updateProps(); draw(); return; }
     if (isResizingEl)  { isResizingEl = false;  saveToLocalStorage(); updateProps(); draw(); return; }
+    if (isDraggingGroup) { endGroupDrag(); return; }
+    if (_marquee) { _marquee = null; draw(); return; }
   }
 
   const r = canvas.getBoundingClientRect();
@@ -2078,6 +2273,17 @@ canvas.addEventListener('mousemove', (e) => {
   const w = screenToWorld(state.mouseX, state.mouseY);
   const sp = snapPoint(w.x, w.y);
   document.getElementById('coords').textContent = `X: ${sp.x} — Y: ${sp.y}`;
+
+  if (isDraggingGroup) {
+    if (moveGroupDrag(state.mouseX, state.mouseY)) mouseDragged = true;
+    return;
+  }
+  if (_marquee) {
+    _marquee.x1 = state.mouseX; _marquee.y1 = state.mouseY;
+    if (Math.hypot(_marquee.x1 - _marquee.x0, _marquee.y1 - _marquee.y0) > 4) mouseDragged = true;
+    draw();
+    return;
+  }
 
   if (isResizingEl && state.selected?.type) {
     const sc = worldToScreen(state.selected.x, state.selected.y);
@@ -2207,6 +2413,12 @@ canvas.addEventListener('mousemove', (e) => {
 
 canvas.addEventListener('mouseup', () => {
   mouseDownPos = null;
+  if (isDraggingGroup) { endGroupDrag(); return; }
+  if (_marquee) {
+    const m = _marquee; _marquee = null;
+    if (mouseDragged) _selectInMarquee(m, true); else draw();
+    return;
+  }
   if (_resizeHandle) {
     _resizeHandle = null; _resizeBBox = null; _resizeOriginal = null;
     mouseDragged = false;
@@ -2229,7 +2441,7 @@ canvas.addEventListener('click', (e) => {
   const sp = snapPoint(w.x, w.y);
 
   if (state.mode === 'select') {
-    handleSelect(sx, sy);
+    handleSelect(sx, sy, false, e.shiftKey || state.multiMode);
     return;
   }
   if (state.mode === 'place' && state.tool) {
@@ -2371,11 +2583,12 @@ document.getElementById('roomNameInput')?.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { e.preventDefault(); cancelRoomName(); }
 });
 
-function handleSelect(sx, sy, isTouch = false) {
+// Élément sous le point (écran), sans rien modifier. Ordre : appareils, câbles, murs, pièces.
+function pickAt(sx, sy, isTouch = false) {
   // Au doigt, la zone de touche garde une taille minimale quel que soit le zoom.
   const elRadius   = Math.max(18 * state.zoom, isTouch ? 24 : 12);
   const lineRadius = isTouch ? 16 : 0;
-  // Éléments : le plus proche du point touché l'emporte (à distance égale, celui du dessus)
+  // Appareils : le plus proche du point touché l'emporte (à distance égale, celui du dessus)
   let best = null, bestD = elRadius;
   for (let i = state.elements.length - 1; i >= 0; i--) {
     const el = state.elements[i];
@@ -2383,56 +2596,45 @@ function handleSelect(sx, sy, isTouch = false) {
     const d = Math.hypot(s.x - sx, s.y - sy);
     if (d < bestD) { best = el; bestD = d; }
   }
-  if (best) {
-    state.selected = best;
-    updateProps();
-    focusPropsPanel();
-    draw();
-    return;
+  // Nom de pièce le plus proche : il l'emporte sur un appareil plus éloigné du point touché
+  // (le nom se place juste au-dessus de l'appareil central, les deux zones se recouvrent).
+  let nearRoom = null, nearRoomD = 30;
+  for (let i = state.rooms.length - 1; i >= 0; i--) {
+    const lp = roomLabelPos(state.rooms[i]);
+    const sc = worldToScreen(lp.x, lp.y);
+    const d = Math.hypot(sc.x - sx, sc.y - sy);
+    if (d < nearRoomD) { nearRoom = state.rooms[i]; nearRoomD = d; }
   }
-  // Check cables
+  if (best && !(nearRoom && nearRoomD < bestD)) return best;
+  if (best) return nearRoom;
   for (let i = state.cables.length - 1; i >= 0; i--) {
     const cable = state.cables[i];
     for (let j = 0; j < cable.points.length - 1; j++) {
       const a = worldToScreen(cable.points[j].x, cable.points[j].y);
       const b = worldToScreen(cable.points[j+1].x, cable.points[j+1].y);
-      if (distToSegment(sx, sy, a.x, a.y, b.x, b.y) < Math.max(6, lineRadius)) {
-        state.selected = cable;
-        updateProps();
-        focusPropsPanel();
-        draw();
-        return;
-      }
+      if (distToSegment(sx, sy, a.x, a.y, b.x, b.y) < Math.max(6, lineRadius)) return cable;
     }
   }
-  // Check walls
   for (let i = state.walls.length - 1; i >= 0; i--) {
     const wall = state.walls[i];
     const a = worldToScreen(wall.x1, wall.y1);
     const b = worldToScreen(wall.x2, wall.y2);
-    if (distToSegment(sx, sy, a.x, a.y, b.x, b.y) < Math.max(8, lineRadius)) {
-      state.selected = wall;
-      updateProps();
-      focusPropsPanel();
-      draw();
-      return;
-    }
+    if (distToSegment(sx, sy, a.x, a.y, b.x, b.y) < Math.max(8, lineRadius)) return wall;
   }
-  // Check rooms
-  for (let i = state.rooms.length - 1; i >= 0; i--) {
-    const room = state.rooms[i];
-    const lp = roomLabelPos(room);
-    const sc = worldToScreen(lp.x, lp.y);
-    if (Math.hypot(sc.x - sx, sc.y - sy) < 30) {
-      state.selected = room;
-      updateProps();
-      focusPropsPanel();
-      draw();
-      return;
-    }
+  return nearRoom;
+}
+
+// additive : Maj+clic ou mode « sélection multiple » — ajoute ou retire l'élément touché.
+function handleSelect(sx, sy, isTouch = false, additive = false) {
+  const hit = pickAt(sx, sy, isTouch);
+  if (additive) {
+    if (hit) toggleInSelection(hit);
+    return;
   }
-  state.selected = null;
+  state.multi = [];
+  state.selected = hit;
   updateProps();
+  if (hit) focusPropsPanel();
   draw();
 }
 
@@ -2443,42 +2645,45 @@ function distToSegment(px, py, ax, ay, bx, by) {
 }
 
 function deleteSelected() {
-  if (!state.selected) return;
-  state.elements = state.elements.filter(e => e !== state.selected);
-  state.cables = state.cables.filter(c => c !== state.selected);
-  state.walls = state.walls.filter(w => w !== state.selected);
-  state.rooms = state.rooms.filter(r => r !== state.selected);
+  const gone = new Set(selectionItems());
+  if (!gone.size) return;
+  state.elements = state.elements.filter(e => !gone.has(e));
+  state.cables = state.cables.filter(c => !gone.has(c));
+  state.walls = state.walls.filter(w => !gone.has(w));
+  state.rooms = state.rooms.filter(r => !gone.has(r));
   state.selected = null;
+  state.multi = [];
   saveToLocalStorage();
   updateProps();
+  updateRoomList();
   draw();
   renderCircuits();
-  toast('Supprimé');
+  toast(gone.size > 1 ? `${gone.size} éléments supprimés` : 'Supprimé');
 }
 
-// Copie de la sélection, décalée d'un carreau, avec son circuit et ses réglages.
+// Copie de la sélection, décalée d'un carreau, avec circuits et réglages.
 function duplicateSelected() {
-  const src = state.selected;
-  if (!src) { toast('Sélectionnez d\'abord un élément'); return; }
+  const srcs = selectionItems();
+  if (!srcs.length) { toast('Sélectionnez d\'abord un élément'); return; }
   const g = state.grid;
-  const copy = JSON.parse(JSON.stringify(src));
-  copy.id = uid();
-  if (state.elements.includes(src)) {
-    copy.x += g; copy.y += g;
-    state.elements.push(copy);
-  } else if (state.cables.includes(src)) {
-    copy.points.forEach(p => { p.x += g; p.y += g; });
-    state.cables.push(copy);
-  } else if (state.walls.includes(src)) {
-    copy.x1 += g; copy.y1 += g; copy.x2 += g; copy.y2 += g;
-    state.walls.push(copy);
-  } else if (state.rooms.includes(src)) {
-    copy.points.forEach(p => { p.x += g; p.y += g; });
-    state.rooms.push(copy);
-  } else return;
-  state.selected = copy;
-  updateProps(); updateRoomList(); renderCircuits(); draw();
-  toast('Dupliqué — glissez la copie à sa place');
+  const copies = [];
+  for (const src of srcs) {
+    const list = state.elements.includes(src) ? state.elements
+               : state.cables.includes(src)   ? state.cables
+               : state.walls.includes(src)    ? state.walls
+               : state.rooms.includes(src)    ? state.rooms : null;
+    if (!list) continue;
+    const copy = JSON.parse(JSON.stringify(src));
+    copy.id = uid();
+    _posApply(copy, _posSnapshot(copy), g, g);
+    list.push(copy);
+    copies.push(copy);
+  }
+  if (!copies.length) return;
+  updateRoomList(); renderCircuits();
+  setSelection(copies);
+  toast(copies.length > 1 ? `${copies.length} éléments dupliqués — glissez les copies à leur place`
+                          : 'Dupliqué — glissez la copie à sa place');
 }
 
 // Raccourcis d'outils (R et F restent rotation et sens de porte).
@@ -2504,6 +2709,7 @@ document.addEventListener('keydown', (e) => {
     if (k === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if (k === 'y') { e.preventDefault(); redo(); return; }
     if (k === 'd') { e.preventDefault(); duplicateSelected(); return; }
+    if (k === 'a') { e.preventDefault(); selectAll(); return; }
     return;
   }
   // Lettre seule → outil courant
@@ -2549,6 +2755,21 @@ document.addEventListener('keyup', (e) => {
 function updateProps() {
   const panel = document.getElementById('propsPanel');
   const el = state.selected;
+  if (state.multi.length) {
+    const nEl = state.multi.filter(o => state.elements.includes(o)).length;
+    const opts = state.circuits.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    let h = `<div class="prop-row"><div class="prop-label">Sélection</div>
+      <div style="font-size:13px;font-weight:700;color:var(--accent);">${state.multi.length} éléments</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px;">Glissez l'un d'eux pour tout déplacer.</div></div>`;
+    if (nEl) h += `<div class="prop-row"><div class="prop-label">Circuit des ${nEl} appareil${nEl > 1 ? 's' : ''}</div>
+      <select class="prop-input" id="multiCircuitSel" data-onchange="setMultiCircuit(parseInt(this.value))">
+        <option value="">— Choisir —</option>${opts}</select></div>`;
+    h += `<button class="btn action-btn-full" style="margin-top:8px;" data-onclick="duplicateSelected()">⧉ Dupliquer</button>
+      <button class="btn action-btn-full danger" data-onclick="deleteSelected()">🗑 Supprimer</button>
+      <button class="btn action-btn-full" data-onclick="clearSelection()">✕ Désélectionner</button>`;
+    panel.innerHTML = h;
+    return;
+  }
   if (!el) { panel.innerHTML = '<div style="color:var(--text2);font-size:12px;">Sélectionnez un élément.</div>'; return; }
 
   const circuitOpts = state.circuits.map(c =>
@@ -4908,6 +5129,11 @@ function toast(msg) {
     if (ts.length === 1) {
       const r = canvas.getBoundingClientRect();
       const sx = ts[0].clientX - r.left, sy = ts[0].clientY - r.top;
+      // Glisser un élément de la sélection → déplacement groupé
+      if (state.mode === 'select' && tryStartGroupDrag(sx, sy, true)) {
+        touch = { fingers: 1, sx: ts[0].clientX, sy: ts[0].clientY, moved: false, t: Date.now(), isGroup: true };
+        return;
+      }
       // Poignée de rotation ?
       if (state.mode === 'select' && state.selected?.type) {
         const h = getRotHandleScreen(state.selected);
@@ -4944,6 +5170,13 @@ function toast(msg) {
   canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
     const ts = e.touches;
+
+    if (ts.length === 1 && touch.isGroup && isDraggingGroup) {
+      const r = canvas.getBoundingClientRect();
+      if (Math.hypot(ts[0].clientX - touch.sx, ts[0].clientY - touch.sy) > 6) touch.moved = true;
+      if (touch.moved) moveGroupDrag(ts[0].clientX - r.left, ts[0].clientY - r.top);
+      return;
+    }
 
     if (ts.length === 1 && touch.isRot && isRotating && state.selected?.type) {
       const r = canvas.getBoundingClientRect();
@@ -5005,6 +5238,12 @@ function toast(msg) {
 
   canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
+    if (isDraggingGroup) {
+      const wasMoved = touch.moved;
+      endGroupDrag();
+      if (wasMoved) { touch = {}; return; }
+      // Simple toucher sur la sélection : traité comme un tap ci-dessous
+    }
     if (isRotating)   { isRotating = false;   saveToLocalStorage(); updateProps(); draw(); touch = {}; return; }
     if (isDraggingEl) { isDraggingEl = false;  saveToLocalStorage(); updateProps(); draw(); touch = {}; return; }
     if (touch.fingers !== 1 || touch.moved) { touch = {}; return; }
@@ -5018,7 +5257,7 @@ function toast(msg) {
     const now = Date.now();
 
     if (state.mode === 'select') {
-      handleSelect(sx, sy, true);
+      handleSelect(sx, sy, true, state.multiMode);
     } else if (state.mode === 'place' && state.tool) {
       const p = snapForElement(state.tool, w.x, w.y);
       placeElement(p.x, p.y, p.rotation);
