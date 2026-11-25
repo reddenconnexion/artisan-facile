@@ -123,6 +123,42 @@
   .draw-bar .btn.primary { background: var(--accent); border-color: var(--accent); color: #000; }
   .draw-bar .btn.primary:hover { color: #000; }
 
+  /* ── BARRE DE SÉLECTION (élément choisi) ── */
+  .sel-bar {
+    position: absolute;
+    top: 44px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 6px 5px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+    z-index: 30;
+    max-width: calc(100% - 20px);
+  }
+  .sel-bar-label { font-size: 12px; font-weight: 700; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .sel-bar .btn { min-height: 36px; padding: 6px 10px; font-size: 12px; flex-shrink: 0; }
+  .sel-bar .sel-bar-props { display: none; }
+
+  /* ── PALETTE : recherche et outils récents ── */
+  .tool-search {
+    width: 100%;
+    padding: 7px 9px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 12px;
+  }
+  .tool-search:focus { outline: none; border-color: var(--accent); }
+  .tool-search-empty { display: none; font-size: 11px; color: var(--text2); margin-top: 8px; }
+  #recentSection .panel-title { margin-top: 10px; }
+
   /* Menu « Plus » (mobile) — masqué par défaut, affiché en feuille basse */
   .mob-menu { display: none; }
 
@@ -614,6 +650,10 @@
     }
     .mob-menu-grid .btn span { font-size: 18px; line-height: 1; }
     .draw-bar { top: 10px; }
+    .sel-bar { top: 10px; }
+    .sel-bar .btn { min-height: 42px; padding: 6px 11px; font-size: 14px; }
+    .sel-bar .sel-bar-props { display: flex; }
+    .tool-search { font-size: 16px; padding: 10px 12px; }
 
     /* Canvas : espace pour la barre du bas */
     .canvas-wrap { padding-bottom: 58px; }
@@ -713,10 +753,22 @@
         <button class="btn" data-onclick="addWall()" title="Dessiner un mur">🧱 Mur</button>
         <button class="btn" data-onclick="addRoom()" title="Ajouter une pièce">🏠 Pièce</button>
         <button class="btn" id="btnCotation" data-onclick="toggleCotation()" title="Afficher/masquer les cotations">📏 Cotation</button>
-        <button class="btn" data-onclick="duplicateSelected()" title="Dupliquer la sélection (Ctrl+D)">⧉ Dupliquer</button>
+        <button class="btn active" id="btnWallSnap" data-onclick="toggleWallSnap()" title="Plaquer appareils, portes et fenêtres contre les murs">🧲 Aimant</button>
       </div>
+      <button class="btn action-btn-full" data-onclick="duplicateSelected()" title="Dupliquer la sélection (Ctrl+D)">⧉ Dupliquer la sélection</button>
       <button class="btn action-btn-full danger" data-onclick="deleteSelected()" title="Supprimer l'élément sélectionné (Suppr)">🗑 Supprimer la sélection</button>
       <button class="btn action-btn-full danger" data-onclick="clearAll()" title="Effacer tout le plan">✕ Effacer tout</button>
+    </div>
+
+    <!-- ── RECHERCHE + OUTILS RÉCENTS ──────────────────────────── -->
+    <div class="panel-section">
+      <input class="tool-search" id="toolSearch" type="search" placeholder="🔍 Chercher un symbole…" autocomplete="off"
+        data-oninput="filterTools(this.value)" />
+      <div class="tool-search-empty" id="toolSearchEmpty">Aucun symbole ne correspond.</div>
+      <div id="recentSection">
+        <div class="panel-title">⭐ Récents</div>
+        <div class="tool-grid" id="recentTools"></div>
+      </div>
     </div>
 
     <div class="panel-section">
@@ -1070,6 +1122,14 @@
     <button class="panel-toggle panel-toggle-left"  id="toggleLeft"  data-onclick="toggleLeftPanel()"  title="Masquer/afficher le panneau gauche">‹</button>
     <button class="panel-toggle panel-toggle-right" id="toggleRight" data-onclick="toggleRightPanel()" title="Masquer/afficher le panneau droit">›</button>
     <div class="mode-indicator" id="modeIndicator"></div>
+    <!-- Barre de sélection : actions directes sur l'élément choisi -->
+    <div class="sel-bar" id="selBar">
+      <span class="sel-bar-label" id="selBarLabel"></span>
+      <button class="btn sel-bar-props" data-onclick="focusPropsPanel(true)" title="Ouvrir les réglages de l'élément">⚙ Réglages</button>
+      <button class="btn" id="selBarRotate" data-onclick="rotateSelected(90)" title="Pivoter de 90° (R)">⟳</button>
+      <button class="btn" data-onclick="duplicateSelected()" title="Dupliquer (Ctrl+D)">⧉</button>
+      <button class="btn danger" data-onclick="deleteSelected()" title="Supprimer (Suppr)">🗑</button>
+    </div>
     <!-- Barre de tracé : visible pendant un tracé de câble, de mur ou de pièce -->
     <div class="draw-bar" id="drawBar">
       <span class="draw-bar-label" id="drawBarLabel"></span>
@@ -1289,6 +1349,7 @@
     <button class="btn" id="mobBtnRedo" data-onclick="closePanels();redo()" disabled><span>↷</span>Rétablir</button>
     <button class="btn" data-onclick="closePanels();duplicateSelected()"><span>⧉</span>Dupliquer</button>
     <button class="btn" data-onclick="closePanels();setMode('resize')"><span>⇲</span>Redim. plan</button>
+    <button class="btn" data-onclick="closePanels();toggleWallSnap()"><span>🧲</span>Aimant murs</button>
   </div>
 </div>
 

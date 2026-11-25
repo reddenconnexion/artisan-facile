@@ -51,6 +51,8 @@ let state = {
   grid: 20,
   scaleCm: 20,        // cm par carreau de grille (20px = 20cm par défaut)
   showDimensions: false, // afficher les cotations sur les murs
+  wallSnap: true,        // aimantation des appareils et ouvertures aux murs
+  hasMouse: false,       // dernier geste fait à la souris (aperçu de pose)
   printMode: false,      // fond blanc pour impression chantier
   // cable drawing state
   cableStart: null,
@@ -286,6 +288,89 @@ function toggleCotation() {
   draw();
 }
 
+// ══════════════════════════════════════════════════════════════
+//  AIMANTATION AUX MURS
+//  Les appareils muraux se plaquent contre le mur le plus proche, du côté
+//  du curseur. Portes et fenêtres se posent dans le mur et prennent son angle.
+//  Les contours de pièce comptent comme des murs.
+// ══════════════════════════════════════════════════════════════
+const OPENING_TYPES = new Set(['porte', 'porte-double', 'fenetre', 'baie-vitree']);
+const WALL_SNAP_TYPES = new Set([
+  'prise', 'prise20', 'interrupteur', 'va-et-vient', 'bouton-poussoir', 'variateur',
+  'applique', 'tableau', 'compteur', 'convecteur', 'seche-serviette', 'clim',
+  'prise-rj45', 'volet', ...OPENING_TYPES,
+]);
+const WALL_OFFSET = 14; // distance mur → centre du symbole (unités plan)
+
+function toggleWallSnap() {
+  state.wallSnap = !state.wallSnap;
+  document.getElementById('btnWallSnap')?.classList.toggle('active', state.wallSnap);
+  toast(state.wallSnap ? 'Aimant aux murs activé' : 'Aimant aux murs désactivé');
+  draw();
+}
+
+function _snapSegments() {
+  const segs = state.walls.map(w => [w.x1, w.y1, w.x2, w.y2]);
+  for (const r of state.rooms) {
+    const pts = r.points || [];
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      segs.push([a.x, a.y, b.x, b.y]);
+    }
+  }
+  return segs;
+}
+
+// Position de pose d'un élément : contre un mur s'il y en a un à portée, sinon sur la grille.
+// Renvoie { x, y } et, pour les ouvertures, { rotation }.
+function snapForElement(type, wx, wy, el) {
+  const onGrid = snapPoint(wx, wy);
+  if (!state.wallSnap || !WALL_SNAP_TYPES.has(type)) return onGrid;
+  const reach = Math.min(30, Math.max(14, 18 / state.zoom));
+  let best = null, bestD = reach;
+  for (const [x1, y1, x2, y2] of _snapSegments()) {
+    const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy);
+    if (len < 1) continue;
+    const ux = dx / len, uy = dy / len;
+    const t = Math.max(0, Math.min(len, (wx - x1) * ux + (wy - y1) * uy));
+    const d = Math.hypot(wx - (x1 + ux * t), wy - (y1 + uy * t));
+    if (d < bestD) { best = { x1, y1, ux, uy, len, t }; bestD = d; }
+  }
+  if (!best) return onGrid;
+  const { x1, y1, ux, uy, len } = best;
+  const step = state.grid / 2;
+  const t = Math.max(0, Math.min(len, Math.round(best.t / step) * step));
+  const px = x1 + ux * t, py = y1 + uy * t;
+  // Normale du côté du curseur
+  let nx = -uy, ny = ux;
+  const flipSide = (wx - px) * nx + (wy - py) * ny < 0;
+  if (flipSide) { nx = -nx; ny = -ny; }
+  const r2 = (v) => Math.round(v * 100) / 100;
+  const norm = (deg) => ((Math.round(deg) % 360) + 360) % 360;
+  const angle = Math.atan2(uy, ux) * 180 / Math.PI;
+  if (type === 'porte') {
+    // Le battant est dessiné à 18 unités du centre : on le ramène sur le mur,
+    // et la porte s'ouvre du côté du curseur.
+    const half = 18 * (el?.scale || 1);
+    const turn = flipSide !== !!el?.flip;
+    return { x: r2(px + nx * half), y: r2(py + ny * half), rotation: norm(angle + (turn ? 180 : 0)) };
+  }
+  if (OPENING_TYPES.has(type)) return { x: r2(px), y: r2(py), rotation: norm(angle) % 180 };
+  return { x: r2(px + nx * WALL_OFFSET), y: r2(py + ny * WALL_OFFSET) };
+}
+
+// Point de câble : accroché au centre de l'appareil le plus proche, sinon à la grille.
+function snapCablePoint(wx, wy) {
+  const reach = Math.min(30, Math.max(14, 16 / state.zoom));
+  let best = null, bestD = reach;
+  for (const el of state.elements) {
+    if (FURNITURE_TYPES.has(el.type)) continue;
+    const d = Math.hypot(el.x - wx, el.y - wy);
+    if (d < bestD) { best = el; bestD = d; }
+  }
+  return best ? { x: best.x, y: best.y } : snapPoint(wx, wy);
+}
+
 function resizeWallTo(m) {
   const w = state.selected;
   if (!w || w.x1 === undefined) return;
@@ -325,6 +410,83 @@ function selectTool(type) {
   showMode(type);
   updateProps();
   draw();
+  noteRecentTool(type);
+  if (window.innerWidth <= 768) closePanels();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PALETTE — outils récents et recherche
+// ══════════════════════════════════════════════════════════════
+const RECENT_KEY = 'planelec-recent-tools';
+const RECENT_MAX = 6;
+// Chaque entrée garde sa place : un nouvel outil remplace le plus anciennement utilisé,
+// pour que les boutons ne bougent pas sous le doigt.
+let _recentTools = ['prise', 'interrupteur', 'luminaire', 'tableau'].map((type, i) => ({ type, at: i }));
+try {
+  const saved = JSON.parse(localStorage.getItem(RECENT_KEY) || 'null');
+  if (Array.isArray(saved) && saved.every(r => r && typeof r.type === 'string')) _recentTools = saved.slice(0, RECENT_MAX);
+} catch { /* stockage indisponible */ }
+
+function _paletteButton(type) {
+  return [...document.querySelectorAll('#panelLeft .tool-btn')]
+    .find(b => b.dataset.type === type && !b.closest('#recentTools'));
+}
+function toolLabel(type) {
+  return _paletteButton(type)?.textContent.trim() || type;
+}
+function noteRecentTool(type) {
+  if (!type || type.startsWith('_') || !_paletteButton(type)) return;
+  const now = Date.now();
+  const hit = _recentTools.find(r => r.type === type);
+  if (hit) hit.at = now;
+  else if (_recentTools.length < RECENT_MAX) _recentTools.push({ type, at: now });
+  else {
+    const oldest = _recentTools.reduce((a, b) => (a.at <= b.at ? a : b));
+    oldest.type = type; oldest.at = now;
+  }
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(_recentTools)); } catch { /* stockage indisponible */ }
+  renderRecentTools();
+}
+function renderRecentTools() {
+  const box = document.getElementById('recentTools');
+  if (!box) return;
+  box.textContent = '';
+  for (const { type } of _recentTools) {
+    const src = _paletteButton(type);
+    if (!src) continue;
+    const b = src.cloneNode(true);
+    b.classList.remove('tool-btn-wide');
+    b.style.display = '';
+    b.classList.toggle('active', state.tool === type);
+    box.appendChild(b);
+  }
+}
+function _plain(str) {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+function filterTools(query) {
+  const q = _plain(query.trim());
+  let shown = 0;
+  document.querySelectorAll('#panelLeft .panel-section').forEach(sec => {
+    const btns = [...sec.querySelectorAll('.tool-btn')].filter(b => !b.closest('#recentTools'));
+    if (!btns.length) return;
+    let any = false;
+    for (const b of btns) {
+      const ok = !q || _plain(b.textContent).includes(q) || _plain(b.dataset.type || '').includes(q);
+      b.style.display = ok ? '' : 'none';
+      if (ok) { any = true; shown++; }
+    }
+    sec.style.display = any ? '' : 'none';
+  });
+  const recent = document.getElementById('recentSection');
+  if (recent) recent.style.display = q ? 'none' : '';
+  const empty = document.getElementById('toolSearchEmpty');
+  if (empty) empty.style.display = q && !shown ? 'block' : 'none';
+}
+function clearToolSearch() {
+  const input = document.getElementById('toolSearch');
+  if (input) input.value = '';
+  filterTools('');
 }
 
 function setMode(mode) {
@@ -380,6 +542,24 @@ function updateDrawBar() {
   document.getElementById('drawBarLabel').textContent = label;
   document.getElementById('drawBarDone').disabled = !ready;
 }
+// ── Barre de sélection : actions directes sur l'élément choisi, sans ouvrir le tiroir ──
+function updateSelBar() {
+  const bar = document.getElementById('selBar');
+  if (!bar) return;
+  const el = state.selected;
+  const show = !!el && state.mode === 'select' && !isDraggingEl && !isRotating && !isResizingEl;
+  bar.style.display = show ? 'flex' : 'none';
+  if (!show) return;
+  const isElement = state.elements.includes(el);
+  let label;
+  if (isElement) label = el.label ? `${toolLabel(el.type)} · ${el.label}` : toolLabel(el.type);
+  else if (state.cables.includes(el)) label = `Câble ${el.nConductors || 3}G${el.section || '2.5'}`;
+  else if (state.walls.includes(el)) label = 'Mur';
+  else label = el.name || 'Pièce';
+  document.getElementById('selBarLabel').textContent = label;
+  document.getElementById('selBarRotate').style.display = isElement ? '' : 'none';
+}
+
 function finishDrawing() {
   if (state.mode === 'cable') {
     if (state.cablePoints.length >= 2) finishCable();
@@ -1677,10 +1857,22 @@ function draw() {
   // Overlay redimensionnement
   if (state.mode === 'resize') drawResizeOverlay();
 
+  // Aperçu de pose : le symbole suit la souris à l'endroit exact où il sera posé
+  if (state.mode === 'place' && state.tool && state.hasMouse && SYMBOLS[state.tool]) {
+    const w = screenToWorld(state.mouseX, state.mouseY);
+    const p = snapForElement(state.tool, w.x, w.y);
+    ctx.save();
+    ctx.globalAlpha = 0.45;
+    drawElement({ type: state.tool, x: p.x, y: p.y, rotation: p.rotation || 0 }, false);
+    ctx.restore();
+  }
+
   // Snap cursor
   if (state.mode !== 'select' && state.mode !== 'resize') {
     const w = screenToWorld(state.mouseX, state.mouseY);
-    const sp = snapPoint(w.x, w.y);
+    const sp = state.mode === 'place' && state.tool ? snapForElement(state.tool, w.x, w.y)
+             : state.mode === 'cable' ? snapCablePoint(w.x, w.y)
+             : snapPoint(w.x, w.y);
     const sc = worldToScreen(sp.x, sp.y);
     ctx.save();
     ctx.strokeStyle = '#f5a623'; ctx.lineWidth = 1; ctx.globalAlpha = 0.6;
@@ -1691,6 +1883,7 @@ function draw() {
   updateStats();
   updateRoomList();
   updateDrawBar();
+  updateSelBar();
   saveToLocalStorage();
   historySchedule();
 }
@@ -1824,6 +2017,7 @@ canvas.addEventListener('mousemove', (e) => {
   }
 
   const r = canvas.getBoundingClientRect();
+  state.hasMouse = true;
   state.mouseX = e.clientX - r.left;
   state.mouseY = e.clientY - r.top;
   const w = screenToWorld(state.mouseX, state.mouseY);
@@ -1856,12 +2050,15 @@ canvas.addEventListener('mousemove', (e) => {
 
   if (isDraggingEl && state.selected?.type) {
     const cur = screenToWorld(state.mouseX, state.mouseY);
-    const sp2 = snapPoint(
+    const sp2 = snapForElement(
+      state.selected.type,
       dragElOrigin.x + (cur.x - dragStartW.x),
-      dragElOrigin.y + (cur.y - dragStartW.y)
+      dragElOrigin.y + (cur.y - dragStartW.y),
+      state.selected
     );
     state.selected.x = sp2.x;
     state.selected.y = sp2.y;
+    if (sp2.rotation !== undefined) state.selected.rotation = sp2.rotation;
     mouseDragged = true;
     updateProps(); draw();
     return;
@@ -1981,11 +2178,12 @@ canvas.addEventListener('click', (e) => {
     return;
   }
   if (state.mode === 'place' && state.tool) {
-    placeElement(sp.x, sp.y);
+    const p = snapForElement(state.tool, w.x, w.y);
+    placeElement(p.x, p.y, p.rotation);
     return;
   }
   if (state.mode === 'cable') {
-    state.cablePoints.push({ x: sp.x, y: sp.y });
+    state.cablePoints.push(snapCablePoint(w.x, w.y));
     draw();
     return;
   }
@@ -2048,7 +2246,7 @@ document.addEventListener('wheel', (e) => {
 let _uid = 13; // ids 1-12 réservés aux circuits prédéfinis
 function uid() { return _uid++; }
 
-function placeElement(x, y) {
+function placeElement(x, y, rotation) {
   const circuitId = getActiveCircuit();
   const el = {
     id: uid(), type: state.tool, x, y,
@@ -2056,6 +2254,7 @@ function placeElement(x, y) {
     circuit: state.circuits.find(c => c.id === circuitId)?.name || '',
   };
   if (state.tool === 'plan-travail-perso') { el.widthCm = 120; el.depthCm = 60; }
+  if (rotation) el.rotation = rotation;
   state.elements.push(el);
   toast('Élément posé');
   draw();
@@ -2756,7 +2955,12 @@ function toggleLeftPanel() {
 }
 
 // ── Ouvre le panneau gauche et scrolle jusqu'aux propriétés ───
-function focusPropsPanel() {
+// Sur téléphone, le tiroir ne s'ouvre que sur demande (bouton « Réglages » de la
+// barre de sélection) : sinon il recouvre le plan et empêche de glisser l'élément.
+function focusPropsPanel(force = false) {
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile && !force) return;
+  if (force) clearToolSearch();
   const panel = document.getElementById('panelLeft');
   // Ouvrir si réduit (desktop)
   if (panel.classList.contains('collapsed')) {
@@ -2765,7 +2969,7 @@ function focusPropsPanel() {
     setTimeout(resizeCanvas, 210);
   }
   // Ouvrir sur mobile
-  if (window.innerWidth <= 768 && !panel.classList.contains('mob-open')) {
+  if (isMobile && !panel.classList.contains('mob-open')) {
     panel.classList.add('mob-open');
     document.getElementById('mobOverlay')?.classList.add('open');
     document.getElementById('mobBtnTools')?.classList.add('active');
@@ -2773,7 +2977,7 @@ function focusPropsPanel() {
   // Scroll + flash de la section
   const section = document.getElementById('propsPanel')?.closest('.panel-section');
   if (!section) return;
-  section.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+  section.scrollIntoView({ behavior: 'instant', block: isMobile ? 'start' : 'nearest' });
   section.style.transition = 'box-shadow 0.2s, background 0.2s';
   section.style.boxShadow  = '0 0 0 2px var(--accent)';
   section.style.background = 'rgba(245,166,35,0.08)';
@@ -4555,6 +4759,7 @@ function toast(msg) {
   }
 
   renderCircuits();
+  renderRecentTools();
   draw();
 
   // ── COMMUNICATION AVEC L'APPLICATION (postMessage) ───────────
@@ -4602,6 +4807,7 @@ function toast(msg) {
 
   canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
+    state.hasMouse = false;
     const ts = e.touches;
     if (ts.length === 1) {
       const r = canvas.getBoundingClientRect();
@@ -4658,12 +4864,15 @@ function toast(msg) {
       const r = canvas.getBoundingClientRect();
       const sx = ts[0].clientX - r.left, sy = ts[0].clientY - r.top;
       const cur = screenToWorld(sx, sy);
-      const sp2 = snapPoint(
+      const sp2 = snapForElement(
+        state.selected.type,
         dragElOrigin.x + (cur.x - dragStartW.x),
-        dragElOrigin.y + (cur.y - dragStartW.y)
+        dragElOrigin.y + (cur.y - dragStartW.y),
+        state.selected
       );
       state.selected.x = sp2.x;
       state.selected.y = sp2.y;
+      if (sp2.rotation !== undefined) state.selected.rotation = sp2.rotation;
       touch.moved = true;
       updateProps(); draw();
       return;
@@ -4715,12 +4924,13 @@ function toast(msg) {
     if (state.mode === 'select') {
       handleSelect(sx, sy, true);
     } else if (state.mode === 'place' && state.tool) {
-      placeElement(sp.x, sp.y);
+      const p = snapForElement(state.tool, w.x, w.y);
+      placeElement(p.x, p.y, p.rotation);
     } else if (state.mode === 'cable') {
       if (touch.lastTap && (now - touch.lastTap) < 350 && state.cablePoints.length >= 2) {
         finishCable();
       } else {
-        state.cablePoints.push({ x: sp.x, y: sp.y });
+        state.cablePoints.push(snapCablePoint(w.x, w.y));
         draw();
       }
       touch.lastTap = now;
