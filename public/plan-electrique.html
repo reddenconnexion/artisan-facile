@@ -192,6 +192,26 @@
   .sel-bar .btn { min-height: 36px; padding: 6px 10px; font-size: 12px; flex-shrink: 0; }
   .sel-bar .sel-bar-props { display: none; }
 
+  /* ── PALETTE : étoile de favori sur chaque outil ── */
+  .tool-btn { position: relative; }
+  .fav-star {
+    position: absolute;
+    top: 0; right: 0;
+    width: 24px; height: 24px;
+    display: flex; align-items: flex-start; justify-content: flex-end;
+    padding: 2px 4px 0 0;
+    font-size: 12px; line-height: 1;
+    color: var(--text2);
+    opacity: 0.35;
+    cursor: pointer;
+  }
+  .fav-star::before { content: '☆'; }
+  .fav-star:hover { opacity: 1; color: var(--accent); }
+  .tool-btn.is-fav .fav-star { opacity: 1; color: var(--accent); }
+  .tool-btn.is-fav .fav-star::before { content: '★'; }
+  .tool-btn-wide .fav-star { align-items: center; height: 100%; }
+  #favSection { margin-bottom: 8px; }
+
   /* ── PALETTE : recherche et outils récents ── */
   .tool-search {
     width: 100%;
@@ -705,6 +725,7 @@
     .sel-bar .btn { padding: 6px 9px; }
     .sel-bar .sel-bar-text { display: none; }
     .tool-search { font-size: 16px; padding: 10px 12px; }
+    .fav-star { width: 40px; height: 40px; font-size: 18px; padding: 4px 7px 0 0; opacity: 0.5; }
 
     /* Canvas : espace pour la barre du bas */
     .canvas-wrap { padding-bottom: 58px; }
@@ -817,7 +838,11 @@
         data-oninput="filterTools(this.value)" />
       <div class="tool-search-empty" id="toolSearchEmpty">Aucun symbole ne correspond.</div>
       <div id="recentSection">
-        <div class="panel-title">⭐ Récents</div>
+        <div id="favSection" style="display:none;">
+          <div class="panel-title">⭐ Favoris</div>
+          <div class="tool-grid" id="favTools"></div>
+        </div>
+        <div class="panel-title" id="recentTitle">🕘 Récents</div>
         <div class="tool-grid" id="recentTools"></div>
       </div>
     </div>
