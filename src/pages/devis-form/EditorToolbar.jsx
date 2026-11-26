@@ -1,8 +1,9 @@
-import { ArrowLeft, Save, Send, FileText, FileCheck, Eye, MoreHorizontal, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Send, FileText, FileCheck, Eye, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import AutoSaveIndicator from '../../components/AutoSaveIndicator';
 import { formatDate, formatDateTime } from '../../utils/format';
 import EditorActionsMenu from './EditorActionsMenu';
+import { OverflowMenu } from '../../components/ui';
 
 /**
  * Barre du haut de l'éditeur : retour, type de document, présence du
@@ -196,20 +197,15 @@ const EditorToolbar = ({
                     <span className="hidden sm:inline">{loading ? '...' : 'Enregistrer'}</span>
                 </button>
 
-                {/* More Actions Dropdown */}
-                <div className="relative">
-                    <button
-                        onClick={() => setShowActionsMenu(!showActionsMenu)}
-                        className="flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ios dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
-                        title="Plus d'actions"
-                        aria-label="Plus d'actions"
-                        aria-haspopup="menu"
-                        aria-expanded={showActionsMenu}
-                    >
-                        <MoreHorizontal className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                    </button>
-
-                    {showActionsMenu && (
+                {/* Plus d'actions : menu toujours recalé dans l'écran (il défile
+                    à l'intérieur sur téléphone quand il est plus haut que l'écran). */}
+                <OverflowMenu
+                    label="Plus d'actions"
+                    width="w-64"
+                    open={showActionsMenu}
+                    onOpenChange={setShowActionsMenu}
+                >
+                    {() => (
                         <EditorActionsMenu
                             fetchLinkSuspended={fetchLinkSuspended}
                             fileInputRef={fileInputRef}
@@ -237,7 +233,7 @@ const EditorToolbar = ({
                             togglingSuspension={togglingSuspension}
                         />
                     )}
-                </div>
+                </OverflowMenu>
                 <input
                     type="file"
                     ref={fileInputRef}

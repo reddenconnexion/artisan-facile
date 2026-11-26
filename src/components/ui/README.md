@@ -115,6 +115,18 @@ le bouton), `width` (classe Tailwind du menu). Une entrée peut être
 `disabled`, `hidden` ou falsy (ignorée) : pratique pour les actions
 conditionnelles.
 
+Menu sur mesure (sections, contenu existant) : `children` en fonction
+`(fermer) => contenu` à la place de `items`, `trigger` pour remplacer l'icône
+⋯ (avec `size="auto"`), et `open` / `onOpenChange` pour piloter l'ouverture
+depuis le parent. C'est ce qu'utilisent le menu « ⋯ » de l'éditeur de devis et
+le menu « Documents » de l'aperçu PDF.
+```jsx
+<OverflowMenu label="Documents" size="auto" trigger={<><FilePlus className="w-4 h-4" /> Documents</>}
+  open={ouvert} onOpenChange={setOuvert}>
+  {(fermer) => <MesEntrees onChoix={fermer} />}
+</OverflowMenu>
+```
+
 **Règle** : en vue, l'action principale (et au plus une ou deux actions
 fréquentes) ; tout le reste dans « ⋯ ». La suppression va toujours dans le
 menu, en dernier, en rouge.

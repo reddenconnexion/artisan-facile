@@ -242,37 +242,23 @@ const PdfOverview = ({
                         avoir) : accessibles depuis l'aperçu, sans passer par l'éditeur —
                         c'est en lisant le document qu'on décide de le facturer. */}
                     {hasDocumentActions && (
-                        <div className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setShowOverviewDocsMenu(prev => !prev)}
-                                aria-haspopup="menu"
-                                aria-expanded={showOverviewDocsMenu}
-                                className="flex items-center px-3 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                                title="Créer un document lié : acompte, situation de travaux, facture de clôture, avenant…"
-                            >
-                                <FilePlus className="w-4 h-4 sm:mr-2" />
-                                <span className="hidden sm:inline">Documents</span>
-                                <ChevronDown className={`w-3.5 h-3.5 ml-1 opacity-70 transition-transform ${showOverviewDocsMenu ? 'rotate-180' : ''}`} />
-                            </button>
-
-                            {showOverviewDocsMenu && (
+                        <OverflowMenu
+                            label="Documents"
+                            title="Créer un document lié : acompte, situation de travaux, facture de clôture, avenant…"
+                            size="auto"
+                            width="w-64"
+                            open={showOverviewDocsMenu}
+                            onOpenChange={setShowOverviewDocsMenu}
+                            trigger={(
                                 <>
-                                    {/* Voile transparent : un clic à côté referme le menu */}
-                                    <div
-                                        className="fixed inset-0 z-40"
-                                        onClick={() => setShowOverviewDocsMenu(false)}
-                                        aria-hidden="true"
-                                    />
-                                    <div
-                                        role="menu"
-                                        className="absolute right-0 mt-2 w-60 bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-100 dark:border-gray-800 z-50 py-1 text-left"
-                                    >
-                                        {renderDocumentActions(() => setShowOverviewDocsMenu(false))}
-                                    </div>
+                                    <FilePlus className="w-4 h-4" aria-hidden="true" />
+                                    <span className="hidden sm:inline">Documents</span>
+                                    <ChevronDown className={`w-3.5 h-3.5 opacity-70 transition-transform ${showOverviewDocsMenu ? 'rotate-180' : ''}`} aria-hidden="true" />
                                 </>
                             )}
-                        </div>
+                        >
+                            {(closeMenu) => renderDocumentActions(closeMenu)}
+                        </OverflowMenu>
                     )}
                     <button
                         type="button"
