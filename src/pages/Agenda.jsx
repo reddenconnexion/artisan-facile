@@ -24,7 +24,7 @@ import RealtimeStatusBadge from '../components/RealtimeStatusBadge';
 import ChantierMaterialModal from '../components/ChantierMaterialModal';
 import QuickPhotoCapture from '../components/QuickPhotoCapture';
 import ClientSelector from '../components/ClientSelector';
-import { Button } from '../components/ui';
+import { Button, OverflowMenu } from '../components/ui';
 import { toast } from 'sonner';
 import { loadAgendaEvents } from '../utils/agendaEvents';
 import { formatDateTime } from '../utils/format';
@@ -560,58 +560,59 @@ const Agenda = () => {
                                         )}
                                     </div>
 
-                                    <div className="flex justify-end space-x-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                                    {/* En vue : y aller et modifier. Le reste (photos, matériel,
+                                        Google Agenda, suppression) passe dans le menu « ⋯ ». */}
+                                    <div className="flex justify-end items-center gap-1 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
                                         {event.address && (
                                             <a
                                                 href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(event.address)}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg"
+                                                className="tap-target inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg"
                                                 title="Naviguer vers l'adresse"
-                                                aria-label="Naviguer vers l'adresse"
                                             >
                                                 <Navigation className="w-4 h-4" />
+                                                Y aller
                                             </a>
                                         )}
-                                        {event.client_id && (
-                                            <button
-                                                onClick={() => setPhotoEvent(event)}
-                                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
-                                                title="Ajouter des photos"
-                                            >
-                                                <Camera className="w-4 h-4" />
-                                            </button>
-                                        )}
-                                        {(event.quote_id || event.client_id) && (
-                                            <button
-                                                onClick={() => setMaterialEvent(event)}
-                                                className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg"
-                                                title="Matériel à charger"
-                                            >
-                                                <Package className="w-4 h-4" />
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={() => addToGoogleCalendar(event)}
-                                            className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg"
-                                            title="Ajouter à Google Agenda"
-                                        >
-                                            <Calendar className="w-4 h-4" />
-                                        </button>
                                         <button
                                             onClick={() => handleEditClick(event)}
-                                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
+                                            className="tap-target inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
                                             title="Modifier"
+                                            aria-label="Modifier le rendez-vous"
                                         >
                                             <Edit2 className="w-4 h-4" />
                                         </button>
-                                        <button
-                                            onClick={() => handleDeleteClick(event.id)}
-                                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                                            title="Supprimer"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <OverflowMenu
+                                            variant="ghost"
+                                            width="w-60"
+                                            iconClassName="w-4 h-4"
+                                            label="Plus d'actions sur ce rendez-vous"
+                                            items={[
+                                                event.client_id && {
+                                                    label: 'Ajouter des photos',
+                                                    icon: Camera,
+                                                    onClick: () => setPhotoEvent(event),
+                                                },
+                                                (event.quote_id || event.client_id) && {
+                                                    label: 'Matériel à charger',
+                                                    icon: Package,
+                                                    onClick: () => setMaterialEvent(event),
+                                                },
+                                                {
+                                                    label: 'Ajouter à Google Agenda',
+                                                    icon: Calendar,
+                                                    onClick: () => addToGoogleCalendar(event),
+                                                },
+                                                { divider: true },
+                                                {
+                                                    label: 'Supprimer',
+                                                    icon: Trash2,
+                                                    danger: true,
+                                                    onClick: () => handleDeleteClick(event.id),
+                                                },
+                                            ]}
+                                        />
                                     </div>
                                 </div>
                             ))

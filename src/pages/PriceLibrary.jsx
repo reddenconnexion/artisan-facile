@@ -11,6 +11,7 @@ import { Plus, Upload, Download, Trash2, Search, FileSpreadsheet, X, Save, Penci
 import Papa from 'papaparse';
 import readXlsxFile from 'read-excel-file/browser';
 import { exportToCSV } from '../utils/csvExport';
+import { OverflowMenu } from '../components/ui';
 import { mapImportedRows, splitUpsert, suggestedSellingPrice, priceLibraryCsvColumns } from '../utils/priceLibraryCsv';
 
 const EMPTY_ITEM = {
@@ -277,27 +278,7 @@ const PriceLibrary = () => {
                         <p className="text-gray-500 dark:text-gray-400">Enregistrez vos prestations et tarifs pour les réutiliser en un clic dans vos devis</p>
                     </div>
                 </div>
-                <div className="flex flex-wrap gap-3">
-                    <button
-                        onClick={() => {
-                            if (items.length === 0) {
-                                toast.error('La bibliothèque est vide, rien à exporter');
-                                return;
-                            }
-                            exportToCSV(items, priceLibraryCsvColumns, 'bibliotheque_prix');
-                        }}
-                        className="flex items-center px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700"
-                    >
-                        <Download className="w-4 h-4 mr-2" />
-                        Exporter (CSV)
-                    </button>
-                    <button
-                        onClick={() => setShowImportModal(true)}
-                        className="flex items-center px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700"
-                    >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Importer (Excel/CSV)
-                    </button>
+                <div className="flex flex-wrap items-center gap-2">
                     <button
                         onClick={() => {
                             setEditingItem(null);
@@ -311,6 +292,29 @@ const PriceLibrary = () => {
                         <Plus className="w-4 h-4 mr-2" />
                         Nouvel Article
                     </button>
+                    <OverflowMenu
+                        label="Plus d'options"
+                        items={[
+                            {
+                                label: 'Importer (Excel/CSV)',
+                                description: 'Ajouter ou mettre à jour vos tarifs depuis un fichier',
+                                icon: Upload,
+                                onClick: () => setShowImportModal(true),
+                            },
+                            {
+                                label: 'Exporter (CSV)',
+                                description: 'Toute la bibliothèque, pour Excel ou une sauvegarde',
+                                icon: Download,
+                                onClick: () => {
+                                    if (items.length === 0) {
+                                        toast.error('La bibliothèque est vide, rien à exporter');
+                                        return;
+                                    }
+                                    exportToCSV(items, priceLibraryCsvColumns, 'bibliotheque_prix');
+                                },
+                            },
+                        ]}
+                    />
                 </div>
             </div>
 

@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { ArrowLeft, Download, FileText, Loader2, ExternalLink, Clock, Lock, ChevronDown, Pencil, RefreshCw, FilePlus, Maximize2, Minimize2 } from 'lucide-react';
 import { publicLinkValidityLabel } from '../../constants/publicLink';
 import { useFullscreen } from '../../hooks/useFullscreen';
+import { OverflowMenu } from '../../components/ui';
 
 /**
  * Vue « aperçu PDF » d'un devis finalisé : barre d'outils et visionneuse.
@@ -237,53 +238,6 @@ const PdfOverview = ({
                     </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                    {overviewSrc && (
-                        <a
-                            href={overviewSrc}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hidden sm:flex items-center px-3 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                            title="Ouvrir dans un nouvel onglet"
-                        >
-                            <ExternalLink className="w-4 h-4" />
-                        </a>
-                    )}
-                    {overviewSrc && (
-                        <button
-                            type="button"
-                            onClick={enterFullscreen}
-                            className="tap-target flex items-center justify-center px-3 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                            title="Afficher l'aperçu en plein écran"
-                            aria-label="Plein écran"
-                        >
-                            <Maximize2 className="w-4 h-4 lg:mr-2" />
-                            <span className="hidden lg:inline">Plein écran</span>
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        onClick={() => handleDownloadPDF()}
-                        className="flex items-center px-3 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                        title="Télécharger le PDF"
-                    >
-                        <Download className="w-4 h-4 sm:mr-2" />
-                        <span className="hidden sm:inline">Télécharger</span>
-                    </button>
-                    {/* Devis présenté en groupé / poste global : l'aperçu ci-dessous
-                        est la version du client. Ce second bouton sort le même
-                        document ligne à ligne, pour l'artisan — disponible aussi
-                        après signature, sans toucher à la version transmise. */}
-                    {!formData.is_external && ['grouped', 'poste_global'].includes(formData.client_display_mode || 'detailed') && (
-                        <button
-                            type="button"
-                            onClick={() => handleDownloadPDF(false, { detailed: true })}
-                            className="flex items-center px-3 py-2 text-amber-700 dark:text-amber-300 bg-white dark:bg-gray-900 border border-amber-300 dark:border-amber-700 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
-                            title="Télécharger ma copie détaillée (ligne à ligne, pour vous — la version du client reste inchangée)"
-                        >
-                            <Lock className="w-4 h-4 sm:mr-2" />
-                            <span className="hidden sm:inline">Ma copie détaillée</span>
-                        </button>
-                    )}
                     {/* Documents liés (acompte, situation, facture de clôture, avenant,
                         avoir) : accessibles depuis l'aperçu, sans passer par l'éditeur —
                         c'est en lisant le document qu'on décide de le facturer. */}
@@ -329,6 +283,42 @@ const PdfOverview = ({
                         <Pencil className="w-4 h-4 sm:mr-2" />
                         <span className="hidden sm:inline">Modifier</span>
                     </button>
+                    {/* Téléchargement, copie détaillée et affichage : rangés dans « ⋯ ». */}
+                    <OverflowMenu
+                        label="Plus d'options"
+                        width="w-72"
+                        items={[
+                            {
+                                label: 'Télécharger le PDF',
+                                icon: Download,
+                                onClick: () => handleDownloadPDF(),
+                            },
+                            // Devis présenté en groupé / poste global : l'aperçu est la
+                            // version du client. Cette entrée sort le même document ligne
+                            // à ligne, pour l'artisan — disponible aussi après signature,
+                            // sans toucher à la version transmise.
+                            !formData.is_external && ['grouped', 'poste_global'].includes(formData.client_display_mode || 'detailed') && {
+                                label: 'Ma copie détaillée',
+                                description: 'Ligne à ligne, pour vous — la version du client reste inchangée',
+                                icon: Lock,
+                                iconClassName: 'text-amber-600',
+                                onClick: () => handleDownloadPDF(false, { detailed: true }),
+                            },
+                            { divider: true },
+                            overviewSrc && {
+                                label: 'Plein écran',
+                                icon: Maximize2,
+                                onClick: enterFullscreen,
+                            },
+                            // Un PDF blob: ne s'ouvre pas dans un onglet sur téléphone.
+                            overviewSrc && !showImagePreview && {
+                                label: 'Ouvrir dans un nouvel onglet',
+                                icon: ExternalLink,
+                                href: overviewSrc,
+                                external: true,
+                            },
+                        ]}
+                    />
                 </div>
             </div>
 

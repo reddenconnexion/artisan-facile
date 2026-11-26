@@ -11,7 +11,7 @@ import { useZxing } from 'react-zxing';
 import { useInventory, useInvalidateCache } from '../hooks/useDataCache';
 import { useDebounce } from '../hooks/useDebounce';
 import { useConfirm } from '../context/ConfirmContext';
-import { Button, EmptyState, LoadingState } from '../components/ui';
+import { Button, EmptyState, LoadingState, OverflowMenu } from '../components/ui';
 
 const BarcodeScanner = ({ onResult, onError, onClose }) => {
     const { ref } = useZxing({
@@ -327,16 +327,19 @@ const Inventory = () => {
                         <ScanBarcode className="w-5 h-5 mr-2" />
                         <span className="hidden md:inline">Scanner</span>
                     </button>
-                    <a
-                        href="https://lens.google.com/"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
-                        title="Ouvrir Google Lens pour identifier un objet"
-                    >
-                        <ExternalLink className="w-5 h-5 md:mr-2 text-gray-500 dark:text-gray-400" />
-                        <span className="hidden md:inline">Lens</span>
-                    </a>
+                    <OverflowMenu
+                        label="Plus d'options"
+                        size="lg"
+                        items={[
+                            {
+                                label: 'Identifier avec Google Lens',
+                                description: 'Reconnaître un article à partir d\'une photo',
+                                icon: ExternalLink,
+                                href: 'https://lens.google.com/',
+                                external: true,
+                            },
+                        ]}
+                    />
                 </div>
             </div>
 

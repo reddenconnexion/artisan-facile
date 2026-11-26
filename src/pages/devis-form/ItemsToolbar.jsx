@@ -2,10 +2,12 @@ import { Plus, Mic, Layers, X, Sparkles, Info, ShoppingCart, HelpCircle, Truck, 
 import { toast } from 'sonner';
 import { supplyEntries } from '../../utils/quoteInternalDetail';
 import { buildPriceCheckList, isPriceToCheck } from '../../utils/quoteMethod';
+import { OverflowMenu } from '../../components/ui';
 
 /**
- * Boutons d'ajout sous les lignes (main d'œuvre, matériel, dictée, section,
- * déduction d'avenant, collage, commandes, IA) et légende des types.
+ * Boutons d'ajout sous les lignes et légende des types. En vue : main
+ * d'œuvre, matériel, dictée, déduction d'avenant et IA. Section, collage
+ * d'un tableau, commandes et prix à relever sont rangés dans « ⋯ ».
  */
 const ItemsToolbar = ({
     addItem,
@@ -27,6 +29,7 @@ const ItemsToolbar = ({
     // Fournitures au prix estimé ou ancien (note interne « À relever ») : la
     // liste se copie à tout moment, pour les re-relever avant l'envoi.
     const priceCheckCount = (formData.items || []).filter(isPriceToCheck).length;
+    const hasSupplies = supplyEntries(formData.items).length > 0;
     const copyPriceCheck = async () => {
         try {
             await navigator.clipboard.writeText(buildPriceCheckList(formData.items, { title: formData.title }));
@@ -73,17 +76,6 @@ const ItemsToolbar = ({
                         Dicter une ligne
                     </button>
 
-                    <button
-                        type="button"
-                        onClick={addSection}
-                        className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors disabled:opacity-50"
-                        disabled={isLocked}
-                        title="Ajoute un titre de groupe pour organiser vos lignes (ex: Cuisine, Salle de bain, Extérieur). Facultatif."
-                    >
-                        <Layers className="w-4 h-4" />
-                        Section
-                    </button>
-
                     {/* Avenant : reprendre en négatif des prestations du devis initial
                         non réalisées, sans les ressaisir à la main. */}
                     {formData.type === 'amendment' && (
@@ -101,52 +93,52 @@ const ItemsToolbar = ({
                         </button>
                     )}
 
-                    <button
-                        type="button"
-                        onClick={() => openCsvPasteModal()}
-                        className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors disabled:opacity-50"
-                        disabled={isLocked}
-                        title="Collez directement vos cellules copiées depuis Excel ou un CSV — aucun fichier à enregistrer sur l'ordinateur."
-                    >
-                        <ClipboardPaste className="w-4 h-4" />
-                        Coller un tableau
-                    </button>
-
-                    {supplyEntries(formData.items).length > 0 && (
-                        <button
-                            type="button"
-                            onClick={() => setShowSupplyModal(true)}
-                            className="flex items-center gap-1.5 text-sm font-medium text-green-700 hover:text-green-900 hover:bg-green-50 dark:hover:bg-green-900/20 px-3 py-1.5 rounded-lg border border-green-200 transition-colors"
-                            title="Envoie les fournitures du devis (lignes Matériel + chiffrage interne) vers votre liste d'achats, pour passer commande sans chercher dans vos notes."
-                        >
-                            <ShoppingCart className="w-4 h-4" />
-                            Commander le matériel
-                        </button>
-                    )}
-
-                    {supplyEntries(formData.items).length > 0 && (
-                        <button
-                            type="button"
-                            onClick={() => setShowSupplierListModal(true)}
-                            className="flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors"
-                            title="Affiche le matériel du devis sans les prix facturés, à copier ou télécharger pour l'envoyer à votre fournisseur."
-                        >
-                            <Truck className="w-4 h-4" />
-                            Liste fournisseur
-                        </button>
-                    )}
-
-                    {priceCheckCount > 0 && (
-                        <button
-                            type="button"
-                            onClick={copyPriceCheck}
-                            className="flex items-center gap-1.5 text-sm font-medium text-orange-700 hover:text-orange-900 hover:bg-orange-50 dark:hover:bg-orange-900/20 px-3 py-1.5 rounded-lg border border-orange-200 transition-colors"
-                            title="Copie les fournitures dont le prix est estimé ou trop ancien (désignation | quantité | unité), pour les re-relever chez vos fournisseurs avant d'envoyer le devis."
-                        >
-                            <ClipboardList className="w-4 h-4" />
-                            {priceCheckCount} prix à relever
-                        </button>
-                    )}
+                    <OverflowMenu
+                        size="sm"
+                        width="w-72"
+                        iconClassName="w-4 h-4"
+                        label="Plus d'options pour les lignes"
+                        badge={priceCheckCount > 0 ? priceCheckCount : null}
+                        className="self-center"
+                        items={[
+                            {
+                                label: 'Ajouter une section',
+                                description: 'Titre de groupe pour organiser les lignes (Cuisine, Salle de bain…)',
+                                icon: Layers,
+                                disabled: isLocked,
+                                onClick: addSection,
+                            },
+                            {
+                                label: 'Coller un tableau',
+                                description: 'Cellules copiées depuis Excel ou un CSV',
+                                icon: ClipboardPaste,
+                                disabled: isLocked,
+                                onClick: () => openCsvPasteModal(),
+                            },
+                            { divider: true },
+                            hasSupplies && {
+                                label: 'Commander le matériel',
+                                description: "Envoie les fournitures du devis vers votre liste d'achats",
+                                icon: ShoppingCart,
+                                iconClassName: 'text-green-600',
+                                onClick: () => setShowSupplyModal(true),
+                            },
+                            hasSupplies && {
+                                label: 'Liste fournisseur',
+                                description: 'Le matériel sans vos prix de vente, à envoyer au fournisseur',
+                                icon: Truck,
+                                iconClassName: 'text-blue-600',
+                                onClick: () => setShowSupplierListModal(true),
+                            },
+                            priceCheckCount > 0 && {
+                                label: priceCheckCount > 1 ? `Copier les ${priceCheckCount} prix à relever` : 'Copier le prix à relever',
+                                description: 'Fournitures au prix estimé ou ancien, à vérifier avant l\'envoi',
+                                icon: ClipboardList,
+                                iconClassName: 'text-orange-600',
+                                onClick: copyPriceCheck,
+                            },
+                        ]}
+                    />
 
                     <button
                         onClick={() => setShowAIModal(true)}

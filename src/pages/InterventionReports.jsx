@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Plus, Search, Trash2, Edit, FileDown, CheckCircle, Clock, PenLine, Sparkles } from 'lucide-react';
-import { Button, EmptyState, LoadingState } from '../components/ui';
+import { Button, EmptyState, LoadingState, OverflowMenu } from '../components/ui';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -49,6 +49,24 @@ const FinishVisitButton = ({ report, navigate }) => (
         À finir — reprendre
     </button>
 );
+
+// Actions secondaires d'un rapport, rangées derrière « ⋯ ».
+const reportMenuItems = (report, { exportingId, deletingId, handleExportPDF, handleDelete }) => [
+    {
+        label: exportingId === report.id ? 'Export du PDF…' : 'Télécharger le PDF',
+        icon: FileDown,
+        disabled: exportingId === report.id,
+        onClick: () => handleExportPDF(report),
+    },
+    { divider: true },
+    {
+        label: 'Supprimer',
+        icon: Trash2,
+        danger: true,
+        disabled: deletingId === report.id,
+        onClick: () => handleDelete(report.id),
+    },
+];
 
 const InterventionReports = () => {
     const navigate = useNavigate();
@@ -234,32 +252,21 @@ const InterventionReports = () => {
                                             <StatusBadge status={report.status} />
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2 justify-end">
-                                                <button
-                                                    onClick={() => handleExportPDF(report)}
-                                                    disabled={exportingId === report.id}
-                                                    className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                                                    title="Exporter en PDF"
-                                                >
-                                                    {exportingId === report.id
-                                                        ? <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                                                        : <FileDown className="w-4 h-4" />}
-                                                </button>
+                                            <div className="flex items-center gap-1 justify-end">
                                                 <button
                                                     onClick={() => navigate(`/app/interventions/${report.id}`)}
                                                     className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                                                     title="Modifier"
+                                                    aria-label="Modifier"
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </button>
-                                                <button
-                                                    onClick={() => handleDelete(report.id)}
-                                                    disabled={deletingId === report.id}
-                                                    className="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                                    title="Supprimer"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                <OverflowMenu
+                                                    variant="ghost"
+                                                    width="w-56"
+                                                    iconClassName="w-4 h-4"
+                                                    items={reportMenuItems(report, { exportingId, deletingId, handleExportPDF, handleDelete })}
+                                                />
                                             </div>
                                         </td>
                                     </tr>
@@ -300,15 +307,7 @@ const InterventionReports = () => {
                                     {report.duration_hours && <span>{report.duration_hours}h</span>}
                                     {report.intervention_city && <span>{report.intervention_city}</span>}
                                 </div>
-                                <div className="flex gap-2 pt-1 border-t border-gray-100 dark:border-gray-700">
-                                    <button
-                                        onClick={() => handleExportPDF(report)}
-                                        disabled={exportingId === report.id}
-                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-3 min-h-[44px] text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                                    >
-                                        <FileDown className="w-3.5 h-3.5" />
-                                        PDF
-                                    </button>
+                                <div className="flex gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
                                     <button
                                         onClick={() => navigate(`/app/interventions/${report.id}`)}
                                         className="flex-1 flex items-center justify-center gap-1.5 px-3 py-3 min-h-[44px] text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
@@ -316,14 +315,10 @@ const InterventionReports = () => {
                                         <Edit className="w-3.5 h-3.5" />
                                         Modifier
                                     </button>
-                                    <button
-                                        onClick={() => handleDelete(report.id)}
-                                        disabled={deletingId === report.id}
-                                        className="min-w-[44px] min-h-[44px] flex items-center justify-center px-3 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-                                        aria-label="Supprimer le rapport"
-                                    >
-                                        <Trash2 className="w-5 h-5" />
-                                    </button>
+                                    <OverflowMenu
+                                        width="w-56"
+                                        items={reportMenuItems(report, { exportingId, deletingId, handleExportPDF, handleDelete })}
+                                    />
                                 </div>
                             </div>
                         ))}

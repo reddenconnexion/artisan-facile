@@ -5,12 +5,12 @@ import { toast } from 'sonner';
 import {
     ShoppingCart, Hammer, Package, Search, Plus, Trash2,
     Check, CheckCircle, RotateCcw, Loader2, ExternalLink,
-    Truck, Mic, Filter, FileText, Repeat, CheckSquare, Square, X,
+    Truck, Mic, Filter, FileText, Repeat, CheckSquare, Square, X, Copy,
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile, useProcurementItems } from '../hooks/useDataCache';
-import { Button, EmptyState, LoadingState } from '../components/ui';
+import { Button, EmptyState, LoadingState, OverflowMenu } from '../components/ui';
 import { buildCatalogUpsert, isCatalogable } from '../utils/procurementCatalog';
 import { groupMaterialsMargin } from '../utils/realizedMargin';
 import ReplaceProcurementModal from '../components/ReplaceProcurementModal';
@@ -397,14 +397,7 @@ const Procurement = () => {
                         Centralisez les besoins notés depuis les chantiers et passez vos commandes.
                     </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    <Link
-                        to="/app/commandes"
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gray-100 hover:bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-100 text-sm font-semibold"
-                    >
-                        <Truck className="w-4 h-4" />
-                        Commandes passées
-                    </Link>
+                <div className="flex flex-wrap items-center gap-2">
                     <Link
                         to="/terrain?mode=commande"
                         className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-ios hover:bg-ios-dark text-white text-sm font-semibold shadow-sm"
@@ -412,6 +405,24 @@ const Procurement = () => {
                         <Mic className="w-4 h-4" />
                         Dicter sur le chantier
                     </Link>
+                    <OverflowMenu
+                        label="Plus d'options"
+                        items={[
+                            {
+                                label: 'Commandes passées',
+                                description: 'Achats fournisseurs imputés aux chantiers',
+                                icon: Truck,
+                                onClick: () => navigate('/app/commandes'),
+                            },
+                            {
+                                label: 'Copier la liste',
+                                description: 'Les articles affichés, groupés par chantier',
+                                icon: Copy,
+                                disabled: filtered.length === 0,
+                                onClick: copyList,
+                            },
+                        ]}
+                    />
                 </div>
             </div>
 
@@ -461,12 +472,6 @@ const Procurement = () => {
                         ))}
                     </select>
                 </div>
-                <button
-                    onClick={copyList}
-                    className="px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-2xl text-sm font-medium text-gray-700"
-                >
-                    Copier la liste
-                </button>
                 {statusFilter === 'pending' && filtered.length > 0 && (
                     <button
                         onClick={() => bulkMark('ordered')}
