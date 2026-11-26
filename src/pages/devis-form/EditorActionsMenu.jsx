@@ -4,8 +4,9 @@ import { publicLinkExpiry } from '../../constants/publicLink';
 import { supabase } from '../../utils/supabase';
 
 /**
- * Menu « Plus d'actions » (⋮) de l'éditeur : partage & signature, PDF,
- * documents liés, suppression, avis, imports.
+ * Contenu du menu « Plus d'actions » (⋯) de l'éditeur : partage & signature,
+ * PDF, documents liés, suppression, avis, imports. Le placement (toujours dans
+ * l'écran, défilement interne sur téléphone) est assuré par OverflowMenu.
  */
 const EditorActionsMenu = ({
     fetchLinkSuspended,
@@ -34,7 +35,7 @@ const EditorActionsMenu = ({
     togglingSuspension,
 }) => {
     return (
-        <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-100 dark:border-gray-800 z-50 py-1">
+        <>
             {/* ─── Partage & Signature ─── */}
             <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Partage & Signature</p>
             {/* Envoi en anglais (devis/facture + mail traduits) */}
@@ -146,7 +147,7 @@ const EditorActionsMenu = ({
                 <>
                     <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
                     <button
-                        onClick={handleDelete}
+                        onClick={() => { setShowActionsMenu(false); handleDelete(); }}
                         className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                     >
                         <Trash2 className="w-4 h-4 mr-3" />
@@ -196,8 +197,7 @@ const EditorActionsMenu = ({
                 <FileText className="w-4 h-4 mr-3 text-purple-600" />
                 Importer Externe (Brut)
             </button>
-
-        </div>
+        </>
     );
 };
 

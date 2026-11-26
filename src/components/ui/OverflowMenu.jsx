@@ -29,9 +29,16 @@ import { MoreHorizontal, MoreVertical } from 'lucide-react';
  * (à côté de gros boutons arrondis).
  * `orientation` : `horizontal` (⋯, défaut) · `vertical` (⋮). `badge` : pastille
  * sur le bouton quand une action rangée mérite l'attention (texte ou `true`).
+ *
+ * Menus sur mesure : `children` (fonction `(close) => contenu`) remplace
+ * `items`, `trigger` remplace l'icône ⋯ (avec `size="auto"`), et `open` /
+ * `onOpenChange` permettent de piloter l'ouverture depuis le parent.
  */
 const MENU_GAP = 4;
 const VIEWPORT_MARGIN = 8;
+// Ce qui se parcourt au clavier : les entrées du menu, et les boutons et liens
+// d'un contenu sur mesure.
+const FOCUSABLE = '[role="menuitem"]:not([disabled]), button:not([disabled]), a[href]';
 
 const TRIGGER_VARIANTS = {
     outline: 'border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800',
@@ -39,15 +46,20 @@ const TRIGGER_VARIANTS = {
 };
 
 const TRIGGER_SIZES = {
-    outline: { sm: 'w-8 h-8 rounded-lg', md: 'w-10 h-10 rounded-lg', lg: 'w-12 h-12 rounded-2xl' },
-    ghost: { sm: 'p-1.5', md: 'p-2', lg: 'p-2.5' },
+    outline: { sm: 'w-8 h-8 rounded-lg', md: 'w-10 h-10 rounded-lg', lg: 'w-12 h-12 rounded-2xl', auto: 'h-10 px-3 gap-1 rounded-lg' },
+    ghost: { sm: 'p-1.5', md: 'p-2', lg: 'p-2.5', auto: 'px-2 py-1.5 gap-1' },
 };
 
 const ITEM_BASE = 'tap-target w-full flex items-start gap-3 px-4 py-2.5 text-sm text-left transition-colors focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed';
 
 const OverflowMenu = ({
     items = [],
+    children = null,
+    trigger = null,
+    open: openProp,
+    onOpenChange,
     label = "Plus d'actions",
+    title,
     variant = 'outline',
     size = 'md',
     orientation = 'horizontal',
@@ -57,7 +69,9 @@ const OverflowMenu = ({
     triggerClassName = '',
     iconClassName = 'w-5 h-5',
 }) => {
-    const [open, setOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
+    const controlled = openProp !== undefined;
+    const open = controlled ? !!openProp : internalOpen;
     const [position, setPosition] = useState(null);
     const triggerRef = useRef(null);
     const menuRef = useRef(null);
@@ -69,40 +83,55 @@ const OverflowMenu = ({
         if (!item.divider) return true;
         return i > 0 && i < arr.length - 1 && !arr[i - 1].divider;
     });
-    const hasActions = entries.some((item) => !item.divider);
+    const hasActions = children != null || entries.some((item) => !item.divider);
+
+    const setOpen = useCallback((next) => {
+        if (!controlled) setInternalOpen(next);
+        onOpenChange?.(next);
+    }, [controlled, onOpenChange]);
 
     const close = useCallback((restoreFocus = false) => {
         setOpen(false);
-        setPosition(null);
         if (restoreFocus) triggerRef.current?.focus();
-    }, []);
+    }, [setOpen]);
+    // Fermeture donnée au contenu sur mesure (les actions qu'il porte).
+    const closeFromContent = useCallback(() => setOpen(false), [setOpen]);
 
-    // Place le menu sous le bouton, aligné à droite ; au-dessus s'il déborde
-    // en bas de l'écran.
+    // Place le menu sous le bouton, aligné sur son bord droit ; au-dessus s'il
+    // manque de place en bas. Il reste toujours dans l'écran : décalé vers la
+    // droite s'il déborderait à gauche, et limité en hauteur (il défile alors
+    // à l'intérieur) s'il est plus haut que la place disponible.
     useLayoutEffect(() => {
         if (!open) return;
-        const trigger = triggerRef.current;
+        const triggerEl = triggerRef.current;
         const menu = menuRef.current;
-        if (!trigger || !menu) return;
-        const rect = trigger.getBoundingClientRect();
-        const menuHeight = menu.offsetHeight;
-        const menuWidth = menu.offsetWidth;
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const openUp = spaceBelow < menuHeight + MENU_GAP + VIEWPORT_MARGIN && rect.top > spaceBelow;
-        const left = Math.min(
-            Math.max(VIEWPORT_MARGIN, rect.right - menuWidth),
-            window.innerWidth - menuWidth - VIEWPORT_MARGIN,
+        if (!triggerEl || !menu) return;
+        const rect = triggerEl.getBoundingClientRect();
+        const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        // Hauteur naturelle du contenu (bordures comprises), même si une
+        // ouverture précédente l'a limitée.
+        const menuHeight = menu.scrollHeight + (menu.offsetHeight - menu.clientHeight);
+        const menuWidth = Math.min(menu.offsetWidth, viewportWidth - 2 * VIEWPORT_MARGIN);
+        const spaceBelow = viewportHeight - rect.bottom - MENU_GAP - VIEWPORT_MARGIN;
+        const spaceAbove = rect.top - MENU_GAP - VIEWPORT_MARGIN;
+        const openUp = menuHeight > spaceBelow && spaceAbove > spaceBelow;
+        const maxHeight = Math.max(120, openUp ? spaceAbove : spaceBelow);
+        const height = Math.min(menuHeight, maxHeight);
+        const left = Math.max(
+            VIEWPORT_MARGIN,
+            Math.min(rect.right - menuWidth, viewportWidth - menuWidth - VIEWPORT_MARGIN),
         );
         const top = openUp
-            ? Math.max(VIEWPORT_MARGIN, rect.top - menuHeight - MENU_GAP)
-            : rect.bottom + MENU_GAP;
-        setPosition({ top, left, maxHeight: openUp ? rect.top - MENU_GAP - VIEWPORT_MARGIN : spaceBelow - MENU_GAP - VIEWPORT_MARGIN });
+            ? Math.max(VIEWPORT_MARGIN, rect.top - MENU_GAP - height)
+            : Math.min(rect.bottom + MENU_GAP, viewportHeight - VIEWPORT_MARGIN - height);
+        setPosition({ top, left, maxHeight });
     }, [open]);
 
     // Focus sur la première action dès que le menu est placé.
     useEffect(() => {
         if (!open || !position) return;
-        const first = menuRef.current?.querySelector('[role="menuitem"]:not([disabled])');
+        const first = menuRef.current?.querySelector(FOCUSABLE);
         first?.focus({ preventScroll: true });
     }, [open, position]);
 
@@ -125,16 +154,20 @@ const OverflowMenu = ({
     if (!hasActions) return null;
 
     const handleKeyDown = (e) => {
-        const nodes = Array.from(menuRef.current?.querySelectorAll('[role="menuitem"]:not([disabled])') || []);
-        if (nodes.length === 0) return;
-        const index = nodes.indexOf(document.activeElement);
         if (e.key === 'Escape') {
             e.preventDefault();
             e.stopPropagation();
             close(true);
-        } else if (e.key === 'Tab') {
+            return;
+        }
+        if (e.key === 'Tab') {
             close();
-        } else if (e.key === 'ArrowDown') {
+            return;
+        }
+        const nodes = Array.from(menuRef.current?.querySelectorAll(FOCUSABLE) || []);
+        if (nodes.length === 0) return;
+        const index = nodes.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown') {
             e.preventDefault();
             nodes[(index + 1) % nodes.length].focus();
         } else if (e.key === 'ArrowUp') {
@@ -228,13 +261,13 @@ const OverflowMenu = ({
                     else setOpen(true);
                 }}
                 aria-label={label}
-                title={label}
+                title={title ?? label}
                 aria-haspopup="menu"
                 aria-expanded={open}
                 aria-controls={open ? menuId : undefined}
                 className={`tap-target relative inline-flex items-center justify-center flex-shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ios ${TRIGGER_VARIANTS[variant] || TRIGGER_VARIANTS.outline} ${(TRIGGER_SIZES[variant] || TRIGGER_SIZES.outline)[size] || ''} ${triggerClassName} ${className}`}
             >
-                <Icon className={iconClassName} aria-hidden="true" />
+                {trigger ?? <Icon className={iconClassName} aria-hidden="true" />}
                 {badge && (
                     <span
                         className={`absolute -top-1 -right-1 rounded-full bg-orange-500 text-white font-bold leading-none ring-2 ring-white dark:ring-gray-900 ${badge === true ? 'w-2.5 h-2.5' : 'min-w-[16px] h-4 px-1 text-[10px] flex items-center justify-center'}`}
@@ -263,11 +296,13 @@ const OverflowMenu = ({
                         onKeyDown={handleKeyDown}
                         onClick={(e) => e.stopPropagation()}
                         style={position
-                            ? { top: position.top, left: position.left, maxHeight: Math.max(160, position.maxHeight) }
+                            ? { top: position.top, left: position.left, maxHeight: position.maxHeight }
                             : { top: 0, left: 0, visibility: 'hidden' }}
-                        className={`fixed z-[80] ${width} max-w-[calc(100vw-1rem)] overflow-y-auto overscroll-contain py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg`}
+                        className={`fixed z-[80] ${width} max-w-[calc(100vw-1rem)] overflow-y-auto overscroll-contain py-1 text-left bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg`}
                     >
-                        {entries.map(renderItem)}
+                        {children != null
+                            ? (typeof children === 'function' ? children(closeFromContent) : children)
+                            : entries.map(renderItem)}
                     </div>
                 </>,
                 document.body,
