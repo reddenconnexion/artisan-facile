@@ -134,7 +134,7 @@ const GuidePage = () => {
                         {[
                             { color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300', label: '🔧 Main d\'œuvre', desc: 'Pose, travaux, déplacement' },
                             { color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300', label: '📦 Matériel', desc: 'Fournitures, produits' },
-                            { color: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300', label: '📋 Section', desc: 'Regrouper les lots' },
+                            { color: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300', label: '📋 Section', desc: 'Regrouper les lots (menu ⋯)' },
                             { color: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300', label: '✨ IA', desc: 'Auto-remplissage' },
                         ].map((btn, i) => (
                             <div key={i} className={`rounded-lg p-2.5 ${btn.color}`}>

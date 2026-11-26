@@ -1,7 +1,6 @@
 import { useState, Fragment } from 'react';
-import { createPortal } from 'react-dom';
-import { Search, Plus, Phone, Mail, MapPin, MoreVertical, Edit, Trash2, ArrowUpDown, Users, AlertTriangle, Download, X } from 'lucide-react';
-import { Button, EmptyState, LoadingState } from '../components/ui';
+import { Search, Plus, Phone, Mail, MapPin, Edit, Trash2, ArrowUpDown, Users, AlertTriangle, Download, X } from 'lucide-react';
+import { Button, EmptyState, LoadingState, OverflowMenu } from '../components/ui';
 import { exportToCSV } from '../utils/csvExport';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
@@ -23,7 +22,6 @@ const Clients = () => {
 
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 300); // Retarde la recherche de 300ms
-    const [activeMenu, setActiveMenu] = useState(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
 
@@ -62,7 +60,6 @@ const Clients = () => {
             toast.error('Erreur lors de la suppression du client');
         } finally {
             setDeleteConfirmId(null);
-            setActiveMenu(null);
         }
     };
 
@@ -187,32 +184,25 @@ const Clients = () => {
                             >
                                 <Edit className="w-5 h-5" />
                             </button>
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (activeMenu?.id === client.id) {
-                                        setActiveMenu(null);
-                                        return;
-                                    }
-                                    // Le menu est affiché hors de la liste (qui coupe ce qui
-                                    // dépasse) : on le positionne sous le bouton, ou au-dessus
-                                    // s'il manque de place en bas de l'écran.
-                                    const rect = e.currentTarget.getBoundingClientRect();
-                                    const openUp = window.innerHeight - rect.bottom < 120;
-                                    setActiveMenu({
-                                        id: client.id,
-                                        right: window.innerWidth - rect.right,
-                                        ...(openUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
-                                    });
-                                }}
-                                className="tap-target flex items-center justify-center p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                                title="Plus d'actions"
-                                aria-label="Plus d'actions"
-                                aria-expanded={activeMenu?.id === client.id}
-                            >
-                                <MoreVertical className="w-5 h-5" />
-                            </button>
+                            <OverflowMenu
+                                variant="ghost"
+                                orientation="vertical"
+                                width="w-52"
+                                items={[
+                                    {
+                                        label: 'Créer un devis',
+                                        icon: Plus,
+                                        onClick: () => navigate('/app/devis/new', { state: { client_id: client.id } }),
+                                    },
+                                    { divider: true },
+                                    {
+                                        label: 'Supprimer',
+                                        icon: Trash2,
+                                        danger: true,
+                                        onClick: () => setDeleteConfirmId(client.id),
+                                    },
+                                ]}
+                            />
                         </div>
                     </div>
                     {(client.phone || fullAddress) && (
@@ -253,33 +243,35 @@ const Clients = () => {
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{clients.length} clients enregistrés</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    {filteredClients.length > 0 && (
-                        <button
-                            onClick={() => exportToCSV(
-                                filteredClients,
-                                [
-                                    { key: 'name', label: 'Nom' },
-                                    { key: 'email', label: 'Email' },
-                                    { key: 'phone', label: 'Téléphone' },
-                                    { key: 'address', label: 'Adresse' },
-                                    { key: 'city', label: 'Ville' },
-                                    { key: 'postal_code', label: 'Code postal' },
-                                    { key: 'siren', label: 'SIREN' },
-                                    { key: 'created_at', label: 'Créé le' },
-                                ],
-                                'clients'
-                            )}
-                            className="flex items-center justify-center px-3 py-2 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm"
-                            title="Exporter en CSV (Excel, comptable…)"
-                        >
-                            <Download className="w-4 h-4 sm:mr-2" />
-                            <span className="hidden sm:inline">Exporter CSV</span>
-                        </button>
-                    )}
                     <Button onClick={() => navigate('/app/clients/new')}>
                         <Plus className="w-5 h-5" />
                         Nouveau Client
                     </Button>
+                    <OverflowMenu
+                        label="Plus d'options"
+                        items={[
+                            {
+                                label: 'Exporter en CSV',
+                                description: 'Pour Excel ou votre comptable',
+                                icon: Download,
+                                disabled: filteredClients.length === 0,
+                                onClick: () => exportToCSV(
+                                    filteredClients,
+                                    [
+                                        { key: 'name', label: 'Nom' },
+                                        { key: 'email', label: 'Email' },
+                                        { key: 'phone', label: 'Téléphone' },
+                                        { key: 'address', label: 'Adresse' },
+                                        { key: 'city', label: 'Ville' },
+                                        { key: 'postal_code', label: 'Code postal' },
+                                        { key: 'siren', label: 'SIREN' },
+                                        { key: 'created_at', label: 'Créé le' },
+                                    ],
+                                    'clients'
+                                ),
+                            },
+                        ]}
+                    />
                 </div>
             </div>
 
@@ -359,46 +351,6 @@ const Clients = () => {
                         </button>
                     </div>
                 </div>
-            )}
-
-            {activeMenu && createPortal(
-                <>
-                    <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setActiveMenu(null)}
-                    />
-                    <div
-                        role="menu"
-                        className="fixed w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 z-50 py-1"
-                        style={{ top: activeMenu.top, bottom: activeMenu.bottom, right: activeMenu.right }}
-                    >
-                        <button
-                            type="button"
-                            role="menuitem"
-                            onClick={() => {
-                                setActiveMenu(null);
-                                navigate('/app/devis/new', { state: { client_id: activeMenu.id } });
-                            }}
-                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Créer un devis
-                        </button>
-                        <button
-                            type="button"
-                            role="menuitem"
-                            onClick={() => {
-                                setDeleteConfirmId(activeMenu.id);
-                                setActiveMenu(null);
-                            }}
-                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Supprimer
-                        </button>
-                    </div>
-                </>,
-                document.body
             )}
 
             {filteredClients.length === 0 && (

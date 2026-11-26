@@ -1,5 +1,5 @@
 // Système de design iOS — point d'entrée unique.
-// import { Card, PageHeader, Button, SegmentedControl, Input, Field } from '../components/ui';
+// import { Card, PageHeader, Button, SegmentedControl, Input, Field, OverflowMenu } from '../components/ui';
 export { default as Card } from './Card';
 export { default as PageHeader } from './PageHeader';
 export { default as Button } from './Button';
@@ -10,3 +10,4 @@ export { default as DismissibleHelp } from './DismissibleHelp';
 export { default as UrgencyBadge } from './UrgencyBadge';
 export { default as EmptyState } from './EmptyState';
 export { default as LoadingState } from './LoadingState';
+export { default as OverflowMenu } from './OverflowMenu';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, ChevronDown, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List, Archive, ArchiveRestore, MailOpen, Banknote, Route } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, AlertCircle, Upload, Send, Layers, X, Radio, XCircle, Download, Eye, EyeOff, LayoutGrid, List, Archive, ArchiveRestore, MailOpen, Banknote, Route } from 'lucide-react';
 import { affaireRootId } from '../utils/affaireJourney';
 import { supabase } from '../utils/supabase';
 import { exportToCSV } from '../utils/csvExport';
@@ -17,7 +17,7 @@ import { archiveQuote, unarchiveQuote, markInvoicePaid } from '../utils/followUp
 import { usePaymentMethodPrompt } from '../hooks/usePaymentMethodPrompt';
 import { usePaymentReceivedEmail } from '../hooks/usePaymentReceivedEmail';
 import { reopenedAfterExpiryAt } from '../utils/quoteReopen';
-import { Button, UrgencyBadge, EmptyState, LoadingState } from '../components/ui';
+import { Button, UrgencyBadge, EmptyState, LoadingState, OverflowMenu } from '../components/ui';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { formatDate, formatDateTime, formatCurrency, normalizeSearch } from '../utils/format';
@@ -271,7 +271,6 @@ const DevisList = () => {
     const [statusFilter, setStatusFilter] = useState(location.state?.filter || 'all');
     const [mergeMode, setMergeMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState(new Set());
-    const [showMoreOptions, setShowMoreOptions] = useState(false);
 
     const toggleSelect = (e, id) => {
         e.stopPropagation();
@@ -406,93 +405,6 @@ const DevisList = () => {
                 <div className="flex gap-2 relative">
                     {!mergeMode ? (
                         <>
-                            {/* Options avancées (Import, Fusion) */}
-                            <div className="relative">
-                                <button
-                                    onClick={() => setShowMoreOptions(v => !v)}
-                                    className="flex items-center justify-center px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                    title="Plus d'options"
-                                >
-                                    <ChevronDown className="w-4 h-4" />
-                                </button>
-                                {showMoreOptions && (
-                                    <div className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg z-10 overflow-hidden">
-                                        <button
-                                            onClick={() => { handleImportClick('archive'); setShowMoreOptions(false); }}
-                                            className="w-full flex items-start gap-2.5 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
-                                        >
-                                            <Upload className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                                            <div>
-                                                <div className="font-medium">Importer un devis archivé</div>
-                                                <div className="text-xs text-gray-400 dark:text-gray-500">Récupérer un de vos anciens devis (PDF/Word)</div>
-                                            </div>
-                                        </button>
-                                        <button
-                                            onClick={() => { handleImportClick('competitor'); setShowMoreOptions(false); }}
-                                            className="w-full flex items-start gap-2.5 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left border-t border-gray-100 dark:border-gray-800"
-                                        >
-                                            <Layers className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                                            <div>
-                                                <div className="font-medium">Faire une contre-proposition</div>
-                                                <div className="text-xs text-gray-400 dark:text-gray-500">Importer le devis d'un concurrent comme base</div>
-                                            </div>
-                                        </button>
-                                        <button
-                                            onClick={() => { setMergeMode(true); setShowMoreOptions(false); }}
-                                            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-t border-gray-100 dark:border-gray-800"
-                                        >
-                                            <Layers className="w-4 h-4 text-gray-400" />
-                                            Fusionner des devis
-                                        </button>
-                                        <button
-                                            disabled={filteredDevis.length === 0}
-                                            onClick={() => {
-                                                exportToCSV(
-                                                    filteredDevis,
-                                                    [
-                                                        { key: 'reference', label: 'Référence' },
-                                                        { key: 'type', label: 'Type' },
-                                                        { key: 'status', label: 'Statut' },
-                                                        { key: 'client_name', label: 'Client' },
-                                                        { key: 'date', label: 'Date', format: (v) => v ? formatDate(v) : '' },
-                                                        { key: 'valid_until', label: 'Valide jusqu\'au', format: (v) => v ? formatDate(v) : '' },
-                                                        { key: 'total_ht', label: 'Total HT' },
-                                                        { key: 'total_tva', label: 'TVA' },
-                                                        { key: 'total_ttc', label: 'Total TTC' },
-                                                    ],
-                                                    'devis'
-                                                );
-                                                setShowMoreOptions(false);
-                                            }}
-                                            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-t border-gray-100 dark:border-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                        >
-                                            <Download className="w-4 h-4 text-gray-400" />
-                                            Exporter en CSV
-                                        </button>
-                                        <button
-                                            disabled={filteredDevis.length === 0}
-                                            onClick={() => {
-                                                const rows = buildLineItemRows(filteredDevis);
-                                                if (rows.length === 0) {
-                                                    toast.info('Aucune ligne à exporter dans cette sélection.');
-                                                    setShowMoreOptions(false);
-                                                    return;
-                                                }
-                                                exportToCSV(rows, LINE_ITEM_COLUMNS, 'referentiel-lignes');
-                                                toast.success(`${rows.length} ligne${rows.length > 1 ? 's' : ''} exportée${rows.length > 1 ? 's' : ''}`);
-                                                setShowMoreOptions(false);
-                                            }}
-                                            className="w-full flex items-start gap-2.5 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-t border-gray-100 dark:border-gray-800 disabled:opacity-40 disabled:cursor-not-allowed text-left"
-                                        >
-                                            <Layers className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
-                                            <div>
-                                                <div className="font-medium">Exporter le détail des lignes (CSV)</div>
-                                                <div className="text-xs text-gray-400 dark:text-gray-500">Toutes les lignes (prix unitaires, marges) pour bâtir un référentiel</div>
-                                            </div>
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
                             {/* Toggle Liste / Kanban */}
                             <button
                                 onClick={toggleViewMode}
@@ -508,6 +420,68 @@ const DevisList = () => {
                                 <Plus className="w-5 h-5" />
                                 Nouveau Devis
                             </Button>
+                            {/* Options secondaires (import, fusion, exports) */}
+                            <OverflowMenu
+                                label="Plus d'options"
+                                width="w-72"
+                                items={[
+                                    {
+                                        label: 'Importer un devis archivé',
+                                        description: 'Récupérer un de vos anciens devis (PDF/Word)',
+                                        icon: Upload,
+                                        onClick: () => handleImportClick('archive'),
+                                    },
+                                    {
+                                        label: 'Faire une contre-proposition',
+                                        description: "Importer le devis d'un concurrent comme base",
+                                        icon: Layers,
+                                        iconClassName: 'text-blue-500',
+                                        onClick: () => handleImportClick('competitor'),
+                                    },
+                                    {
+                                        label: 'Fusionner des devis',
+                                        icon: Layers,
+                                        onClick: () => setMergeMode(true),
+                                    },
+                                    { divider: true },
+                                    {
+                                        label: 'Exporter en CSV',
+                                        icon: Download,
+                                        disabled: filteredDevis.length === 0,
+                                        onClick: () => exportToCSV(
+                                            filteredDevis,
+                                            [
+                                                { key: 'reference', label: 'Référence' },
+                                                { key: 'type', label: 'Type' },
+                                                { key: 'status', label: 'Statut' },
+                                                { key: 'client_name', label: 'Client' },
+                                                { key: 'date', label: 'Date', format: (v) => v ? formatDate(v) : '' },
+                                                { key: 'valid_until', label: 'Valide jusqu\'au', format: (v) => v ? formatDate(v) : '' },
+                                                { key: 'total_ht', label: 'Total HT' },
+                                                { key: 'total_tva', label: 'TVA' },
+                                                { key: 'total_ttc', label: 'Total TTC' },
+                                            ],
+                                            'devis'
+                                        ),
+                                    },
+                                    {
+                                        label: 'Exporter le détail des lignes (CSV)',
+                                        description: 'Toutes les lignes (prix unitaires, marges) pour bâtir un référentiel',
+                                        icon: Layers,
+                                        iconClassName: 'text-purple-500',
+                                        disabled: filteredDevis.length === 0,
+                                        onClick: () => {
+                                            const rows = buildLineItemRows(filteredDevis);
+                                            if (rows.length === 0) {
+                                                toast.info('Aucune ligne à exporter dans cette sélection.');
+                                                return;
+                                            }
+                                            exportToCSV(rows, LINE_ITEM_COLUMNS, 'referentiel-lignes');
+                                            toast.success(`${rows.length} ligne${rows.length > 1 ? 's' : ''} exportée${rows.length > 1 ? 's' : ''}`);
+                                        },
+                                    },
+                                ]}
+                            />
                         </>
                     ) : (
                         <button

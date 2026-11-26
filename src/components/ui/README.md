@@ -5,7 +5,7 @@ Petite bibliothèque d'UI au style iOS / iPadOS, utilisée dans toute l'app
 les mêmes classes Tailwind partout.
 
 ```js
-import { Card, PageHeader, Button, SegmentedControl, Input, Field, EmptyState, LoadingState } from '../components/ui';
+import { Card, PageHeader, Button, SegmentedControl, Input, Field, EmptyState, LoadingState, OverflowMenu } from '../components/ui';
 ```
 
 ## Tokens de couleur
@@ -93,6 +93,31 @@ Chargement d'une page ou d'une liste (spinner + libellé, `role="status"`).
 ```jsx
 if (loading) return <LoadingState className="h-64" />;
 ```
+
+### `OverflowMenu`
+Bouton « ⋯ » qui range les actions secondaires (export, import, suppression,
+options rares…) pour ne laisser en vue que l'action principale de l'écran.
+Le menu s'ouvre par-dessus la page (jamais coupé par une liste), sous le
+bouton ou au-dessus s'il manque de place, et se ferme au toucher à côté, sur
+Échap ou au défilement. Navigation clavier ↑ ↓.
+```jsx
+<OverflowMenu items={[
+  { label: 'Exporter en CSV', description: 'Pour Excel ou votre comptable', icon: Download, onClick: exporter },
+  { label: 'Ouvrir Google Lens', icon: ExternalLink, href: 'https://lens.google.com/', external: true },
+  { divider: true },
+  { label: 'Supprimer', icon: Trash2, danger: true, onClick: supprimer },
+]} />
+<OverflowMenu variant="ghost" orientation="vertical" items={…} /> {/* ligne de liste */}
+```
+Options : `variant` (`outline` · `ghost`), `size` (`sm` · `md` · `lg`),
+`orientation` (`horizontal` ⋯ · `vertical` ⋮), `badge` (pastille d'alerte sur
+le bouton), `width` (classe Tailwind du menu). Une entrée peut être
+`disabled`, `hidden` ou falsy (ignorée) : pratique pour les actions
+conditionnelles.
+
+**Règle** : en vue, l'action principale (et au plus une ou deux actions
+fréquentes) ; tout le reste dans « ⋯ ». La suppression va toujours dans le
+menu, en dernier, en rouge.
 
 ## Zones tactiles (44 px)
 

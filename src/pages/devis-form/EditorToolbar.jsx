@@ -1,4 +1,4 @@
-import { ArrowLeft, Save, Send, FileText, FileCheck, Eye, MoreVertical, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Send, FileText, FileCheck, Eye, MoreHorizontal, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import AutoSaveIndicator from '../../components/AutoSaveIndicator';
 import { formatDate, formatDateTime } from '../../utils/format';
@@ -6,7 +6,7 @@ import EditorActionsMenu from './EditorActionsMenu';
 
 /**
  * Barre du haut de l'éditeur : retour, type de document, présence du
- * client, actions principales, menu « ⋮ » et champs d'import (cachés).
+ * client, actions principales, menu « ⋯ » et champs d'import (cachés).
  */
 const EditorToolbar = ({
     canConvertToInvoice,
@@ -202,8 +202,11 @@ const EditorToolbar = ({
                         onClick={() => setShowActionsMenu(!showActionsMenu)}
                         className="flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ios dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                         title="Plus d'actions"
+                        aria-label="Plus d'actions"
+                        aria-haspopup="menu"
+                        aria-expanded={showActionsMenu}
                     >
-                        <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                        <MoreHorizontal className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                     </button>
 
                     {showActionsMenu && (

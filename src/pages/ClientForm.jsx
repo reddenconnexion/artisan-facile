@@ -12,7 +12,7 @@ import ClientHistory from '../components/ClientHistory';
 import ClientContacts from '../components/ClientContacts';
 import ClientReferences from '../components/ClientReferences';
 import ClientStats from '../components/ClientStats';
-import { Input, Field } from '../components/ui';
+import { Input, Field, OverflowMenu } from '../components/ui';
 import CivilityPicker from '../components/CivilityPicker';
 import { parseClientBlock, parseClientSms } from '../utils/addressParser';
 import { formatDate, formatDateTime } from '../utils/format';
@@ -671,15 +671,19 @@ const ClientForm = () => {
                         {isEditing ? 'Modifier le client' : 'Nouveau client'}
                     </h1>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setShowVoiceModal(true)}
-                        className="flex items-center px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg hover:from-indigo-600 hover:to-purple-700 shadow-sm"
-                    >
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        <span className="hidden sm:inline">IA Assistant</span>
-                    </button>
+                <div className="flex flex-wrap items-center gap-2">
+                    {/* Création : l'assistant IA aide à remplir la fiche, on le garde
+                        en vue. Fiche existante : il rejoint le menu « ⋯ ». */}
+                    {!isEditing && (
+                        <button
+                            type="button"
+                            onClick={() => setShowVoiceModal(true)}
+                            className="flex items-center px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg hover:from-indigo-600 hover:to-purple-700 shadow-sm"
+                        >
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            <span className="hidden sm:inline">IA Assistant</span>
+                        </button>
+                    )}
                     {isEditing && (
                         <button
                             type="button"
@@ -713,15 +717,25 @@ const ClientForm = () => {
                         </button>
                     )}
                     {isEditing && (
-                        <button
-                            type="button"
-                            onClick={handleDelete}
-                            className="flex items-center px-3 py-2 text-sm font-medium text-red-700 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100"
-                            title="Supprimer le client"
-                        >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Supprimer
-                        </button>
+                        <OverflowMenu
+                            label="Plus d'actions"
+                            items={[
+                                {
+                                    label: 'Assistant IA vocal',
+                                    description: 'Dicter les infos du client pour compléter la fiche',
+                                    icon: Sparkles,
+                                    iconClassName: 'text-indigo-500',
+                                    onClick: () => setShowVoiceModal(true),
+                                },
+                                { divider: true },
+                                {
+                                    label: 'Supprimer le client',
+                                    icon: Trash2,
+                                    danger: true,
+                                    onClick: handleDelete,
+                                },
+                            ]}
+                        />
                     )}
                 </div>
             </div>
