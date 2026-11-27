@@ -1,5 +1,11 @@
 {
+    "trailingSlash": false,
     "rewrites": [
+        { "source": "/logiciel-devis-electricien", "destination": "/logiciel-devis-electricien.html" },
+        { "source": "/logiciel-devis-plombier", "destination": "/logiciel-devis-plombier.html" },
+        { "source": "/facture-electronique-artisan-2026", "destination": "/facture-electronique-artisan-2026.html" },
+        { "source": "/devis-auto-entrepreneur-mentions-obligatoires", "destination": "/devis-auto-entrepreneur-mentions-obligatoires.html" },
+        { "source": "/a-propos", "destination": "/a-propos.html" },
         {
             "source": "/((?!sw.js|workbox-|.*\\..*).*)",
             "destination": "/index.html"

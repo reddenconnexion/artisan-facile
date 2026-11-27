@@ -102,6 +102,11 @@ Les données sont sauvegardées automatiquement chaque jour, hébergées en Euro
 ## Liens utiles
 
 - Accueil : https://artisanfacile.fr/
+- Logiciel de devis pour électricien : https://artisanfacile.fr/logiciel-devis-electricien
+- Logiciel de devis pour plombier : https://artisanfacile.fr/logiciel-devis-plombier
+- Guide facture électronique 2026 : https://artisanfacile.fr/facture-electronique-artisan-2026
+- Guide des mentions obligatoires du devis : https://artisanfacile.fr/devis-auto-entrepreneur-mentions-obligatoires
+- À propos : https://artisanfacile.fr/a-propos
 - Créer un compte gratuit : https://artisanfacile.fr/register
 - Se connecter : https://artisanfacile.fr/login
 - Résumé pour assistants IA : https://artisanfacile.fr/llms.txt

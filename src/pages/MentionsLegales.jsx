@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { usePageMeta } from '../hooks/usePageMeta';
+import { ROUTE_META } from '../content/publicPages';
 
 const MentionsLegales = () => {
+    usePageMeta({ ...ROUTE_META['/mentions-legales'], path: '/mentions-legales' });
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
