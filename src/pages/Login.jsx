@@ -6,11 +6,14 @@ import { toast } from 'sonner';
 import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
 import { AUTH_INPUT_CLASS as inputClass } from '../constants/ui';
 import { toastError } from '../utils/supabaseErrorHandler';
+import { usePageMeta } from '../hooks/usePageMeta';
+import { ROUTE_META } from '../content/publicPages';
 
 const Login = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { signIn } = useAuth();
+    usePageMeta({ ...ROUTE_META['/login'], path: '/login' });
     const redirectTo = location.state?.from?.pathname
         ? `${location.state.from.pathname}${location.state.from.search || ''}`
         : '/app';

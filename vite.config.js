@@ -2,12 +2,16 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { prerenderPublicPages } from './src/content/prerender.js'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    // Pages publiques de contenu pré-rendues en dist/<slug>.html (avant le
+    // service worker, pour qu'elles entrent dans son précache).
+    prerenderPublicPages(),
     VitePWA({
       // Mode « prompt » : la nouvelle version ne s'active PAS silencieusement.
       // Le service worker reste en attente et déclenche needRefresh, ce qui

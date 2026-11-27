@@ -7,6 +7,8 @@ import { Mail, CheckCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import PasswordStrength from '../components/PasswordStrength';
 import { AUTH_INPUT_CLASS as inputClass } from '../constants/ui';
 import { toastError } from '../utils/supabaseErrorHandler';
+import { usePageMeta } from '../hooks/usePageMeta';
+import { ROUTE_META } from '../content/publicPages';
 
 const JOB_OPTIONS = [
     { value: 'electricien', label: 'Électricien' },
@@ -27,6 +29,7 @@ const Register = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { signUp } = useAuth();
+    usePageMeta({ ...ROUTE_META['/register'], path: '/register' });
     const redirectTo = location.state?.from?.pathname
         ? `${location.state.from.pathname}${location.state.from.search || ''}`
         : '/app';

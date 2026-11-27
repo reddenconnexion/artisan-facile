@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { useFounderSpots } from '../hooks/useFounderSpots';
 import { PRO_BENEFITS, TRIAL_DAYS, proOffer, spotsLabel } from '../utils/founderOffer';
+import { PUBLIC_PAGE_LINKS, ROUTE_META } from '../content/publicPages';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 const LandingPage = () => {
     const founderSpots = useFounderSpots();
@@ -13,6 +15,7 @@ const LandingPage = () => {
     const { user, loading, loginAsDemo } = useAuth();
     const navigate = useNavigate();
     const [demoLoading, setDemoLoading] = useState(false);
+    usePageMeta({ ...ROUTE_META['/'], path: '/' });
 
     const handleDemoLogin = async () => {
         if (demoLoading) return;
@@ -673,8 +676,8 @@ const LandingPage = () => {
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                         {[
-                            { label: 'Électricien',       emoji: '⚡' },
-                            { label: 'Plombier',          emoji: '🔧' },
+                            { label: 'Électricien',       emoji: '⚡', href: '/logiciel-devis-electricien' },
+                            { label: 'Plombier',          emoji: '🔧', href: '/logiciel-devis-plombier' },
                             { label: 'Maçon',             emoji: '🧱' },
                             { label: 'Peintre',           emoji: '🖌️' },
                             { label: 'Menuisier',         emoji: '🪚' },
@@ -685,15 +688,19 @@ const LandingPage = () => {
                             { label: 'Serrurier',         emoji: '🔑' },
                             { label: 'Climaticien',       emoji: '❄️' },
                             { label: 'Multi-services',    emoji: '🛠️' },
-                        ].map(({ label, emoji }) => (
-                            <div
-                                key={label}
-                                className="flex items-center gap-3 bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl px-4 py-3.5 transition-colors group cursor-default"
-                            >
-                                <span className="text-2xl flex-shrink-0">{emoji}</span>
-                                <span className="text-sm font-semibold text-gray-700 group-hover:text-blue-700 transition-colors">{label}</span>
-                            </div>
-                        ))}
+                        ].map(({ label, emoji, href }) => {
+                            const className = `flex items-center gap-3 bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl px-4 py-3.5 transition-colors group ${href ? '' : 'cursor-default'}`;
+                            const inner = (
+                                <>
+                                    <span className="text-2xl flex-shrink-0">{emoji}</span>
+                                    <span className="text-sm font-semibold text-gray-700 group-hover:text-blue-700 transition-colors">{label}</span>
+                                </>
+                            );
+                            // Les métiers qui ont leur page dédiée y mènent (maillage interne).
+                            return href
+                                ? <Link key={label} to={href} className={className}>{inner}</Link>
+                                : <div key={label} className={className}>{inner}</div>;
+                        })}
                     </div>
 
                     <p className="text-center text-sm text-gray-400 mt-8">
@@ -904,7 +911,10 @@ const LandingPage = () => {
                                 Le logiciel de gestion tout-en-un pour artisans : devis, facturation, agenda, CRM et comptabilité.
                             </p>
                         </div>
-                        <div className="flex flex-wrap gap-6 justify-center md:justify-end">
+                        <div className="flex flex-wrap gap-x-6 gap-y-2 justify-center md:justify-end max-w-xl">
+                            {PUBLIC_PAGE_LINKS.map((l) => (
+                                <Link key={l.href} to={l.href} className="hover:text-white transition-colors">{l.label}</Link>
+                            ))}
                             <Link to="/mentions-legales" className="hover:text-white transition-colors">Mentions légales</Link>
                             <Link to="/politique-confidentialite" className="hover:text-white transition-colors">Confidentialité</Link>
                             <a href="mailto:contact@artisanfacile.fr" className="hover:text-white transition-colors">Contact</a>

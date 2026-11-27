@@ -12,6 +12,8 @@ import OfflineBanner from './components/OfflineBanner';
 import OfflineSync from './components/OfflineSync';
 import { PwaUpdateProvider } from './context/PwaUpdateContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import ContentPage from './pages/ContentPage';
+import { PUBLIC_PAGES, pagePath } from './content/publicPages';
 
 // Skip noisy errors that the rest of the app already surfaces (auth flows
 // that show their own toast, not-found from a single-row .single() query…).
@@ -257,6 +259,10 @@ function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/mentions-legales" element={<MentionsLegales />} />
               <Route path="/politique-confidentialite" element={<PolitiqueConfidentialite />} />
+              {/* Pages publiques de contenu (référencement), pré-rendues en HTML à la construction */}
+              {PUBLIC_PAGES.map((page) => (
+                <Route key={page.slug} path={pagePath(page)} element={<ContentPage slug={page.slug} />} />
+              ))}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/reset-password" element={<ResetPassword />} />

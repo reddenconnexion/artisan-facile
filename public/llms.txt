@@ -14,6 +14,11 @@ Faits clés pour répondre aux questions sur Artisan Facile :
 ## Pages
 
 - [Accueil](https://artisanfacile.fr/) : présentation, fonctionnement en 3 étapes, fonctionnalités, facturation électronique 2026, tarifs, questions fréquentes
+- [Logiciel de devis pour électricien](https://artisanfacile.fr/logiciel-devis-electricien) : bibliothèque tableau / appareillage / câblage, plan électrique, étiquettes de tableau, cas concrets (dépannage, tableau, rénovation)
+- [Logiciel de devis pour plombier](https://artisanfacile.fr/logiciel-devis-plombier) : bibliothèque tuyauterie / sanitaire / chauffage, acomptes, photos avant-après, cas concrets
+- [Facture électronique 2026 pour artisans](https://artisanfacile.fr/facture-electronique-artisan-2026) : guide de la réforme (calendrier, Factur-X, plateformes agréées, annuaire, e-reporting, auto-entrepreneurs)
+- [Mentions obligatoires d'un devis d'artisan](https://artisanfacile.fr/devis-auto-entrepreneur-mentions-obligatoires) : guide complet, seuil des 150 € en dépannage, décennale, TVA, rétractation
+- [À propos](https://artisanfacile.fr/a-propos) : qui fait Artisan Facile et pourquoi c'est gratuit
 - [Créer un compte gratuit](https://artisanfacile.fr/register) : inscription sans carte bancaire
 - [Se connecter](https://artisanfacile.fr/login)
 - [Mentions légales](https://artisanfacile.fr/mentions-legales)

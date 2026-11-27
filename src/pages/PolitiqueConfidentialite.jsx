@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { usePageMeta } from '../hooks/usePageMeta';
+import { ROUTE_META } from '../content/publicPages';
 
 const PolitiqueConfidentialite = () => {
+    usePageMeta({ ...ROUTE_META['/politique-confidentialite'], path: '/politique-confidentialite' });
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
