@@ -2,6 +2,9 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
+    <!-- Masque le contenu statique ci-dessous hors page d'accueil (voir public/static-shell.js) -->
+    <script src="/static-shell.js"></script>
+    <style>.af-app #af-static{display:none}</style>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
@@ -14,8 +17,8 @@
 
     <!-- SEO Primary -->
     <title>Artisan Facile | Logiciel Gratuit pour Artisans — Devis, Facturation & Gestion</title>
-    <meta name="description" content="Logiciel 100% gratuit pour artisans débutants et auto-entrepreneurs. Devis pro en 2 min, facturation, agenda, CRM — tout en un. Démarrez sans carte bancaire, sans engagement." />
-    <meta name="keywords" content="logiciel gestion artisan gratuit, application artisan gratuit, logiciel artisan débutant, logiciel auto-entrepreneur gratuit, devis facture artisan gratuit, application devis artisan gratuit, logiciel artisan sans abonnement, gestion artisan gratuit, logiciel artisan bâtiment gratuit, logiciel plombier électricien gratuit, facturation artisan gratuit, application artisan tout en un gratuit, logiciel démarrage activité artisan" />
+    <meta name="description" content="Logiciel 100% gratuit pour artisans débutants et auto-entrepreneurs. Devis pro en 2 min, facturation conforme Factur-X 2026, agenda, CRM — tout en un. Démarrez sans carte bancaire, sans engagement." />
+    <meta name="keywords" content="logiciel gestion artisan gratuit, application artisan gratuit, logiciel artisan débutant, logiciel auto-entrepreneur gratuit, devis facture artisan gratuit, application devis artisan gratuit, logiciel artisan sans abonnement, gestion artisan gratuit, logiciel artisan bâtiment gratuit, logiciel plombier électricien gratuit, facturation artisan gratuit, facture électronique artisan factur-x, application artisan tout en un gratuit, logiciel démarrage activité artisan" />
     <meta name="author" content="Artisan Facile" />
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
     <link rel="canonical" href="https://artisanfacile.fr/" />
@@ -25,18 +28,20 @@
     <meta property="og:url" content="https://artisanfacile.fr/" />
     <meta property="og:site_name" content="Artisan Facile" />
     <meta property="og:title" content="Artisan Facile | Logiciel Gratuit pour Artisans Débutants" />
-    <meta property="og:description" content="100% gratuit pour démarrer. Devis en 2 min, facturation, agenda, CRM — tout ce qu'il faut pour gérer votre activité dès le premier jour. Sans carte bancaire." />
+    <meta property="og:description" content="100% gratuit pour démarrer. Devis en 2 min, facturation conforme 2026, agenda, CRM — tout ce qu'il faut pour gérer votre activité dès le premier jour. Sans carte bancaire." />
     <meta property="og:image" content="https://artisanfacile.fr/images/og-preview.png" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Artisan Facile - Interface de gestion pour artisans" />
+    <meta property="og:image:alt" content="Artisan Facile — le logiciel gratuit des artisans qui se lancent : devis, factures conformes 2026, agenda, impayés, clients" />
     <meta property="og:locale" content="fr_FR" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Artisan Facile | Logiciel Gratuit pour Artisans Débutants" />
-    <meta name="twitter:description" content="100% gratuit pour démarrer. Devis en 2 min, facturation, agenda, CRM. Tout ce qu'il faut pour gérer votre activité d'artisan. Sans CB, sans engagement." />
+    <meta name="twitter:description" content="100% gratuit pour démarrer. Devis en 2 min, facturation conforme 2026, agenda, CRM. Tout ce qu'il faut pour gérer votre activité d'artisan. Sans CB, sans engagement." />
     <meta name="twitter:image" content="https://artisanfacile.fr/images/og-preview.png" />
+    <meta name="twitter:image:alt" content="Artisan Facile — le logiciel gratuit des artisans qui se lancent" />
 
     <!-- PWA / Apple -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -50,52 +55,67 @@
       "@context": "https://schema.org",
       "@graph": [
         {
+          "@type": "WebSite",
+          "@id": "https://artisanfacile.fr/#website",
+          "url": "https://artisanfacile.fr/",
+          "name": "Artisan Facile",
+          "description": "Logiciel de gestion gratuit pour artisans débutants et auto-entrepreneurs : devis, facturation électronique, agenda, CRM.",
+          "inLanguage": "fr-FR",
+          "publisher": { "@id": "https://artisanfacile.fr/#organization" }
+        },
+        {
           "@type": "SoftwareApplication",
           "@id": "https://artisanfacile.fr/#software",
           "name": "Artisan Facile",
           "url": "https://artisanfacile.fr/",
-          "description": "Logiciel de gestion 100% gratuit pour artisans débutants et auto-entrepreneurs. Créez des devis professionnels en 2 minutes, gérez vos factures, chantiers, clients et agenda sans abonnement. Idéal pour démarrer son activité d'artisan.",
+          "description": "Logiciel de gestion 100% gratuit pour artisans débutants et auto-entrepreneurs du bâtiment. Créez des devis professionnels en 2 minutes, émettez des factures conformes à la réforme de la facturation électronique (Factur-X 1.08), gérez vos chantiers, clients, impayés et agenda, même hors ligne. Sans carte bancaire, sans engagement.",
           "applicationCategory": "BusinessApplication",
+          "applicationSubCategory": "Devis et facturation pour artisans",
           "operatingSystem": "Web, iOS, Android",
+          "inLanguage": "fr-FR",
+          "countriesSupported": "FR",
+          "isAccessibleForFree": true,
+          "image": "https://artisanfacile.fr/images/og-preview.png",
+          "screenshot": "https://artisanfacile.fr/images/quote_mockup.png",
+          "publisher": { "@id": "https://artisanfacile.fr/#organization" },
           "offers": [
             {
               "@type": "Offer",
-              "name": "Plan Gratuit",
+              "name": "Plan Essentiel (gratuit)",
               "price": "0",
               "priceCurrency": "EUR",
-              "description": "Accès gratuit et illimité aux fonctionnalités essentielles : devis, facturation, agenda, CRM, bibliothèque de prix, mode hors ligne. Sans carte bancaire, sans engagement, pour toujours.",
+              "description": "Gratuit pour toujours : devis et factures illimités, factures Factur-X 1.08, signature électronique, agenda, CRM clients, bibliothèque de prix, tableau de bord des impayés, mode hors ligne. Sans carte bancaire, sans engagement.",
               "availability": "https://schema.org/InStock",
               "url": "https://artisanfacile.fr/register"
             },
             {
               "@type": "Offer",
               "name": "Plan Pro",
+              "price": "14.99",
               "priceCurrency": "EUR",
-              "description": "Fonctionnalités avancées pour développer votre activité : relances automatiques impayés, comptabilité avancée, rapports d'intervention, gestion des stocks, notes vocales, support prioritaire.",
+              "description": "14,99 € par mois ou 149,90 € par an, 30 jours d'essai gratuit. Pilote automatique : relances automatiques des devis non signés et des factures en retard, demande d'avis Google, point du soir, dictée vocale illimitée, support prioritaire. Offre membre fondateur : 9,90 € par mois à vie pour les 50 premiers abonnés.",
               "availability": "https://schema.org/InStock",
               "url": "https://artisanfacile.fr/register"
             }
           ],
           "featureList": [
-            "Création de devis professionnels en 2 minutes",
-            "Facturation professionnelle conforme",
-            "Suivi des impayés et relances automatiques",
+            "Création de devis professionnels en 2 minutes, depuis le chantier",
+            "Signature électronique des devis par le client",
+            "Facturation conforme à la réforme 2026 : Factur-X 1.08 (EN 16931)",
+            "Inscription automatique à l'annuaire DGFIP et réception des factures fournisseurs (PDP, Peppol)",
+            "Tableau de bord des impayés et relances",
             "Agenda et planification des chantiers",
             "CRM client intégré",
-            "Comptabilité simplifiée",
-            "Bibliothèque de prix et ouvrages pré-remplie",
-            "Rapports d'intervention",
-            "Mode hors ligne (fonctionne sans connexion)",
-            "Signature électronique des devis",
-            "Gestion des stocks",
-            "Notes vocales",
-            "Portail client en ligne"
+            "Bibliothèque de prix et d'ouvrages pré-remplie selon le métier",
+            "Mode hors ligne avec synchronisation automatique",
+            "Rapports d'intervention et photos de chantier",
+            "Notes vocales et devis dictés",
+            "Portail client en ligne",
+            "Application installable sur iPhone, Android, tablette et ordinateur"
           ],
-          "screenshot": "https://artisanfacile.fr/images/quote_mockup.png",
-          "inLanguage": "fr-FR",
           "audience": {
             "@type": "Audience",
-            "audienceType": "Artisans débutants, Auto-entrepreneurs, TPE du bâtiment, Plombiers, Électriciens, Maçons, Menuisiers, Peintres"
+            "audienceType": "Artisans débutants, auto-entrepreneurs et micro-entreprises du bâtiment : électriciens, plombiers, maçons, menuisiers, peintres, carreleurs, couvreurs, chauffagistes, paysagistes"
           }
         },
         {
@@ -107,7 +127,15 @@
             "@type": "ImageObject",
             "url": "https://artisanfacile.fr/logo.svg"
           },
-          "description": "Éditeur du logiciel de gestion tout-en-un pour artisans Artisan Facile.",
+          "email": "contact@artisanfacile.fr",
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer support",
+            "email": "contact@artisanfacile.fr",
+            "availableLanguage": "fr"
+          },
+          "areaServed": "FR",
+          "description": "Éditeur du logiciel de gestion tout-en-un pour artisans Artisan Facile, conçu par un électricien artisan en activité depuis 25 ans.",
           "inLanguage": "fr-FR"
         },
         {
@@ -119,47 +147,47 @@
               "name": "Artisan Facile est-il vraiment gratuit ?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Oui, Artisan Facile est gratuit pour toutes les fonctionnalités essentielles : devis illimités, facturation, agenda, CRM clients, bibliothèque de prix et mode hors ligne. Aucune carte bancaire requise, aucun engagement. Un plan Pro optionnel est disponible pour les fonctionnalités avancées (relances automatiques, comptabilité avancée, rapports d'intervention, support prioritaire)."
+                "text": "Oui — et pas seulement en période d'essai. Le plan Essentiel est gratuit pour toujours, sans carte bancaire, sans engagement. Il inclut les devis et factures illimités, l'agenda, le CRM clients, la bibliothèque de prix et le mode hors ligne. Le plan Pro ajoute le pilote automatique : l'appli relance seule vos devis non signés et vos factures en retard, demande vos avis Google et vous fait le point chaque soir. Il s'essaie 30 jours gratuitement."
               }
             },
             {
               "@type": "Question",
-              "name": "Artisan Facile est-il adapté aux artisans qui démarrent leur activité ?",
+              "name": "Je démarre mon activité d'artisan, est-ce fait pour moi ?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Absolument. Artisan Facile a été conçu pour les artisans en début d'activité et les auto-entrepreneurs. L'interface est simple, tout est en français, et vous êtes opérationnel en moins de 5 minutes. Vous créez votre premier devis professionnel dès le premier jour, sans formation nécessaire. Et c'est gratuit."
+                "text": "Absolument. Artisan Facile a été conçu spécialement pour les artisans en début d'activité et les auto-entrepreneurs. L'interface est simple et en français, aucune formation n'est nécessaire. Vous êtes opérationnel en moins de 5 minutes et vous créez votre premier devis professionnel dès le premier jour."
               }
             },
             {
               "@type": "Question",
-              "name": "Quelles fonctionnalités sont incluses gratuitement ?",
+              "name": "Pour quels corps de métier est conçu Artisan Facile ?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Le plan gratuit inclut : devis et factures professionnelles illimités, agenda et planification des chantiers, CRM pour gérer vos clients, bibliothèque de prix et ouvrages pré-remplie, mode hors ligne pour travailler sur chantier sans connexion, tableau de bord des impayés et signature électronique des devis."
+                "text": "Artisan Facile convient à tous les corps de métier : plombier, électricien, maçon, menuisier, peintre, carreleur, couvreur, chauffagiste, paysagiste et tout artisan du bâtiment ou des services à domicile. L'outil s'adapte aussi bien aux auto-entrepreneurs qui démarrent qu'aux artisans avec une équipe."
               }
             },
             {
               "@type": "Question",
-              "name": "Pour quels types d'artisans est conçu Artisan Facile ?",
+              "name": "Combien de temps faut-il pour créer un devis ?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Artisan Facile est conçu pour tous les corps de métier : plombier, électricien, maçon, menuisier, peintre, carreleur, couvreur, chauffagiste, paysagiste et tout artisan du bâtiment ou des services. Il s'adapte aussi bien aux auto-entrepreneurs qui démarrent qu'aux artisans avec une équipe."
+                "text": "Moins de 2 minutes. Grâce à la bibliothèque d'ouvrages et de prix pré-remplie, vous sélectionnez vos prestations, ajoutez vos quantités et envoyez le devis directement depuis votre téléphone sur le chantier. Votre client peut signer en ligne instantanément."
               }
             },
             {
               "@type": "Question",
-              "name": "Combien de temps faut-il pour créer un devis avec Artisan Facile ?",
+              "name": "Est-ce que ça fonctionne sans connexion internet ?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Grâce à la bibliothèque de prix et d'ouvrages pré-remplie, vous créez un devis professionnel en moins de 2 minutes, directement depuis votre téléphone sur le chantier. Votre client peut signer en ligne instantanément."
+                "text": "Oui. L'application fonctionne en mode hors ligne : vous travaillez normalement même sans réseau sur le chantier, et vos données se synchronisent automatiquement dès que vous retrouvez une connexion."
               }
             },
             {
               "@type": "Question",
-              "name": "Artisan Facile fonctionne-t-il sans connexion internet ?",
+              "name": "Artisan Facile est-il compatible avec la réforme de la facturation électronique 2026 ?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Oui, Artisan Facile fonctionne en mode hors ligne. Vous pouvez continuer à travailler sur vos chantiers sans connexion ; vos données se synchronisent automatiquement dès que vous retrouvez du réseau."
+                "text": "Oui, entièrement. Artisan Facile génère des factures au format Factur-X 1.08, la norme officielle française basée sur la norme européenne EN 16931. Dès que vous renseignez votre SIRET dans votre profil, votre SIREN est automatiquement enregistré dans l'annuaire DGFIP via notre plateforme agréée — vos fournisseurs peuvent vous envoyer des factures électroniques sans que vous ayez rien à configurer. À partir de septembre 2026 (obligation de réception pour toutes les entreprises), vous serez déjà en conformité."
               }
             }
           ]
@@ -169,7 +197,201 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!--
+        Version statique de la page d'accueil, lue par les robots des moteurs
+        de recherche et des assistants IA (qui n'exécutent pas JavaScript).
+        React la remplace au montage ; son texte doit rester aligné sur
+        src/pages/LandingPage.jsx.
+      -->
+      <div id="af-static" class="min-h-screen bg-white text-gray-800">
+        <header class="border-b border-gray-100">
+          <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2">
+              <img src="/logo-bleu.svg" alt="Logo Artisan Facile" width="32" height="32" class="w-8 h-8 rounded-md" />
+              <span class="text-2xl font-bold text-blue-600">Artisan Facile</span>
+            </a>
+            <nav aria-label="Compte" class="flex items-center gap-4 text-sm font-medium">
+              <a href="/login" class="text-gray-600">Se connecter</a>
+              <a href="/register" class="bg-blue-600 text-white px-4 py-2 rounded-lg">S'inscrire</a>
+            </nav>
+          </div>
+        </header>
+
+        <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <section class="py-14">
+            <p class="inline-block bg-blue-100 text-blue-700 px-4 py-1.5 rounded-full text-sm font-semibold mb-6">Pour les artisans qui se lancent · Conforme réforme 2026</p>
+            <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 leading-tight mb-5">Votre premier devis professionnel <span class="text-blue-600">en 2 minutes.</span></h1>
+            <p class="text-lg text-gray-600 leading-relaxed max-w-3xl mb-6">
+              Artisan Facile est un logiciel de gestion 100 % gratuit pour les artisans qui démarrent et les auto-entrepreneurs du bâtiment :
+              devis professionnels, factures conformes à la facturation électronique (Factur-X 1.08), agenda de chantiers, suivi des impayés,
+              clients et bibliothèque de prix — depuis votre téléphone ou votre ordinateur, même sans réseau. Sans formation, sans comptable, sans carte bancaire.
+            </p>
+            <ul class="space-y-2 text-gray-700 mb-8">
+              <li>✔ Toutes les mentions légales incluses automatiquement</li>
+              <li>✔ Votre logo, vos tarifs, votre signature électronique</li>
+              <li>✔ 100 % gratuit pour démarrer — sans carte bancaire, sans engagement</li>
+            </ul>
+            <p class="flex flex-wrap gap-3">
+              <a href="/register" class="inline-flex items-center justify-center px-7 py-4 text-base font-bold text-white bg-blue-600 rounded-xl">Créer mon compte gratuit</a>
+              <a href="/login" class="inline-flex items-center justify-center px-7 py-4 text-base font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl">Se connecter</a>
+            </p>
+          </section>
+
+          <section class="py-12 border-t border-gray-100">
+            <h2 class="text-3xl font-extrabold text-gray-900 mb-2">De zéro à votre premier devis envoyé en moins de 10 minutes</h2>
+            <p class="text-gray-500 mb-8">Aucune formation requise. Voici comment ça se passe.</p>
+            <ol class="grid gap-6 md:grid-cols-3">
+              <li>
+                <h3 class="text-xl font-bold text-gray-900 mb-1">1. Créez votre compte <span class="text-sm font-semibold text-blue-700">(30 secondes)</span></h3>
+                <p class="text-gray-600">Votre nom, votre métier, votre SIRET. C'est tout. Pas de carte bancaire, pas de formulaire interminable.</p>
+              </li>
+              <li>
+                <h3 class="text-xl font-bold text-gray-900 mb-1">2. Rédigez votre devis <span class="text-sm font-semibold text-blue-700">(2 minutes)</span></h3>
+                <p class="text-gray-600">Choisissez vos prestations dans la bibliothèque, ajoutez les quantités. TVA, mentions légales, logo : tout se génère automatiquement.</p>
+              </li>
+              <li>
+                <h3 class="text-xl font-bold text-gray-900 mb-1">3. Envoyez &amp; faites-vous payer <span class="text-sm font-semibold text-green-700">(instantané)</span></h3>
+                <p class="text-gray-600">Votre client reçoit le devis par e-mail et le signe depuis son téléphone. Transformez-le en facture en 1 clic dès la fin du chantier.</p>
+              </li>
+            </ol>
+            <p class="mt-8 text-gray-700 font-semibold">Pas besoin d'être à l'aise avec les logiciels : si vous savez utiliser WhatsApp, vous saurez utiliser Artisan Facile.</p>
+          </section>
+
+          <section class="py-12 border-t border-gray-100">
+            <h2 class="text-3xl font-extrabold text-gray-900 mb-2">Tous les outils d'un vrai artisan, prêts à l'emploi dès votre inscription</h2>
+            <p class="text-gray-500 mb-8">Pas de configuration, pas de formation. Tout est là, pensé pour aller vite.</p>
+            <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <article>
+                <h3 class="text-lg font-bold text-gray-900 mb-1">Devis en 2 minutes, sur chantier</h3>
+                <p class="text-gray-600 text-sm">Vous êtes chez un client qui veut un prix. Sélectionnez vos prestations, ajustez les quantités — votre devis est prêt, avec logo, SIRET et mentions légales. Envoyé par e-mail avant de remonter dans votre camion. Le client peut signer en ligne depuis son téléphone.</p>
+              </article>
+              <article>
+                <h3 class="text-lg font-bold text-gray-900 mb-1">Suivi des impayés sans effort</h3>
+                <p class="text-gray-600 text-sm">Un tableau vous dit en un coup d'œil qui doit payer, combien, et depuis combien de jours. Relancez d'un clic, au bon moment. Les factures en retard sont signalées automatiquement.</p>
+              </article>
+              <article>
+                <h3 class="text-lg font-bold text-gray-900 mb-1">Planning sans double réservation</h3>
+                <p class="text-gray-600 text-sm">Ajoutez vos chantiers en quelques secondes, recevez un rappel le matin, votre semaine s'affiche en clair. Vue semaine ou mois, sur mobile et ordinateur.</p>
+              </article>
+              <article>
+                <h3 class="text-lg font-bold text-gray-900 mb-1">Tarifs enregistrés une fois pour toutes</h3>
+                <p class="text-gray-600 text-sm">Renseignez votre main-d'œuvre et vos fournitures avec leur prix ; la prochaine fois, vous sélectionnez depuis la liste. Bibliothèque pré-remplie selon votre métier.</p>
+              </article>
+              <article>
+                <h3 class="text-lg font-bold text-gray-900 mb-1">Ça marche même sans réseau</h3>
+                <p class="text-gray-600 text-sm">Sur un chantier en zone blanche, vous travaillez normalement : créez, modifiez, consultez. Dès que le réseau revient, tout se synchronise. Idéal en sous-sol, en forêt ou en rural.</p>
+              </article>
+              <article>
+                <h3 class="text-lg font-bold text-gray-900 mb-1">Vos données toujours récupérables</h3>
+                <p class="text-gray-600 text-sm">Devis, factures, contacts clients : tout est sauvegardé automatiquement. Même si vous perdez votre téléphone, vous retrouvez tout sur n'importe quel appareil. Hébergé en Europe, sauvegarde quotidienne.</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="py-12 border-t border-gray-100">
+            <h2 class="text-3xl font-extrabold text-gray-900 mb-2">Facturation électronique 2026 : déjà conforme, sans aucune démarche</h2>
+            <p class="text-gray-500 mb-8">Certifié conforme Factur-X 1.08. La réforme devient obligatoire dès septembre 2026 ; tout est déjà intégré.</p>
+            <ul class="grid gap-4 md:grid-cols-2 text-gray-700">
+              <li><strong>Factur-X 1.08</strong> — vos factures PDF embarquent un fichier XML conforme à la norme européenne EN 16931, reconnu par toutes les plateformes agréées.</li>
+              <li><strong>Annuaire DGFIP</strong> — votre SIREN est enregistré automatiquement dans l'annuaire officiel dès que vous renseignez votre SIRET dans votre profil.</li>
+              <li><strong>Réception automatique</strong> — vos fournisseurs vous envoient leurs factures directement dans l'appli, via le réseau des plateformes agréées et Peppol.</li>
+              <li><strong>Transmission tracée</strong> — envoi, accusé de réception ou rejet : le statut de chaque facture s'affiche en temps réel.</li>
+            </ul>
+            <h3 class="text-lg font-bold text-gray-900 mt-8 mb-2">Calendrier de la réforme</h3>
+            <ul class="text-gray-700 space-y-1">
+              <li><strong>Septembre 2026</strong> — toutes les entreprises, y compris artisans et auto-entrepreneurs, doivent pouvoir recevoir des factures électroniques ; les grandes entreprises doivent les émettre.</li>
+              <li><strong>Septembre 2027</strong> — les PME et micro-entreprises devront aussi émettre leurs factures au format électronique.</li>
+            </ul>
+          </section>
+
+          <section class="py-12 border-t border-gray-100">
+            <h2 class="text-3xl font-extrabold text-gray-900 mb-2">Pour quels métiers ?</h2>
+            <p class="text-gray-600 mb-4">Électricien, plombier, maçon, menuisier, carreleur, couvreur, chauffagiste, paysagiste, serrurier, climaticien, peintre, multi-services… Artisan Facile fonctionne pour tout artisan indépendant du bâtiment ou des services à domicile, qu'il démarre en micro-entreprise ou travaille déjà avec une équipe.</p>
+          </section>
+
+          <section class="py-12 border-t border-gray-100">
+            <h2 class="text-3xl font-extrabold text-gray-900 mb-2">Tarifs : démarrez gratuitement, évoluez quand vous êtes prêt</h2>
+            <p class="text-gray-500 mb-8">Pas de mauvaise surprise. Tout ce qu'il faut pour lancer votre activité est 100 % gratuit, pour toujours.</p>
+            <div class="grid gap-8 md:grid-cols-2">
+              <article class="rounded-2xl border border-gray-200 p-6">
+                <h3 class="text-xl font-bold text-gray-900">Plan Essentiel — 0 € / mois, pour toujours</h3>
+                <p class="text-sm text-green-700 font-medium mb-4">Aucune carte bancaire requise</p>
+                <ul class="space-y-1 text-gray-700 text-sm">
+                  <li>Devis &amp; factures illimités</li>
+                  <li>Factur-X 1.08 — conforme réforme 2026</li>
+                  <li>Signature électronique des devis</li>
+                  <li>Bibliothèque de prix pré-remplie</li>
+                  <li>Agenda &amp; planification des chantiers</li>
+                  <li>CRM clients intégré</li>
+                  <li>Tableau de bord des impayés</li>
+                  <li>Mode hors ligne (sans WiFi)</li>
+                  <li>Accès depuis mobile, tablette, PC</li>
+                </ul>
+                <p class="mt-4"><a href="/register" class="font-bold text-blue-600">Commencer gratuitement →</a></p>
+              </article>
+              <article class="rounded-2xl border border-amber-300 p-6">
+                <h3 class="text-xl font-bold text-gray-900">Plan Pro — 14,99 € / mois ou 149,90 € / an</h3>
+                <p class="text-sm text-amber-700 font-medium mb-4">30 jours gratuits · Annulable en 2 clics · 1er mois remboursé s'il ne vous convient pas</p>
+                <p class="text-sm text-gray-700 mb-2">Tout du plan Essentiel, plus le pilote automatique :</p>
+                <ul class="space-y-1 text-gray-700 text-sm">
+                  <li>Vos devis relancés tout seuls (J+7, J+14, J+21)</li>
+                  <li>Vos factures en retard réclamées pour vous</li>
+                  <li>Des avis Google demandés automatiquement</li>
+                  <li>Le point du soir sur votre téléphone, à 18 h</li>
+                  <li>Vos devis dictés à la voix, sans limite</li>
+                </ul>
+                <p class="mt-4 text-sm text-gray-600">Offre membre fondateur : 9,90 € / mois à vie pour les 50 premiers abonnés, avec une visio de 30 min avec Denis, électricien depuis 25 ans, pour démarrer.</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="py-12 border-t border-gray-100">
+            <h2 class="text-3xl font-extrabold text-gray-900 mb-8">Questions fréquentes</h2>
+            <dl class="space-y-6">
+              <div>
+                <dt class="text-lg font-semibold text-gray-900 mb-1">Artisan Facile est-il vraiment gratuit ?</dt>
+                <dd class="text-gray-600">Oui — et pas seulement en période d'essai. Le plan Essentiel est gratuit pour toujours, sans carte bancaire, sans engagement. Il inclut les devis et factures illimités, l'agenda, le CRM clients, la bibliothèque de prix et le mode hors ligne. Le plan Pro ajoute le pilote automatique : l'appli relance seule vos devis non signés et vos factures en retard, demande vos avis Google et vous fait le point chaque soir. Il s'essaie 30 jours gratuitement.</dd>
+              </div>
+              <div>
+                <dt class="text-lg font-semibold text-gray-900 mb-1">Je démarre mon activité d'artisan, est-ce fait pour moi ?</dt>
+                <dd class="text-gray-600">Absolument. Artisan Facile a été conçu spécialement pour les artisans en début d'activité et les auto-entrepreneurs. L'interface est simple et en français, aucune formation n'est nécessaire. Vous êtes opérationnel en moins de 5 minutes et vous créez votre premier devis professionnel dès le premier jour.</dd>
+              </div>
+              <div>
+                <dt class="text-lg font-semibold text-gray-900 mb-1">Pour quels corps de métier est conçu Artisan Facile ?</dt>
+                <dd class="text-gray-600">Artisan Facile convient à tous les corps de métier : plombier, électricien, maçon, menuisier, peintre, carreleur, couvreur, chauffagiste, paysagiste et tout artisan du bâtiment ou des services à domicile. L'outil s'adapte aussi bien aux auto-entrepreneurs qui démarrent qu'aux artisans avec une équipe.</dd>
+              </div>
+              <div>
+                <dt class="text-lg font-semibold text-gray-900 mb-1">Combien de temps faut-il pour créer un devis ?</dt>
+                <dd class="text-gray-600">Moins de 2 minutes. Grâce à la bibliothèque d'ouvrages et de prix pré-remplie, vous sélectionnez vos prestations, ajoutez vos quantités et envoyez le devis directement depuis votre téléphone sur le chantier. Votre client peut signer en ligne instantanément.</dd>
+              </div>
+              <div>
+                <dt class="text-lg font-semibold text-gray-900 mb-1">Est-ce que ça fonctionne sans connexion internet ?</dt>
+                <dd class="text-gray-600">Oui. L'application fonctionne en mode hors ligne : vous travaillez normalement même sans réseau sur le chantier, et vos données se synchronisent automatiquement dès que vous retrouvez une connexion.</dd>
+              </div>
+              <div>
+                <dt class="text-lg font-semibold text-gray-900 mb-1">Artisan Facile est-il compatible avec la réforme de la facturation électronique 2026 ?</dt>
+                <dd class="text-gray-600">Oui, entièrement. Artisan Facile génère des factures au format Factur-X 1.08, la norme officielle française basée sur la norme européenne EN 16931. Dès que vous renseignez votre SIRET dans votre profil, votre SIREN est automatiquement enregistré dans l'annuaire DGFIP via notre plateforme agréée — vos fournisseurs peuvent vous envoyer des factures électroniques sans que vous ayez rien à configurer. À partir de septembre 2026 (obligation de réception pour toutes les entreprises), vous serez déjà en conformité.</dd>
+              </div>
+            </dl>
+          </section>
+        </main>
+
+        <footer class="bg-gray-900 text-gray-400 py-12 mt-12">
+          <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between gap-6 text-sm">
+            <div>
+              <p class="text-white font-bold text-lg">Artisan Facile</p>
+              <p class="mt-2 max-w-xs">Le logiciel de gestion gratuit des artisans qui se lancent : devis, factures, agenda, clients.</p>
+            </div>
+            <nav aria-label="Pied de page" class="flex flex-wrap gap-6">
+              <a href="/mentions-legales">Mentions légales</a>
+              <a href="/politique-confidentialite">Confidentialité</a>
+              <a href="mailto:contact@artisanfacile.fr">Contact</a>
+            </nav>
+          </div>
+        </footer>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
