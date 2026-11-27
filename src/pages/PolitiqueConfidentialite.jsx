@@ -18,7 +18,7 @@ const PolitiqueConfidentialite = () => {
 
             <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">Politique de confidentialité</h1>
-                <p className="text-sm text-gray-500 mb-10">Dernière mise à jour : avril 2026</p>
+                <p className="text-sm text-gray-500 mb-10">Dernière mise à jour : novembre 2026</p>
 
                 <div className="space-y-10 text-gray-700">
 
@@ -147,6 +147,10 @@ const PolitiqueConfidentialite = () => {
                             <div className="bg-white rounded-xl border border-gray-200 p-4 text-sm">
                                 <p className="font-semibold text-gray-900">Supabase, Inc.</p>
                                 <p className="text-gray-500">Base de données et authentification — Infrastructure cloud conforme RGPD, données hébergées en Europe (Frankfurt)</p>
+                            </div>
+                            <div className="bg-white rounded-xl border border-gray-200 p-4 text-sm">
+                                <p className="font-semibold text-gray-900">Vercel Inc.</p>
+                                <p className="text-gray-500">Hébergement du site et diffusion de l'application (CDN) — 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis</p>
                             </div>
                             <div className="bg-white rounded-xl border border-gray-200 p-4 text-sm">
                                 <p className="font-semibold text-gray-900">Resend / prestataire email</p>
