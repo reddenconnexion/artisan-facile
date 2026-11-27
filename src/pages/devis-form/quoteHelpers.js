@@ -67,6 +67,11 @@ export const quoteRowToFormData = (data) => ({
     public_token: data.public_token || '',
     token_revoked: data.token_revoked === true,
     signature_suspended_at: data.signature_suspended_at || null,
+    // Date et mention de la signature : le PDF les imprime dans le bloc « Bon
+    // pour accord ». L'image de la signature, elle, reste hors du formulaire
+    // (trop lourde pour le brouillon local) — cf. `pdfFormData` dans DevisForm.
+    signed_at: data.signed_at || null,
+    bon_pour_accord: data.bon_pour_accord || null,
     date: data.date,
     valid_until: data.valid_until || '',
     items: (data.items || []).map(i => ({ ...i, buying_price: i.buying_price || 0, type: i.type || 'service' })) || [],
