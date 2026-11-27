@@ -620,6 +620,8 @@ const DevisForm = () => {
                                 quote_number: prev.quote_number,
                                 parent_id: prev.parent_id,
                                 updated_at: prev.updated_at,
+                                signed_at: prev.signed_at,
+                                bon_pour_accord: prev.bon_pour_accord,
                             };
                             // If the DB has deduction items (negative price) that the draft lacks,
                             // the draft was saved before the closing invoice deductions were added
@@ -987,6 +989,16 @@ const DevisForm = () => {
     };
 
     const calculateTotal = () => computeQuoteTotals(formData);
+
+    // Données du formulaire telles que le PDF doit les voir : le formulaire ne
+    // porte pas l'image de la signature (chargée à part, dans `signature`).
+    // Sans elle, le PDF d'un devis signé — aperçu, téléchargement, pièce jointe
+    // du mail — sortait avec un bloc « Bon pour accord » vide dès que la page
+    // était rechargée, alors que la signature était bien enregistrée.
+    const pdfFormData = React.useMemo(
+        () => (signature ? { ...formData, signature } : formData),
+        [formData, signature]
+    );
 
     // Génère le PDF tel que le CLIENT le verra. En présentation « poste global »,
     // la fusion des lignes (et son contrôle d'égalité) est demandée au serveur —
@@ -1573,7 +1585,7 @@ const DevisForm = () => {
 
             const devisData = {
                 id: isEditing ? id : 'PROVISOIRE',
-                ...formData,
+                ...pdfFormData,
                 items: formData.items.map(i => ({
                     ...i,
                     quantity: parseFloat(i.quantity) || 0,
@@ -1700,7 +1712,7 @@ const DevisForm = () => {
             const isInvoice = formData.type === 'invoice';
             const devisData = {
                 id: isEditing ? id : 'PROVISOIRE',
-                ...formData,
+                ...pdfFormData,
                 items: formData.items.map(i => ({
                     ...i,
                     quantity: parseFloat(i.quantity) || 0,
@@ -2487,7 +2499,7 @@ const DevisForm = () => {
                 preview={emailPreview}
                 onClose={() => setEmailPreview(null)}
                 onConfirm={handleConfirmSendEmail}
-                formData={formData}
+                formData={pdfFormData}
                 clients={clients}
                 userProfile={userProfile}
                 quoteId={id}

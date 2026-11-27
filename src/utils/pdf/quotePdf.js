@@ -1289,7 +1289,19 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
     // Masqué si payé : "Bon pour accord" n'a plus de sens sur une quittance.
     const showApprovalBlock = devis.status !== 'paid' && (!isInvoice || devis.signature);
     if (showApprovalBlock) {
-        const approvalH = devis.signature ? 48 : 26;
+        // La mention saisie à la signature peut être longue (accord reçu sur
+        // papier, réserve du client…) : elle est renvoyée à la ligne dans la
+        // colonne de droite au lieu de sortir de la page, et le bloc grandit
+        // d'autant.
+        const approvalRightWidth = 196 - 110;
+        const approvalLineH = 4;
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        const bonPourAccordLines = doc.splitTextToSize(
+            String(devis.bon_pour_accord || L.clientApproval), approvalRightWidth
+        );
+        const approvalExtraH = (bonPourAccordLines.length - 1) * approvalLineH;
+        const approvalH = (devis.signature ? 48 : 26) + approvalExtraH;
         if (currentY + approvalH > 280) {
             doc.addPage();
             currentY = 20;
@@ -1315,21 +1327,36 @@ export const generateDevisPDF = async (devis, client, userProfile, isInvoice = f
 
         doc.setFont(undefined, 'bold');
         doc.setTextColor(...ink);
-        const bonPourAccordText = devis.bon_pour_accord ? devis.bon_pour_accord : L.clientApproval;
-        doc.text(bonPourAccordText, 110, approvalY);
+        bonPourAccordLines.forEach((line, i) => {
+            doc.text(line, 110, approvalY + i * approvalLineH);
+        });
         doc.setFont(undefined, 'normal');
         doc.setTextColor(...subtle);
 
+        const afterMentionY = approvalY + approvalExtraH;
         if (devis.signature) {
             const signedDate = devis.signed_at ? new Date(devis.signed_at) : new Date(devis.updated_at || devis.date || new Date());
-            doc.text(L.signedOn(formatDate(signedDate, { locale: L.dateLocale })), 110, approvalY + 5);
+            doc.text(L.signedOn(formatDate(signedDate, { locale: L.dateLocale })), 110, afterMentionY + 5);
             try {
-                doc.addImage(devis.signature, 'PNG', 110, approvalY + 8, 50, 25);
+                // La signature tient dans un cadre de 50 × 25 mm SANS être
+                // déformée : le pad la rogne autour du tracé, ses proportions
+                // varient donc d'une signature à l'autre.
+                let sigW = 50;
+                let sigH = 25;
+                try {
+                    const props = doc.getImageProperties(devis.signature);
+                    if (props?.width > 0 && props?.height > 0) {
+                        const ratio = Math.min(50 / props.width, 25 / props.height);
+                        sigW = props.width * ratio;
+                        sigH = props.height * ratio;
+                    }
+                } catch { /* dimensions illisibles : on garde le cadre plein */ }
+                doc.addImage(devis.signature, 'PNG', 110, afterMentionY + 8, sigW, sigH);
             } catch (e) {
                 console.warn("Could not add signature to PDF", e);
             }
         } else {
-            doc.text(L.readApproved, 110, approvalY + 5);
+            doc.text(L.readApproved, 110, afterMentionY + 5);
         }
 
         currentY += approvalH;
