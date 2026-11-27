@@ -1,0 +1,107 @@
+# Artisan Facile — description complète
+
+Dernière mise à jour : 27 novembre 2026. Site : https://artisanfacile.fr
+
+## En une phrase
+
+Artisan Facile est un logiciel de gestion gratuit, en français, pour les artisans qui démarrent leur activité et les auto-entrepreneurs du bâtiment : il permet de créer un devis professionnel en 2 minutes depuis un téléphone, de le faire signer en ligne, de le transformer en facture conforme à la réforme de la facturation électronique (Factur-X 1.08), de suivre les impayés, de planifier les chantiers et de gérer ses clients — sans carte bancaire, sans engagement et sans formation.
+
+## Pour qui
+
+- Artisans qui se lancent (micro-entreprise, entreprise individuelle, EURL/SASU) et qui n'ont ni comptable ni logiciel.
+- Tous les corps de métier : électricien, plombier, maçon, menuisier, peintre, carreleur, couvreur, chauffagiste, paysagiste, serrurier, climaticien, multi-services, et tout artisan indépendant du bâtiment ou des services à domicile.
+- Fonctionne aussi pour un artisan avec une petite équipe.
+- Conçu par Denis, électricien artisan depuis 25 ans, pour des artisans : vocabulaire de chantier, pas de jargon comptable.
+
+## Comment ça marche (de zéro au premier devis envoyé en moins de 10 minutes)
+
+1. Créer son compte (30 secondes) : nom, métier, SIRET. Pas de carte bancaire.
+2. Rédiger le devis (2 minutes) : choisir ses prestations dans la bibliothèque de prix pré-remplie selon le métier, ajuster les quantités. TVA, mentions légales obligatoires, logo et SIRET se génèrent automatiquement.
+3. Envoyer et se faire payer : le client reçoit le devis par e-mail et le signe depuis son téléphone (signature électronique). À la fin du chantier, le devis devient une facture en un clic.
+
+« Si vous savez utiliser WhatsApp, vous saurez utiliser Artisan Facile. »
+
+## Fonctionnalités du plan Essentiel (gratuit, pour toujours)
+
+- Devis et factures illimités, au format PDF professionnel (logo, SIRET, mentions légales, TVA ou mention « TVA non applicable, art. 293 B du CGI » pour les micro-entrepreneurs).
+- Signature électronique des devis par le client, depuis son téléphone.
+- Facturation électronique : factures Factur-X 1.08 (PDF + XML conforme EN 16931), reconnues par toutes les plateformes agréées.
+- Bibliothèque de prix et d'ouvrages pré-remplie selon le métier ; main-d'œuvre et fournitures enregistrées une fois pour toutes.
+- Tableau de bord des impayés : qui doit payer, combien, depuis combien de jours ; relance en un clic.
+- Agenda et planification des chantiers (vue semaine / mois), rappel le matin, pas de double réservation.
+- CRM clients intégré : coordonnées, historique des devis, factures et chantiers.
+- Mode hors ligne : l'application fonctionne sans réseau (sous-sol, zone blanche) et se synchronise automatiquement au retour de la connexion.
+- Accès depuis mobile, tablette et ordinateur ; application installable (PWA) sur iOS et Android.
+- Sauvegarde automatique et quotidienne : les données sont retrouvées depuis n'importe quel appareil.
+- Dictée vocale des devis, rapports et e-mails (10 dictées par mois avec sa propre clé IA ; illimitée en Pro).
+
+## Facturation électronique 2026 : déjà conforme
+
+- Factur-X 1.08 : chaque facture PDF embarque un fichier XML conforme à la norme européenne EN 16931.
+- Annuaire DGFIP : dès que l'artisan renseigne son SIRET dans son profil, son SIREN est enregistré automatiquement dans l'annuaire officiel via une plateforme agréée (PDP), sans démarche.
+- Réception automatique : les fournisseurs envoient leurs factures directement dans l'application, via le réseau des plateformes agréées et Peppol — pas d'e-mail ni de PDF à ressaisir.
+- Transmission sécurisée et tracée : envoi, accusé de réception ou rejet, statut en temps réel dans le tableau de bord.
+
+Calendrier de la réforme française :
+- Septembre 2026 : obligation d'émettre pour les grandes entreprises et ETI ; obligation de recevoir des factures électroniques pour toutes les entreprises, y compris artisans et auto-entrepreneurs.
+- Septembre 2027 : obligation d'émettre pour les PME, TPE et micro-entreprises.
+
+## Plan Pro : le pilote automatique
+
+Tout le plan Essentiel, plus :
+- Devis relancés tout seuls : à J+7, J+14 et J+21, un e-mail poli avec le lien de signature.
+- Factures en retard réclamées automatiquement : rappel aimable, puis rappel ferme.
+- Demande d'avis Google automatique à la fin de chaque chantier.
+- Le point du soir à 18 h sur le téléphone : ce qui a été signé, payé et relancé dans la journée.
+- Dictée vocale illimitée, sans rien à configurer.
+- Support prioritaire.
+
+## Tarifs (TTC, novembre 2026)
+
+| Plan | Prix | Détails |
+|------|------|---------|
+| Essentiel | 0 € / mois, pour toujours | Aucune carte bancaire, aucun engagement |
+| Pro | 14,99 € / mois ou 149,90 € / an | 30 jours d'essai gratuit, annulable en 2 clics, 1er mois remboursé s'il ne convient pas |
+| Pro — membre fondateur | 9,90 € / mois à vie (ou 99 € / an) | 50 places, tarif bloqué à vie, visio d'accueil de 30 min avec Denis |
+
+L'essai Pro s'active depuis l'application, après la création du compte gratuit.
+
+## Questions fréquentes
+
+**Artisan Facile est-il vraiment gratuit ?**
+Oui — et pas seulement en période d'essai. Le plan Essentiel est gratuit pour toujours, sans carte bancaire, sans engagement. Il inclut les devis et factures illimités, l'agenda, le CRM clients, la bibliothèque de prix et le mode hors ligne. Le plan Pro ajoute le pilote automatique (relances de devis et de factures, demandes d'avis Google, point du soir) et s'essaie 30 jours gratuitement.
+
+**Je démarre mon activité d'artisan, est-ce fait pour moi ?**
+Absolument. Artisan Facile a été conçu pour les artisans en début d'activité et les auto-entrepreneurs. L'interface est simple et en français, aucune formation n'est nécessaire. Vous êtes opérationnel en moins de 5 minutes et vous créez votre premier devis professionnel dès le premier jour.
+
+**Pour quels corps de métier est conçu Artisan Facile ?**
+Tous : plombier, électricien, maçon, menuisier, peintre, carreleur, couvreur, chauffagiste, paysagiste et tout artisan du bâtiment ou des services à domicile. L'outil s'adapte aux auto-entrepreneurs qui démarrent comme aux artisans avec une équipe.
+
+**Combien de temps faut-il pour créer un devis ?**
+Moins de 2 minutes. Grâce à la bibliothèque d'ouvrages et de prix pré-remplie, vous sélectionnez vos prestations, ajoutez vos quantités et envoyez le devis depuis votre téléphone, sur le chantier. Le client peut signer en ligne instantanément.
+
+**Est-ce que ça fonctionne sans connexion internet ?**
+Oui. L'application fonctionne en mode hors ligne : vous travaillez normalement sans réseau, et vos données se synchronisent automatiquement dès que vous retrouvez une connexion.
+
+**Artisan Facile est-il compatible avec la réforme de la facturation électronique 2026 ?**
+Oui, entièrement. Les factures sont générées au format Factur-X 1.08 (norme EN 16931). Dès que vous renseignez votre SIRET, votre SIREN est enregistré dans l'annuaire DGFIP via une plateforme agréée : vos fournisseurs peuvent vous envoyer des factures électroniques sans que vous ayez rien à configurer. Vous êtes déjà en conformité pour l'obligation de réception de septembre 2026.
+
+**Faut-il installer quelque chose ?**
+Non. Artisan Facile s'utilise dans le navigateur et peut s'installer comme une application sur iPhone, Android, tablette et ordinateur.
+
+**Mes données sont-elles en sécurité ?**
+Les données sont sauvegardées automatiquement chaque jour, hébergées en Europe, et ne sont jamais vendues. Le service respecte le RGPD ; aucun cookie publicitaire ni traceur tiers n'est utilisé.
+
+## Éditeur et contact
+
+- Éditeur : Artisan Facile, entreprise individuelle, France.
+- E-mail : contact@artisanfacile.fr
+- Mentions légales : https://artisanfacile.fr/mentions-legales
+- Politique de confidentialité : https://artisanfacile.fr/politique-confidentialite
+
+## Liens utiles
+
+- Accueil : https://artisanfacile.fr/
+- Créer un compte gratuit : https://artisanfacile.fr/register
+- Se connecter : https://artisanfacile.fr/login
+- Résumé pour assistants IA : https://artisanfacile.fr/llms.txt

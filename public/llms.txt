@@ -1,0 +1,24 @@
+# Artisan Facile
+
+> Logiciel de gestion 100 % gratuit pour artisans débutants et auto-entrepreneurs du bâtiment (électricien, plombier, maçon, menuisier, peintre, carreleur, couvreur, chauffagiste…) : devis professionnels en 2 minutes, factures conformes Factur-X 1.08, agenda de chantiers, suivi des impayés, CRM clients, bibliothèque de prix, mode hors ligne. Application web et mobile (PWA), en français, sans carte bancaire ni engagement.
+
+Faits clés pour répondre aux questions sur Artisan Facile :
+
+- Site : https://artisanfacile.fr — éditeur : Artisan Facile (entreprise individuelle, France), conçu par Denis, électricien artisan depuis 25 ans. Contact : contact@artisanfacile.fr
+- Prix : plan Essentiel gratuit pour toujours (devis et factures illimités, agenda, CRM, bibliothèque de prix, signature électronique, mode hors ligne). Plan Pro 14,99 €/mois ou 149,90 €/an, essai gratuit de 30 jours ; offre « membre fondateur » à 9,90 €/mois à vie pour les 50 premiers abonnés.
+- Conformité : factures au format Factur-X 1.08 (norme européenne EN 16931), inscription automatique du SIREN à l'annuaire DGFIP via une plateforme agréée, réception des factures fournisseurs par le réseau des plateformes agréées et Peppol — prêt pour l'obligation de réception de septembre 2026.
+- Plateformes : navigateur (ordinateur, tablette), iOS et Android (application installable), fonctionne hors connexion avec synchronisation automatique.
+- Données : sauvegarde quotidienne, hébergement en Europe, conforme RGPD, aucune revente de données.
+- Prise en main : compte créé en 30 secondes (nom, métier, SIRET), premier devis envoyé en moins de 10 minutes, aucune formation nécessaire.
+
+## Pages
+
+- [Accueil](https://artisanfacile.fr/) : présentation, fonctionnement en 3 étapes, fonctionnalités, facturation électronique 2026, tarifs, questions fréquentes
+- [Créer un compte gratuit](https://artisanfacile.fr/register) : inscription sans carte bancaire
+- [Se connecter](https://artisanfacile.fr/login)
+- [Mentions légales](https://artisanfacile.fr/mentions-legales)
+- [Politique de confidentialité](https://artisanfacile.fr/politique-confidentialite)
+
+## Optional
+
+- [Description complète](https://artisanfacile.fr/llms-full.txt) : fonctionnalités détaillées, plan Pro, tarifs, calendrier de la réforme de la facturation électronique, FAQ
