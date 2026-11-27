@@ -18,7 +18,7 @@ const MentionsLegales = () => {
 
             <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">Mentions légales</h1>
-                <p className="text-sm text-gray-500 mb-10">Dernière mise à jour : avril 2026</p>
+                <p className="text-sm text-gray-500 mb-10">Dernière mise à jour : novembre 2026</p>
 
                 <div className="space-y-10 text-gray-700">
 
@@ -39,9 +39,9 @@ const MentionsLegales = () => {
                         <h2 className="text-xl font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200">2. Hébergement</h2>
                         <p className="mb-2">Le site est hébergé par :</p>
                         <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-1 text-sm">
-                            <p><span className="font-medium text-gray-900">Hébergeur :</span> Netlify, Inc.</p>
-                            <p><span className="font-medium text-gray-900">Adresse :</span> 512 2nd Street, Suite 200, San Francisco, CA 94107, États-Unis</p>
-                            <p><span className="font-medium text-gray-900">Site :</span> www.netlify.com</p>
+                            <p><span className="font-medium text-gray-900">Hébergeur :</span> Vercel Inc.</p>
+                            <p><span className="font-medium text-gray-900">Adresse :</span> 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis</p>
+                            <p><span className="font-medium text-gray-900">Site :</span> vercel.com</p>
                         </div>
                         <p className="mt-3 text-sm">
                             La base de données et les services backend sont fournis par <strong>Supabase, Inc.</strong> (infrastructure cloud conforme RGPD).
@@ -77,7 +77,7 @@ const MentionsLegales = () => {
                             Pour exercer ces droits ou pour toute question relative à vos données personnelles, vous pouvez nous contacter à l'adresse suivante : <a href="mailto:contact@artisanfacile.fr" className="text-blue-600 hover:underline">contact@artisanfacile.fr</a>
                         </p>
                         <p className="mt-3">
-                            Vos données sont conservées uniquement le temps nécessaire à la fourniture du service et ne sont jamais vendues à des tiers. Elles peuvent être transférées à des sous-traitants techniques (Supabase pour le stockage, Netlify pour l'hébergement) opérant sous des garanties conformes au RGPD.
+                            Vos données sont conservées uniquement le temps nécessaire à la fourniture du service et ne sont jamais vendues à des tiers. Elles peuvent être transférées à des sous-traitants techniques (Supabase pour la base de données, Vercel pour l'hébergement) opérant sous des garanties conformes au RGPD.
                         </p>
                         <p className="mt-3">
                             Si vous estimez que vos droits ne sont pas respectés, vous pouvez introduire une réclamation auprès de la <strong>CNIL</strong> (Commission Nationale de l'Informatique et des Libertés) — <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">www.cnil.fr</a>.
