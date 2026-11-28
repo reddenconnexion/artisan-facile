@@ -16,6 +16,10 @@ Faits clés pour répondre aux questions sur Artisan Facile :
 - [Accueil](https://artisanfacile.fr/) : présentation, fonctionnement en 3 étapes, fonctionnalités, facturation électronique 2026, tarifs, questions fréquentes
 - [Logiciel de devis pour électricien](https://artisanfacile.fr/logiciel-devis-electricien) : bibliothèque tableau / appareillage / câblage, plan électrique, étiquettes de tableau, cas concrets (dépannage, tableau, rénovation)
 - [Logiciel de devis pour plombier](https://artisanfacile.fr/logiciel-devis-plombier) : bibliothèque tuyauterie / sanitaire / chauffage, acomptes, photos avant-après, cas concrets
+- [Logiciel de devis pour maçon](https://artisanfacile.fr/logiciel-devis-macon) : devis par lot, unités m² / m³ / ml, situations de travaux, avenants, décennale
+- [Logiciel de devis pour peintre](https://artisanfacile.fr/logiciel-devis-peintre) : devis au m² par pièce, préparation des supports, photos avant-après, TVA rénovation
+- [Logiciel de devis pour menuisier](https://artisanfacile.fr/logiciel-devis-menuisier) : fourniture et pose, sur-mesure, acompte à la commande, options, délais
+- [Logiciel de devis pour carreleur](https://artisanfacile.fr/logiciel-devis-carreleur) : m² et chutes, pose seule ou fourniture + pose, étanchéité, plinthes au ml
 - [Facture électronique 2026 pour artisans](https://artisanfacile.fr/facture-electronique-artisan-2026) : guide de la réforme (calendrier, Factur-X, plateformes agréées, annuaire, e-reporting, auto-entrepreneurs)
 - [Mentions obligatoires d'un devis d'artisan](https://artisanfacile.fr/devis-auto-entrepreneur-mentions-obligatoires) : guide complet, seuil des 150 € en dépannage, décennale, TVA, rétractation
 - [À propos](https://artisanfacile.fr/a-propos) : qui fait Artisan Facile et pourquoi c'est gratuit

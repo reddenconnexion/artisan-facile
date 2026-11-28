@@ -3,6 +3,10 @@
     "rewrites": [
         { "source": "/logiciel-devis-electricien", "destination": "/logiciel-devis-electricien.html" },
         { "source": "/logiciel-devis-plombier", "destination": "/logiciel-devis-plombier.html" },
+        { "source": "/logiciel-devis-macon", "destination": "/logiciel-devis-macon.html" },
+        { "source": "/logiciel-devis-peintre", "destination": "/logiciel-devis-peintre.html" },
+        { "source": "/logiciel-devis-menuisier", "destination": "/logiciel-devis-menuisier.html" },
+        { "source": "/logiciel-devis-carreleur", "destination": "/logiciel-devis-carreleur.html" },
         { "source": "/facture-electronique-artisan-2026", "destination": "/facture-electronique-artisan-2026.html" },
         { "source": "/devis-auto-entrepreneur-mentions-obligatoires", "destination": "/devis-auto-entrepreneur-mentions-obligatoires.html" },
         { "source": "/a-propos", "destination": "/a-propos.html" },

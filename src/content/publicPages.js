@@ -222,6 +222,344 @@ export const PUBLIC_PAGES = [
 
     // ──────────────────────────────────────────────────────────────────────
     {
+        slug: 'logiciel-devis-macon',
+        kind: 'trade',
+        title: 'Logiciel de devis et facture pour maçon, gratuit | Artisan Facile',
+        description: "Devis de maçonnerie par lot (terrassement, fondations, élévation, dalle), quantités au m², m³ et ml, acomptes et situations, avenants, photos de chantier, facture Factur-X 2026. Gratuit, sans carte bancaire.",
+        kicker: 'Pour les maçons',
+        h1: "Le logiciel de devis et de facturation pensé pour les maçons",
+        lead: "Un mur de clôture, une extension, une dalle ou une ouverture dans un porteur : le devis de maçonnerie se chiffre en m², m³ et mètres linéaires, par lot, avec des acomptes et des imprévus une fois le sol ouvert. Artisan Facile est fait pour ça — depuis le chantier, gratuitement.",
+        published: '2026-11-28',
+        updated: '2026-11-28',
+        sections: [
+            {
+                heading: 'Le devis de maçonnerie se construit par lot',
+                paragraphs: [
+                    "Terrassement, fondations, élévation, plancher, enduit : un chantier de maçonnerie s'organise en lots successifs, chacun avec ses quantités (m³ de béton, m² de parpaings, ml de chaînage, kg de ferraillage) et sa main-d'œuvre. Le client veut voir ces lots séparément pour comparer, et vous avez besoin de sous-totaux pour suivre l'avancement et facturer par situations.",
+                    "Artisan Facile vous laisse composer le devis par lots avec sous-totaux, à partir d'ouvrages déjà composés (fourniture + main-d'œuvre), et transformer chaque étape franchie en facture de situation.",
+                ],
+            },
+            {
+                heading: 'Ce que vous trouvez dès la création du compte',
+                bullets: [
+                    "**Une bibliothèque maçonnerie pré-remplie** : matériaux (parpaings, briques, ciment, sable, gravier, béton prêt à l'emploi), ferraillage (treillis, aciers HA), et les temps de main-d'œuvre, avec les unités du métier (m², m³, ml, sac, tonne). Vous ajustez à vos prix négociés, ils restent mémorisés.",
+                    "**Des devis prêts à signer** : logo, SIRET, **assurance décennale** (obligatoire et contrôlée en maçonnerie), TVA au bon taux, durée de validité, conditions de paiement, signature électronique du client.",
+                    "**Acomptes et situations de travaux** : 30 % à la commande, situations à l'avancement, solde à la réception. Chaque situation donne une facture, le solde se calcule tout seul.",
+                    "**Avenants** : une fondation plus profonde que prévu, un réseau découvert en creusant, un mur à reprendre — l'avenant s'ajoute au devis signé, le client le signe à son tour, et la marge réelle du chantier se met à jour.",
+                    "**Photos de chantier** datées et rattachées à l'affaire : ferraillage avant coulage, drainage avant remblai. Une preuve en cas de litige, et un support pour expliquer au client ce qui est enterré.",
+                    "**Le mode hors ligne** : un terrain en bout de chemin sans réseau n'empêche pas de faire le devis sur place.",
+                ],
+            },
+            {
+                heading: 'Les cas concrets du quotidien',
+                sub: [
+                    {
+                        heading: 'Mur de clôture ou muret',
+                        paragraphs: [
+                            "Longueur × hauteur, fondation au ml, parpaings au m², chaînages, enduit ou couvertine : avec les ouvrages composés, le devis tient en cinq lignes et se recalcule quand le client change la hauteur.",
+                        ],
+                    },
+                    {
+                        heading: 'Extension ou garage',
+                        paragraphs: [
+                            "Un lot par étape, un sous-total par lot, un échéancier de situations. Le permis, l'étude de sol ou la mission du bureau d'études se notent dans les réserves du devis pour clarifier ce qui est — et n'est pas — compris.",
+                        ],
+                    },
+                    {
+                        heading: 'Ouverture dans un mur porteur, reprise en sous-œuvre',
+                        paragraphs: [
+                            "Étaiement, découpe, pose d'IPN ou de linteau, reprise des enduits : décrivez précisément et réservez l'étude structure. Les photos avant/après et le rapport d'intervention documentent le travail réalisé.",
+                        ],
+                    },
+                ],
+            },
+            {
+                heading: 'TVA et conformité',
+                paragraphs: [
+                    "En rénovation d'un logement de plus de deux ans, le taux réduit de TVA peut s'appliquer sur attestation du client ; une extension ou une construction neuve reste au taux normal. Vous indiquez le taux sur le devis, et la mention « TVA non applicable, art. 293 B du CGI » s'insère automatiquement si vous êtes en franchise en base. Vos factures sont au format **Factur-X 1.08** : vous êtes déjà prêt pour la [facturation électronique](/facture-electronique-artisan-2026).",
+                ],
+            },
+            {
+                heading: 'Combien ça coûte ?',
+                paragraphs: [
+                    "Le plan Essentiel est **gratuit, pour toujours**, sans carte bancaire : devis et factures illimités, situations, acomptes, bibliothèque, agenda, clients, photos, mode hors ligne. Le plan Pro (14,99 €/mois, 30 jours d'essai) relance pour vous les devis sans réponse et les factures en retard, et demande les avis Google à la fin du chantier.",
+                ],
+            },
+        ],
+        faq: [
+            {
+                q: "Puis-je facturer par situations de travaux ?",
+                a: "Oui. Vous définissez un échéancier sur le devis (acompte, situations à l'avancement, solde) ; chaque étape devient une facture, et le reste à payer se calcule automatiquement.",
+            },
+            {
+                q: "Comment gérer un imprévu découvert en cours de chantier ?",
+                a: "Par un avenant : il s'ajoute au devis signé, le client le signe en ligne, et la marge réelle du chantier est recalculée. Le devis d'origine n'est pas modifié.",
+            },
+            {
+                q: "Les unités du métier (m³, m², ml, tonne) sont-elles prévues ?",
+                a: "Oui. Chaque ligne de la bibliothèque a son unité ; vous pouvez en ajouter. Les quantités se saisissent dans l'unité de la ligne et le total suit.",
+            },
+            {
+                q: "L'assurance décennale apparaît-elle sur mes devis ?",
+                a: "Oui. Renseignée une fois dans votre profil (assureur, numéro de contrat, zone couverte), elle figure automatiquement sur chaque devis et chaque facture, comme la loi l'exige pour les travaux soumis à la garantie décennale.",
+            },
+        ],
+        related: ['devis-auto-entrepreneur-mentions-obligatoires', 'facture-electronique-artisan-2026', 'a-propos'],
+        cta: CTA_DEFAULT,
+    },
+
+    // ──────────────────────────────────────────────────────────────────────
+    {
+        slug: 'logiciel-devis-peintre',
+        kind: 'trade',
+        title: 'Logiciel de devis et facture pour peintre en bâtiment, gratuit | Artisan Facile',
+        description: "Devis de peinture au m² par pièce : préparation, enduits, couches, protection, bibliothèque pré-remplie, photos avant/après, TVA rénovation, facture Factur-X 2026. Gratuit, sans carte bancaire, fonctionne sur téléphone.",
+        kicker: 'Pour les peintres en bâtiment',
+        h1: "Le logiciel de devis et de facturation pensé pour les peintres",
+        lead: "Un devis de peinture, c'est des surfaces, un état des supports et un nombre de couches — pièce par pièce. Artisan Facile vous le fait chiffrer sur place, au m², avec la préparation que le client ne voit pas mais qui fait la différence. Gratuit, sans carte bancaire.",
+        published: '2026-11-28',
+        updated: '2026-11-28',
+        sections: [
+            {
+                heading: 'Le devis de peinture se joue sur la préparation',
+                paragraphs: [
+                    "Deux devis pour la même pièce peuvent varier du simple au double, et la différence tient rarement à la peinture : lessivage, rebouchage, enduit, ponçage, sous-couche, protection des sols et des meubles. Un devis qui détaille cette préparation justifie son prix et évite la discussion à la fin du chantier.",
+                    "Artisan Facile vous permet de décrire chaque pièce (murs, plafond, boiseries, radiateurs) avec ses surfaces et son état, à partir d'ouvrages composés qui incluent la préparation, la fourniture et la main-d'œuvre.",
+                ],
+            },
+            {
+                heading: 'Ce que vous trouvez dès la création du compte',
+                bullets: [
+                    "**Une bibliothèque peinture pré-remplie** : peintures (acrylique, glycéro, façade, laque), enduits de rebouchage et de lissage, protection (bâches, adhésifs), revêtements muraux, outillage consommable, et les temps de main-d'œuvre au m². Vos prix remplacent les prix indicatifs.",
+                    "**Un devis par pièce** avec sous-totaux : le client voit ce que coûte le salon, la cage d'escalier ou la façade, et peut retirer une pièce sans que vous refassiez tout.",
+                    "**Des photos avant / après** rattachées au chantier : l'état des supports avant travaux (fissures, humidité, anciennes couches) et le résultat. Utile pour les réserves et pour vos avis clients.",
+                    "**Des devis prêts à signer** : logo, SIRET, assurance, TVA au bon taux ou franchise en base, validité, conditions de paiement, signature électronique.",
+                    "**Acompte à la commande**, solde à la réception, facture en un clic depuis le devis signé.",
+                ],
+            },
+            {
+                heading: 'Les cas concrets du quotidien',
+                sub: [
+                    {
+                        heading: 'Rafraîchissement d\'un appartement avant location',
+                        paragraphs: [
+                            "Une ligne par pièce avec surface murs + plafond, préparation légère, deux couches. Le propriétaire veut un prix global et un délai : le devis est envoyé le jour de la visite, signé sur téléphone, et le planning est bloqué dans l'agenda.",
+                        ],
+                    },
+                    {
+                        heading: 'Remise en état après dégât des eaux',
+                        paragraphs: [
+                            "Les photos avant travaux et le détail de la préparation (traitement, enduit, sous-couche d'isolation des taches) servent au dossier d'assurance du client. Le rapport d'intervention se génère avec les photos.",
+                        ],
+                    },
+                    {
+                        heading: 'Ravalement ou façade',
+                        paragraphs: [
+                            "Surfaces au m² déduction faite des ouvertures, nettoyage, traitement, fixateur, finition ; l'échafaudage ou la nacelle en ligne séparée. Les situations de travaux permettent de facturer à l'avancement sur un gros chantier.",
+                        ],
+                    },
+                ],
+            },
+            {
+                heading: 'TVA et conformité',
+                paragraphs: [
+                    "Les travaux de peinture dans un logement achevé depuis plus de deux ans relèvent en général du taux réduit de TVA, sur attestation du client ; vous indiquez le taux sur le devis. En franchise en base, la mention « TVA non applicable, art. 293 B du CGI » est insérée automatiquement. Vos factures sont au format **Factur-X 1.08**, prêtes pour la [facturation électronique obligatoire](/facture-electronique-artisan-2026).",
+                ],
+            },
+            {
+                heading: 'Combien ça coûte ?',
+                paragraphs: [
+                    "Le plan Essentiel est **gratuit, pour toujours**, sans carte bancaire. Le plan Pro (14,99 €/mois, 30 jours d'essai) relance vos devis sans réponse et vos factures en retard, et demande les avis Google à la fin de chaque chantier — ce qui, pour un peintre, remplit l'agenda du mois suivant.",
+                ],
+            },
+        ],
+        faq: [
+            {
+                q: "Puis-je faire un devis de peinture au m² par pièce ?",
+                a: "Oui. Chaque pièce devient un lot avec ses lignes (préparation, murs, plafond, boiseries) au m² ou au forfait, et son sous-total. Le client peut retirer une pièce sans que le devis soit refait.",
+            },
+            {
+                q: "La bibliothèque contient-elle les fournitures de peinture ?",
+                a: "Oui : peintures, enduits, protection, revêtements et consommables, avec des temps de main-d'œuvre au m². Les prix sont indicatifs et se remplacent par les vôtres.",
+            },
+            {
+                q: "Comment joindre des photos avant / après ?",
+                a: "Depuis le téléphone, directement dans le chantier. Elles sont datées, rattachées à l'affaire et peuvent figurer dans le rapport d'intervention remis au client.",
+            },
+        ],
+        related: ['devis-auto-entrepreneur-mentions-obligatoires', 'facture-electronique-artisan-2026', 'a-propos'],
+        cta: CTA_DEFAULT,
+    },
+
+    // ──────────────────────────────────────────────────────────────────────
+    {
+        slug: 'logiciel-devis-menuisier',
+        kind: 'trade',
+        title: 'Logiciel de devis et facture pour menuisier, gratuit | Artisan Facile',
+        description: "Devis de menuiserie intérieure et extérieure : fourniture et pose, sur-mesure, options d'essence et de finition, acompte à la commande, délais de fabrication, facture Factur-X 2026. Gratuit, sans carte bancaire.",
+        kicker: 'Pour les menuisiers',
+        h1: "Le logiciel de devis et de facturation pensé pour les menuisiers",
+        lead: "Pose de fenêtres, portes, parquet, dressing ou escalier sur mesure : le devis de menuiserie engage souvent une fourniture coûteuse, commandée ou fabriquée spécialement. Il faut un acompte, des options claires et un délai écrit. Artisan Facile vous les met en place en quelques minutes, gratuitement.",
+        published: '2026-11-28',
+        updated: '2026-11-28',
+        sections: [
+            {
+                heading: 'Un devis de menuiserie engage de la fourniture',
+                paragraphs: [
+                    "Une fenêtre sur mesure, un bloc-porte, un plan de travail massif : une fois commandés, ils ne se renvoient pas. Le devis doit donc décrire précisément la référence, les dimensions, l'essence, la finition et le sens d'ouverture, prévoir un acompte à la hauteur de la fourniture, et fixer un délai de fabrication et de pose.",
+                    "Artisan Facile sépare fourniture et pose sur chaque ligne, gère l'acompte à la commande et le solde à la réception, et garde la trace des commandes fournisseurs rattachées au chantier pour connaître la marge réelle.",
+                ],
+            },
+            {
+                heading: 'Ce que vous trouvez dès la création du compte',
+                bullets: [
+                    "**Une bibliothèque menuiserie pré-remplie** : bois et panneaux, menuiseries intérieures (blocs-portes, plinthes, parquet), menuiseries extérieures (fenêtres, portes, volets), quincaillerie, et les temps de pose. Vos tarifs remplacent les prix indicatifs.",
+                    "**Fourniture et pose distinctes** : le client voit ce qu'il paie en matière et en travail ; vous suivez votre marge sur chacun.",
+                    "**Acompte adapté** : 30 à 50 % à la commande pour le sur-mesure, solde à la réception. L'acompte se facture, le solde se calcule.",
+                    "**Options et variantes** dans le devis : chêne ou hêtre, laqué ou huilé, double ou triple vitrage. Le client choisit, vous validez, le total suit.",
+                    "**Commandes fournisseurs rattachées au devis** : ce que vous avez réellement payé chez le négociant, face à ce que vous avez vendu.",
+                    "**Photos de prise de cotes** rattachées au chantier, pour ne plus chercher le relevé dans le téléphone au moment de commander.",
+                ],
+            },
+            {
+                heading: 'Les cas concrets du quotidien',
+                sub: [
+                    {
+                        heading: 'Remplacement de fenêtres',
+                        paragraphs: [
+                            "Une ligne par ouverture (dimensions, matériau, vitrage, couleur), dépose et évacuation des anciennes, pose en rénovation ou en dépose totale, finitions. Le taux de TVA réduit s'applique souvent en rénovation, sur attestation du client.",
+                        ],
+                    },
+                    {
+                        heading: 'Agencement sur mesure (dressing, bibliothèque, cuisine)',
+                        paragraphs: [
+                            "Décrivez le caisson, les façades, la quincaillerie et la finition ; réservez les dimensions définitives à la prise de cotes. L'acompte à la commande couvre la matière ; un avenant gère le tiroir ajouté en cours de route.",
+                        ],
+                    },
+                    {
+                        heading: 'Parquet et escalier',
+                        paragraphs: [
+                            "Surface au m² avec chutes, préparation du support, pose collée ou flottante, plinthes au ml, finition. Pour l'escalier, le devis décrit la structure, les marches, le garde-corps et la finition, avec un délai de fabrication écrit.",
+                        ],
+                    },
+                ],
+            },
+            {
+                heading: 'Après le devis',
+                paragraphs: [
+                    "Le client signe en ligne, l'acompte est facturé, la commande fournisseur part. Le tableau de bord vous rappelle le solde à la réception. Vos factures sont au format **Factur-X 1.08** : prêtes pour la [facturation électronique](/facture-electronique-artisan-2026). Avec le plan Pro, les devis sans réponse sont relancés automatiquement — utile quand le client « réfléchit » pendant trois semaines.",
+                ],
+            },
+            {
+                heading: 'Combien ça coûte ?',
+                paragraphs: [
+                    "Le plan Essentiel est **gratuit, pour toujours**, sans carte bancaire : devis et factures illimités, acomptes, bibliothèque, commandes fournisseurs, agenda, clients, photos, mode hors ligne. Le plan Pro (14,99 €/mois, 30 jours d'essai) ajoute les relances automatiques et les demandes d'avis Google.",
+                ],
+            },
+        ],
+        faq: [
+            {
+                q: "Puis-je séparer la fourniture et la pose sur le devis ?",
+                a: "Oui. Chaque ligne peut être une fourniture ou une main-d'œuvre, et un ouvrage composé peut regrouper les deux tout en gardant le détail. Vous suivez votre marge sur chaque partie.",
+            },
+            {
+                q: "Comment demander un acompte important pour du sur-mesure ?",
+                a: "Vous fixez le pourcentage sur le devis (par exemple 40 % à la commande). Une fois le devis signé, la facture d'acompte se génère et le solde se calcule automatiquement à la réception.",
+            },
+            {
+                q: "Le délai de fabrication peut-il figurer sur le devis ?",
+                a: "Oui, dans les conditions du devis : date de début prévue, durée estimée ou délai de fabrication et de pose. C'est d'ailleurs une mention attendue sur un devis d'artisan.",
+            },
+        ],
+        related: ['devis-auto-entrepreneur-mentions-obligatoires', 'facture-electronique-artisan-2026', 'a-propos'],
+        cta: CTA_DEFAULT,
+    },
+
+    // ──────────────────────────────────────────────────────────────────────
+    {
+        slug: 'logiciel-devis-carreleur',
+        kind: 'trade',
+        title: 'Logiciel de devis et facture pour carreleur, gratuit | Artisan Facile',
+        description: "Devis de carrelage au m² : dépose, préparation (ragréage, primaire), pose, joints, plinthes au ml, chutes, fourniture par le client ou l'artisan, TVA rénovation, facture Factur-X 2026. Gratuit, sans carte bancaire.",
+        kicker: 'Pour les carreleurs',
+        h1: "Le logiciel de devis et de facturation pensé pour les carreleurs",
+        lead: "Sol de cuisine, douche à l'italienne, terrasse : le devis de carrelage, c'est des m² avec des chutes, une préparation du support qu'on ne voit pas, et une fourniture qui vient tantôt de vous, tantôt du client. Artisan Facile vous le fait chiffrer sur place, proprement. Gratuit, sans carte bancaire.",
+        published: '2026-11-28',
+        updated: '2026-11-28',
+        sections: [
+            {
+                heading: 'Le devis de carrelage se chiffre au m², et le reste au ml',
+                paragraphs: [
+                    "Surface à poser majorée des chutes (10 % en pose droite, davantage en diagonale ou avec des grands formats), plinthes et profilés au mètre linéaire, préparation au m² (dépose de l'ancien revêtement, ragréage, primaire, étanchéité sous carrelage en pièce humide), joints, silicone. Et une question à trancher dès le devis : qui fournit le carrelage ?",
+                    "Artisan Facile prévoit les deux cas — fourniture par vous avec votre marge, ou pose seule sur un carrelage fourni par le client — et vous laisse composer des ouvrages qui incluent préparation, colle, joints et main-d'œuvre.",
+                ],
+            },
+            {
+                heading: 'Ce que vous trouvez dès la création du compte',
+                bullets: [
+                    "**Une bibliothèque carrelage pré-remplie** : préparation (ragréage, primaire, natte d'étanchéité), revêtements, consommables (colle, joint, croisillons, silicone), et la main-d'œuvre au m² selon le format et le type de pose. Vos prix remplacent les prix indicatifs.",
+                    "**Pose seule ou fourniture + pose** : la ligne de carrelage est optionnelle ; vous précisez dans les réserves que le client fournit la quantité avec les chutes.",
+                    "**Des photos avant / après** : l'état du support avant travaux (planéité, fissures, ancien carrelage) et le résultat, rattachées au chantier et au rapport d'intervention.",
+                    "**Des devis prêts à signer** : logo, SIRET, assurance décennale, TVA au bon taux ou franchise en base, validité, conditions de paiement, signature électronique.",
+                    "**Acompte à la commande** et solde à la réception ; facture en un clic depuis le devis signé.",
+                ],
+            },
+            {
+                heading: 'Les cas concrets du quotidien',
+                sub: [
+                    {
+                        heading: 'Sol de cuisine ou de séjour',
+                        paragraphs: [
+                            "Surface + chutes, dépose éventuelle, ragréage, pose, plinthes au ml, joints. Si le client a déjà acheté son carrelage, la ligne de fourniture disparaît et une réserve précise la quantité attendue.",
+                        ],
+                    },
+                    {
+                        heading: 'Salle de bain et douche à l\'italienne',
+                        paragraphs: [
+                            "Étanchéité sous carrelage (SPEC), pente et receveur à carreler, faïence murale au m², niches, profilés. Les photos de l'étanchéité avant pose sont votre meilleure protection en cas de fuite ultérieure.",
+                        ],
+                    },
+                    {
+                        heading: 'Terrasse extérieure',
+                        paragraphs: [
+                            "Pose collée sur dalle ou sur plots, carrelage adapté au gel, joints et pentes d'écoulement. Les situations de travaux permettent de facturer à l'avancement sur une grande surface.",
+                        ],
+                    },
+                ],
+            },
+            {
+                heading: 'TVA et conformité',
+                paragraphs: [
+                    "Dans un logement achevé depuis plus de deux ans, la pose de carrelage relève généralement du taux réduit de TVA sur attestation du client ; vous indiquez le taux sur le devis. En franchise en base, la mention « TVA non applicable, art. 293 B du CGI » est automatique. Vos factures sont au format **Factur-X 1.08**, prêtes pour la [facturation électronique](/facture-electronique-artisan-2026).",
+                ],
+            },
+            {
+                heading: 'Combien ça coûte ?',
+                paragraphs: [
+                    "Le plan Essentiel est **gratuit, pour toujours**, sans carte bancaire. Le plan Pro (14,99 €/mois, 30 jours d'essai) relance vos devis sans réponse et vos factures en retard, et demande les avis Google à la fin du chantier.",
+                ],
+            },
+        ],
+        faq: [
+            {
+                q: "Comment faire un devis de pose seule quand le client fournit le carrelage ?",
+                a: "Vous laissez de côté la ligne de fourniture et chiffrez préparation, colle, joints et main-d'œuvre au m². Une réserve du devis précise la quantité à fournir par le client, chutes comprises.",
+            },
+            {
+                q: "Puis-je prévoir les chutes dans les quantités ?",
+                a: "Oui. Vous saisissez la quantité majorée (par exemple surface × 1,10) ou créez un ouvrage dont la fourniture intègre déjà le pourcentage de chutes de votre choix.",
+            },
+            {
+                q: "Les plinthes et profilés se chiffrent-ils au mètre linéaire ?",
+                a: "Oui, chaque ligne a son unité : m² pour les surfaces, ml pour les plinthes et profilés, unité pour les niches ou les receveurs. Le total suit.",
+            },
+        ],
+        related: ['devis-auto-entrepreneur-mentions-obligatoires', 'facture-electronique-artisan-2026', 'a-propos'],
+        cta: CTA_DEFAULT,
+    },
+
+    // ──────────────────────────────────────────────────────────────────────
+    {
         slug: 'facture-electronique-artisan-2026',
         kind: 'guide',
         title: 'Facture électronique 2026 pour artisans et auto-entrepreneurs : le guide',
@@ -502,6 +840,10 @@ export const PUBLIC_PAGE_LINKS = PUBLIC_PAGES.map((p) => ({
     label: {
         'logiciel-devis-electricien': 'Logiciel pour électricien',
         'logiciel-devis-plombier': 'Logiciel pour plombier',
+        'logiciel-devis-macon': 'Logiciel pour maçon',
+        'logiciel-devis-peintre': 'Logiciel pour peintre',
+        'logiciel-devis-menuisier': 'Logiciel pour menuisier',
+        'logiciel-devis-carreleur': 'Logiciel pour carreleur',
         'facture-electronique-artisan-2026': 'Facture électronique 2026',
         'devis-auto-entrepreneur-mentions-obligatoires': 'Mentions obligatoires du devis',
         'a-propos': 'À propos',
