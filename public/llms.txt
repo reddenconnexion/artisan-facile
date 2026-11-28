@@ -20,6 +20,10 @@ Faits clés pour répondre aux questions sur Artisan Facile :
 - [Logiciel de devis pour peintre](https://artisanfacile.fr/logiciel-devis-peintre) : devis au m² par pièce, préparation des supports, photos avant-après, TVA rénovation
 - [Logiciel de devis pour menuisier](https://artisanfacile.fr/logiciel-devis-menuisier) : fourniture et pose, sur-mesure, acompte à la commande, options, délais
 - [Logiciel de devis pour carreleur](https://artisanfacile.fr/logiciel-devis-carreleur) : m² et chutes, pose seule ou fourniture + pose, étanchéité, plinthes au ml
+- [Logiciel de devis pour chauffagiste](https://artisanfacile.fr/logiciel-devis-chauffagiste) : entretien annuel, dépannage, remplacement chaudière / pompe à chaleur, rapports d'intervention, agenda des tournées
+- [Logiciel de devis pour plaquiste](https://artisanfacile.fr/logiciel-devis-plaquiste) : cloisons, doublages, plafonds au m², ouvrages composés, isolation
+- [Logiciel de devis pour paysagiste](https://artisanfacile.fr/logiciel-devis-paysagiste) : entretien récurrent, tonte au m², taille au ml, créations, crédit d'impôt services à la personne
+- [Logiciel de devis pour charpentier-couvreur](https://artisanfacile.fr/logiciel-devis-charpentier-couvreur) : toiture au m², situations de travaux, urgence tempête, décennale
 - [Facture électronique 2026 pour artisans](https://artisanfacile.fr/facture-electronique-artisan-2026) : guide de la réforme (calendrier, Factur-X, plateformes agréées, annuaire, e-reporting, auto-entrepreneurs)
 - [Mentions obligatoires d'un devis d'artisan](https://artisanfacile.fr/devis-auto-entrepreneur-mentions-obligatoires) : guide complet, seuil des 150 € en dépannage, décennale, TVA, rétractation
 - [À propos](https://artisanfacile.fr/a-propos) : qui fait Artisan Facile et pourquoi c'est gratuit
