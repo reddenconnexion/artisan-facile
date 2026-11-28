@@ -222,6 +222,678 @@ export const PUBLIC_PAGES = [
 
     // ──────────────────────────────────────────────────────────────────────
     {
+        slug: 'logiciel-devis-macon',
+        kind: 'trade',
+        title: 'Logiciel de devis et facture pour maçon, gratuit | Artisan Facile',
+        description: "Devis de maçonnerie par lot (terrassement, fondations, élévation, dalle), quantités au m², m³ et ml, acomptes et situations, avenants, photos de chantier, facture Factur-X 2026. Gratuit, sans carte bancaire.",
+        kicker: 'Pour les maçons',
+        h1: "Le logiciel de devis et de facturation pensé pour les maçons",
+        lead: "Un mur de clôture, une extension, une dalle ou une ouverture dans un porteur : le devis de maçonnerie se chiffre en m², m³ et mètres linéaires, par lot, avec des acomptes et des imprévus une fois le sol ouvert. Artisan Facile est fait pour ça — depuis le chantier, gratuitement.",
+        published: '2026-11-28',
+        updated: '2026-11-28',
+        sections: [
+            {
+                heading: 'Le devis de maçonnerie se construit par lot',
+                paragraphs: [
+                    "Terrassement, fondations, élévation, plancher, enduit : un chantier de maçonnerie s'organise en lots successifs, chacun avec ses quantités (m³ de béton, m² de parpaings, ml de chaînage, kg de ferraillage) et sa main-d'œuvre. Le client veut voir ces lots séparément pour comparer, et vous avez besoin de sous-totaux pour suivre l'avancement et facturer par situations.",
+                    "Artisan Facile vous laisse composer le devis par lots avec sous-totaux, à partir d'ouvrages déjà composés (fourniture + main-d'œuvre), et transformer chaque étape franchie en facture de situation.",
+                ],
+            },
+            {
+                heading: 'Ce que vous trouvez dès la création du compte',
+                bullets: [
+                    "**Une bibliothèque maçonnerie pré-remplie** : matériaux (parpaings, briques, ciment, sable, gravier, béton prêt à l'emploi), ferraillage (treillis, aciers HA), et les temps de main-d'œuvre, avec les unités du métier (m², m³, ml, sac, tonne). Vous ajustez à vos prix négociés, ils restent mémorisés.",
+                    "**Des devis prêts à signer** : logo, SIRET, **assurance décennale** (obligatoire et contrôlée en maçonnerie), TVA au bon taux, durée de validité, conditions de paiement, signature électronique du client.",
+                    "**Acomptes et situations de travaux** : 30 % à la commande, situations à l'avancement, solde à la réception. Chaque situation donne une facture, le solde se calcule tout seul.",
+                    "**Avenants** : une fondation plus profonde que prévu, un réseau découvert en creusant, un mur à reprendre — l'avenant s'ajoute au devis signé, le client le signe à son tour, et la marge réelle du chantier se met à jour.",
+                    "**Photos de chantier** datées et rattachées à l'affaire : ferraillage avant coulage, drainage avant remblai. Une preuve en cas de litige, et un support pour expliquer au client ce qui est enterré.",
+                    "**Le mode hors ligne** : un terrain en bout de chemin sans réseau n'empêche pas de faire le devis sur place.",
+                ],
+            },
+            {
+                heading: 'Les cas concrets du quotidien',
+                sub: [
+                    {
+                        heading: 'Mur de clôture ou muret',
+                        paragraphs: [
+                            "Longueur × hauteur, fondation au ml, parpaings au m², chaînages, enduit ou couvertine : avec les ouvrages composés, le devis tient en cinq lignes et se recalcule quand le client change la hauteur.",
+                        ],
+                    },
+                    {
+                        heading: 'Extension ou garage',
+                        paragraphs: [
+                            "Un lot par étape, un sous-total par lot, un échéancier de situations. Le permis, l'étude de sol ou la mission du bureau d'études se notent dans les réserves du devis pour clarifier ce qui est — et n'est pas — compris.",
+                        ],
+                    },
+                    {
+                        heading: 'Ouverture dans un mur porteur, reprise en sous-œuvre',
+                        paragraphs: [
+                            "Étaiement, découpe, pose d'IPN ou de linteau, reprise des enduits : décrivez précisément et réservez l'étude structure. Les photos avant/après et le rapport d'intervention documentent le travail réalisé.",
+                        ],
+                    },
+                ],
+            },
+            {
+                heading: 'TVA et conformité',
+                paragraphs: [
+                    "En rénovation d'un logement de plus de deux ans, le taux réduit de TVA peut s'appliquer sur attestation du client ; une extension ou une construction neuve reste au taux normal. Vous indiquez le taux sur le devis, et la mention « TVA non applicable, art. 293 B du CGI » s'insère automatiquement si vous êtes en franchise en base. Vos factures sont au format **Factur-X 1.08** : vous êtes déjà prêt pour la [facturation électronique](/facture-electronique-artisan-2026).",
+                ],
+            },
+            {
+                heading: 'Combien ça coûte ?',
+                paragraphs: [
+                    "Le plan Essentiel est **gratuit, pour toujours**, sans carte bancaire : devis et factures illimités, situations, acomptes, bibliothèque, agenda, clients, photos, mode hors ligne. Le plan Pro (14,99 €/mois, 30 jours d'essai) relance pour vous les devis sans réponse et les factures en retard, et demande les avis Google à la fin du chantier.",
+                ],
+            },
+        ],
+        faq: [
+            {
+                q: "Puis-je facturer par situations de travaux ?",
+                a: "Oui. Vous définissez un échéancier sur le devis (acompte, situations à l'avancement, solde) ; chaque étape devient une facture, et le reste à payer se calcule automatiquement.",
+            },
+            {
+                q: "Comment gérer un imprévu découvert en cours de chantier ?",
+                a: "Par un avenant : il s'ajoute au devis signé, le client le signe en ligne, et la marge réelle du chantier est recalculée. Le devis d'origine n'est pas modifié.",
+            },
+            {
+                q: "Les unités du métier (m³, m², ml, tonne) sont-elles prévues ?",
+                a: "Oui. Chaque ligne de la bibliothèque a son unité ; vous pouvez en ajouter. Les quantités se saisissent dans l'unité de la ligne et le total suit.",
+            },
+            {
+                q: "L'assurance décennale apparaît-elle sur mes devis ?",
+                a: "Oui. Renseignée une fois dans votre profil (assureur, numéro de contrat, zone couverte), elle figure automatiquement sur chaque devis et chaque facture, comme la loi l'exige pour les travaux soumis à la garantie décennale.",
+            },
+        ],
+        related: ['devis-auto-entrepreneur-mentions-obligatoires', 'facture-electronique-artisan-2026', 'a-propos'],
+        cta: CTA_DEFAULT,
+    },
+
+    // ──────────────────────────────────────────────────────────────────────
+    {
+        slug: 'logiciel-devis-peintre',
+        kind: 'trade',
+        title: 'Logiciel de devis et facture pour peintre en bâtiment, gratuit | Artisan Facile',
+        description: "Devis de peinture au m² par pièce : préparation, enduits, couches, protection, bibliothèque pré-remplie, photos avant/après, TVA rénovation, facture Factur-X 2026. Gratuit, sans carte bancaire, fonctionne sur téléphone.",
+        kicker: 'Pour les peintres en bâtiment',
+        h1: "Le logiciel de devis et de facturation pensé pour les peintres",
+        lead: "Un devis de peinture, c'est des surfaces, un état des supports et un nombre de couches — pièce par pièce. Artisan Facile vous le fait chiffrer sur place, au m², avec la préparation que le client ne voit pas mais qui fait la différence. Gratuit, sans carte bancaire.",
+        published: '2026-11-28',
+        updated: '2026-11-28',
+        sections: [
+            {
+                heading: 'Le devis de peinture se joue sur la préparation',
+                paragraphs: [
+                    "Deux devis pour la même pièce peuvent varier du simple au double, et la différence tient rarement à la peinture : lessivage, rebouchage, enduit, ponçage, sous-couche, protection des sols et des meubles. Un devis qui détaille cette préparation justifie son prix et évite la discussion à la fin du chantier.",
+                    "Artisan Facile vous permet de décrire chaque pièce (murs, plafond, boiseries, radiateurs) avec ses surfaces et son état, à partir d'ouvrages composés qui incluent la préparation, la fourniture et la main-d'œuvre.",
+                ],
+            },
+            {
+                heading: 'Ce que vous trouvez dès la création du compte',
+                bullets: [
+                    "**Une bibliothèque peinture pré-remplie** : peintures (acrylique, glycéro, façade, laque), enduits de rebouchage et de lissage, protection (bâches, adhésifs), revêtements muraux, outillage consommable, et les temps de main-d'œuvre au m². Vos prix remplacent les prix indicatifs.",
+                    "**Un devis par pièce** avec sous-totaux : le client voit ce que coûte le salon, la cage d'escalier ou la façade, et peut retirer une pièce sans que vous refassiez tout.",
+                    "**Des photos avant / après** rattachées au chantier : l'état des supports avant travaux (fissures, humidité, anciennes couches) et le résultat. Utile pour les réserves et pour vos avis clients.",
+                    "**Des devis prêts à signer** : logo, SIRET, assurance, TVA au bon taux ou franchise en base, validité, conditions de paiement, signature électronique.",
+                    "**Acompte à la commande**, solde à la réception, facture en un clic depuis le devis signé.",
+                ],
+            },
+            {
+                heading: 'Les cas concrets du quotidien',
+                sub: [
+                    {
+                        heading: 'Rafraîchissement d\'un appartement avant location',
+                        paragraphs: [
+                            "Une ligne par pièce avec surface murs + plafond, préparation légère, deux couches. Le propriétaire veut un prix global et un délai : le devis est envoyé le jour de la visite, signé sur téléphone, et le planning est bloqué dans l'agenda.",
+                        ],
+                    },
+                    {
+                        heading: 'Remise en état après dégât des eaux',
+                        paragraphs: [
+                            "Les photos avant travaux et le détail de la préparation (traitement, enduit, sous-couche d'isolation des taches) servent au dossier d'assurance du client. Le rapport d'intervention se génère avec les photos.",
+                        ],
+                    },
+                    {
+                        heading: 'Ravalement ou façade',
+                        paragraphs: [
+                            "Surfaces au m² déduction faite des ouvertures, nettoyage, traitement, fixateur, finition ; l'échafaudage ou la nacelle en ligne séparée. Les situations de travaux permettent de facturer à l'avancement sur un gros chantier.",
+                        ],
+                    },
+                ],
+            },
+            {
+                heading: 'TVA et conformité',
+                paragraphs: [
+                    "Les travaux de peinture dans un logement achevé depuis plus de deux ans relèvent en général du taux réduit de TVA, sur attestation du client ; vous indiquez le taux sur le devis. En franchise en base, la mention « TVA non applicable, art. 293 B du CGI » est insérée automatiquement. Vos factures sont au format **Factur-X 1.08**, prêtes pour la [facturation électronique obligatoire](/facture-electronique-artisan-2026).",
+                ],
+            },
+            {
+                heading: 'Combien ça coûte ?',
+                paragraphs: [
+                    "Le plan Essentiel est **gratuit, pour toujours**, sans carte bancaire. Le plan Pro (14,99 €/mois, 30 jours d'essai) relance vos devis sans réponse et vos factures en retard, et demande les avis Google à la fin de chaque chantier — ce qui, pour un peintre, remplit l'agenda du mois suivant.",
+                ],
+            },
+        ],
+        faq: [
+            {
+                q: "Puis-je faire un devis de peinture au m² par pièce ?",
+                a: "Oui. Chaque pièce devient un lot avec ses lignes (préparation, murs, plafond, boiseries) au m² ou au forfait, et son sous-total. Le client peut retirer une pièce sans que le devis soit refait.",
+            },
+            {
+                q: "La bibliothèque contient-elle les fournitures de peinture ?",
+                a: "Oui : peintures, enduits, protection, revêtements et consommables, avec des temps de main-d'œuvre au m². Les prix sont indicatifs et se remplacent par les vôtres.",
+            },
+            {
+                q: "Comment joindre des photos avant / après ?",
+                a: "Depuis le téléphone, directement dans le chantier. Elles sont datées, rattachées à l'affaire et peuvent figurer dans le rapport d'intervention remis au client.",
+            },
+        ],
+        related: ['devis-auto-entrepreneur-mentions-obligatoires', 'facture-electronique-artisan-2026', 'a-propos'],
+        cta: CTA_DEFAULT,
+    },
+
+    // ──────────────────────────────────────────────────────────────────────
+    {
+        slug: 'logiciel-devis-menuisier',
+        kind: 'trade',
+        title: 'Logiciel de devis et facture pour menuisier, gratuit | Artisan Facile',
+        description: "Devis de menuiserie intérieure et extérieure : fourniture et pose, sur-mesure, options d'essence et de finition, acompte à la commande, délais de fabrication, facture Factur-X 2026. Gratuit, sans carte bancaire.",
+        kicker: 'Pour les menuisiers',
+        h1: "Le logiciel de devis et de facturation pensé pour les menuisiers",
+        lead: "Pose de fenêtres, portes, parquet, dressing ou escalier sur mesure : le devis de menuiserie engage souvent une fourniture coûteuse, commandée ou fabriquée spécialement. Il faut un acompte, des options claires et un délai écrit. Artisan Facile vous les met en place en quelques minutes, gratuitement.",
+        published: '2026-11-28',
+        updated: '2026-11-28',
+        sections: [
+            {
+                heading: 'Un devis de menuiserie engage de la fourniture',
+                paragraphs: [
+                    "Une fenêtre sur mesure, un bloc-porte, un plan de travail massif : une fois commandés, ils ne se renvoient pas. Le devis doit donc décrire précisément la référence, les dimensions, l'essence, la finition et le sens d'ouverture, prévoir un acompte à la hauteur de la fourniture, et fixer un délai de fabrication et de pose.",
+                    "Artisan Facile sépare fourniture et pose sur chaque ligne, gère l'acompte à la commande et le solde à la réception, et garde la trace des commandes fournisseurs rattachées au chantier pour connaître la marge réelle.",
+                ],
+            },
+            {
+                heading: 'Ce que vous trouvez dès la création du compte',
+                bullets: [
+                    "**Une bibliothèque menuiserie pré-remplie** : bois et panneaux, menuiseries intérieures (blocs-portes, plinthes, parquet), menuiseries extérieures (fenêtres, portes, volets), quincaillerie, et les temps de pose. Vos tarifs remplacent les prix indicatifs.",
+                    "**Fourniture et pose distinctes** : le client voit ce qu'il paie en matière et en travail ; vous suivez votre marge sur chacun.",
+                    "**Acompte adapté** : 30 à 50 % à la commande pour le sur-mesure, solde à la réception. L'acompte se facture, le solde se calcule.",
+                    "**Options et variantes** dans le devis : chêne ou hêtre, laqué ou huilé, double ou triple vitrage. Le client choisit, vous validez, le total suit.",
+                    "**Commandes fournisseurs rattachées au devis** : ce que vous avez réellement payé chez le négociant, face à ce que vous avez vendu.",
+                    "**Photos de prise de cotes** rattachées au chantier, pour ne plus chercher le relevé dans le téléphone au moment de commander.",
+                ],
+            },
+            {
+                heading: 'Les cas concrets du quotidien',
+                sub: [
+                    {
+                        heading: 'Remplacement de fenêtres',
+                        paragraphs: [
+                            "Une ligne par ouverture (dimensions, matériau, vitrage, couleur), dépose et évacuation des anciennes, pose en rénovation ou en dépose totale, finitions. Le taux de TVA réduit s'applique souvent en rénovation, sur attestation du client.",
+                        ],
+                    },
+                    {
+                        heading: 'Agencement sur mesure (dressing, bibliothèque, cuisine)',
+                        paragraphs: [
+                            "Décrivez le caisson, les façades, la quincaillerie et la finition ; réservez les dimensions définitives à la prise de cotes. L'acompte à la commande couvre la matière ; un avenant gère le tiroir ajouté en cours de route.",
+                        ],
+                    },
+                    {
+                        heading: 'Parquet et escalier',
+                        paragraphs: [
+                            "Surface au m² avec chutes, préparation du support, pose collée ou flottante, plinthes au ml, finition. Pour l'escalier, le devis décrit la structure, les marches, le garde-corps et la finition, avec un délai de fabrication écrit.",
+                        ],
+                    },
+                ],
+            },
+            {
+                heading: 'Après le devis',
+                paragraphs: [
+                    "Le client signe en ligne, l'acompte est facturé, la commande fournisseur part. Le tableau de bord vous rappelle le solde à la réception. Vos factures sont au format **Factur-X 1.08** : prêtes pour la [facturation électronique](/facture-electronique-artisan-2026). Avec le plan Pro, les devis sans réponse sont relancés automatiquement — utile quand le client « réfléchit » pendant trois semaines.",
+                ],
+            },
+            {
+                heading: 'Combien ça coûte ?',
+                paragraphs: [
+                    "Le plan Essentiel est **gratuit, pour toujours**, sans carte bancaire : devis et factures illimités, acomptes, bibliothèque, commandes fournisseurs, agenda, clients, photos, mode hors ligne. Le plan Pro (14,99 €/mois, 30 jours d'essai) ajoute les relances automatiques et les demandes d'avis Google.",
+                ],
+            },
+        ],
+        faq: [
+            {
+                q: "Puis-je séparer la fourniture et la pose sur le devis ?",
+                a: "Oui. Chaque ligne peut être une fourniture ou une main-d'œuvre, et un ouvrage composé peut regrouper les deux tout en gardant le détail. Vous suivez votre marge sur chaque partie.",
+            },
+            {
+                q: "Comment demander un acompte important pour du sur-mesure ?",
+                a: "Vous fixez le pourcentage sur le devis (par exemple 40 % à la commande). Une fois le devis signé, la facture d'acompte se génère et le solde se calcule automatiquement à la réception.",
+            },
+            {
+                q: "Le délai de fabrication peut-il figurer sur le devis ?",
+                a: "Oui, dans les conditions du devis : date de début prévue, durée estimée ou délai de fabrication et de pose. C'est d'ailleurs une mention attendue sur un devis d'artisan.",
+            },
+        ],
+        related: ['devis-auto-entrepreneur-mentions-obligatoires', 'facture-electronique-artisan-2026', 'a-propos'],
+        cta: CTA_DEFAULT,
+    },
+
+    // ──────────────────────────────────────────────────────────────────────
+    {
+        slug: 'logiciel-devis-carreleur',
+        kind: 'trade',
+        title: 'Logiciel de devis et facture pour carreleur, gratuit | Artisan Facile',
+        description: "Devis de carrelage au m² : dépose, préparation (ragréage, primaire), pose, joints, plinthes au ml, chutes, fourniture par le client ou l'artisan, TVA rénovation, facture Factur-X 2026. Gratuit, sans carte bancaire.",
+        kicker: 'Pour les carreleurs',
+        h1: "Le logiciel de devis et de facturation pensé pour les carreleurs",
+        lead: "Sol de cuisine, douche à l'italienne, terrasse : le devis de carrelage, c'est des m² avec des chutes, une préparation du support qu'on ne voit pas, et une fourniture qui vient tantôt de vous, tantôt du client. Artisan Facile vous le fait chiffrer sur place, proprement. Gratuit, sans carte bancaire.",
+        published: '2026-11-28',
+        updated: '2026-11-28',
+        sections: [
+            {
+                heading: 'Le devis de carrelage se chiffre au m², et le reste au ml',
+                paragraphs: [
+                    "Surface à poser majorée des chutes (10 % en pose droite, davantage en diagonale ou avec des grands formats), plinthes et profilés au mètre linéaire, préparation au m² (dépose de l'ancien revêtement, ragréage, primaire, étanchéité sous carrelage en pièce humide), joints, silicone. Et une question à trancher dès le devis : qui fournit le carrelage ?",
+                    "Artisan Facile prévoit les deux cas — fourniture par vous avec votre marge, ou pose seule sur un carrelage fourni par le client — et vous laisse composer des ouvrages qui incluent préparation, colle, joints et main-d'œuvre.",
+                ],
+            },
+            {
+                heading: 'Ce que vous trouvez dès la création du compte',
+                bullets: [
+                    "**Une bibliothèque carrelage pré-remplie** : préparation (ragréage, primaire, natte d'étanchéité), revêtements, consommables (colle, joint, croisillons, silicone), et la main-d'œuvre au m² selon le format et le type de pose. Vos prix remplacent les prix indicatifs.",
+                    "**Pose seule ou fourniture + pose** : la ligne de carrelage est optionnelle ; vous précisez dans les réserves que le client fournit la quantité avec les chutes.",
+                    "**Des photos avant / après** : l'état du support avant travaux (planéité, fissures, ancien carrelage) et le résultat, rattachées au chantier et au rapport d'intervention.",
+                    "**Des devis prêts à signer** : logo, SIRET, assurance décennale, TVA au bon taux ou franchise en base, validité, conditions de paiement, signature électronique.",
+                    "**Acompte à la commande** et solde à la réception ; facture en un clic depuis le devis signé.",
+                ],
+            },
+            {
+                heading: 'Les cas concrets du quotidien',
+                sub: [
+                    {
+                        heading: 'Sol de cuisine ou de séjour',
+                        paragraphs: [
+                            "Surface + chutes, dépose éventuelle, ragréage, pose, plinthes au ml, joints. Si le client a déjà acheté son carrelage, la ligne de fourniture disparaît et une réserve précise la quantité attendue.",
+                        ],
+                    },
+                    {
+                        heading: 'Salle de bain et douche à l\'italienne',
+                        paragraphs: [
+                            "Étanchéité sous carrelage (SPEC), pente et receveur à carreler, faïence murale au m², niches, profilés. Les photos de l'étanchéité avant pose sont votre meilleure protection en cas de fuite ultérieure.",
+                        ],
+                    },
+                    {
+                        heading: 'Terrasse extérieure',
+                        paragraphs: [
+                            "Pose collée sur dalle ou sur plots, carrelage adapté au gel, joints et pentes d'écoulement. Les situations de travaux permettent de facturer à l'avancement sur une grande surface.",
+                        ],
+                    },
+                ],
+            },
+            {
+                heading: 'TVA et conformité',
+                paragraphs: [
+                    "Dans un logement achevé depuis plus de deux ans, la pose de carrelage relève généralement du taux réduit de TVA sur attestation du client ; vous indiquez le taux sur le devis. En franchise en base, la mention « TVA non applicable, art. 293 B du CGI » est automatique. Vos factures sont au format **Factur-X 1.08**, prêtes pour la [facturation électronique](/facture-electronique-artisan-2026).",
+                ],
+            },
+            {
+                heading: 'Combien ça coûte ?',
+                paragraphs: [
+                    "Le plan Essentiel est **gratuit, pour toujours**, sans carte bancaire. Le plan Pro (14,99 €/mois, 30 jours d'essai) relance vos devis sans réponse et vos factures en retard, et demande les avis Google à la fin du chantier.",
+                ],
+            },
+        ],
+        faq: [
+            {
+                q: "Comment faire un devis de pose seule quand le client fournit le carrelage ?",
+                a: "Vous laissez de côté la ligne de fourniture et chiffrez préparation, colle, joints et main-d'œuvre au m². Une réserve du devis précise la quantité à fournir par le client, chutes comprises.",
+            },
+            {
+                q: "Puis-je prévoir les chutes dans les quantités ?",
+                a: "Oui. Vous saisissez la quantité majorée (par exemple surface × 1,10) ou créez un ouvrage dont la fourniture intègre déjà le pourcentage de chutes de votre choix.",
+            },
+            {
+                q: "Les plinthes et profilés se chiffrent-ils au mètre linéaire ?",
+                a: "Oui, chaque ligne a son unité : m² pour les surfaces, ml pour les plinthes et profilés, unité pour les niches ou les receveurs. Le total suit.",
+            },
+        ],
+        related: ['devis-auto-entrepreneur-mentions-obligatoires', 'facture-electronique-artisan-2026', 'a-propos'],
+        cta: CTA_DEFAULT,
+    },
+
+    // ──────────────────────────────────────────────────────────────────────
+    {
+        slug: 'logiciel-devis-chauffagiste',
+        kind: 'trade',
+        title: 'Logiciel de devis et facture pour chauffagiste, gratuit | Artisan Facile',
+        description: "Devis de chauffage : entretien annuel, dépannage, remplacement de chaudière ou pompe à chaleur, rapports d'intervention, agenda des tournées, TVA réduite, facture Factur-X 2026. Gratuit, sans carte bancaire.",
+        kicker: 'Pour les chauffagistes',
+        h1: "Le logiciel de devis et de facturation pensé pour les chauffagistes",
+        lead: "Entretiens annuels à la chaîne en automne, dépannages en plein hiver, remplacements de chaudière ou de pompe à chaleur avec dossier d'aides : trois rythmes très différents. Artisan Facile tient l'agenda, le devis, le rapport d'intervention et la facture au même endroit. Gratuit, sans carte bancaire.",
+        published: '2026-11-28',
+        updated: '2026-11-28',
+        sections: [
+            {
+                heading: "Trois métiers en un : entretien, dépannage, installation",
+                paragraphs: [
+                    "L'entretien annuel (obligatoire pour les chaudières) représente des dizaines de rendez-vous courts, à planifier et à facturer vite. Le dépannage demande un devis écrit avant intervention dès 150 € TTC et une facture dans la foulée. L'installation d'une chaudière à condensation ou d'une pompe à chaleur engage un devis détaillé, un acompte, souvent un dossier d'aides, et un délai de livraison.",
+                    "Artisan Facile est construit pour enchaîner ces trois rythmes sans ressaisie : l'agenda pour les tournées, la bibliothèque pour chiffrer en trois lignes, le rapport d'intervention pour laisser une trace, la facture en un clic.",
+                ],
+            },
+            {
+                heading: 'Ce que vous trouvez dès la création du compte',
+                bullets: [
+                    "**Une bibliothèque chauffage pré-remplie** : chaudières gaz à condensation, pompes à chaleur air/eau, radiateurs, thermostats et régulation, tuyauterie, prestations d'entretien annuel et de désembouage, main-d'œuvre. Vos prix remplacent les prix indicatifs.",
+                    "**Des rapports d'intervention** avec photos : mesures, pièces remplacées, observations, remis au client par e-mail. Pour l'entretien, c'est le compte rendu que le client conserve.",
+                    "**Un agenda** pour les tournées d'entretien, avec rappel le matin, vue semaine et mois, et l'historique de chaque client (date du dernier entretien, appareil, pièces changées).",
+                    "**Des devis prêts à signer** : logo, SIRET, assurance, qualifications et numéro RGE si vous l'avez, TVA au bon taux, validité, acompte, signature électronique.",
+                    "**Acompte à la commande** pour les installations, solde à la mise en service, facture en un clic.",
+                    "**Le mode hors ligne** dans une chaufferie en sous-sol ou une maison isolée.",
+                ],
+            },
+            {
+                heading: 'Les cas concrets du quotidien',
+                sub: [
+                    {
+                        heading: 'Entretien annuel de chaudière',
+                        paragraphs: [
+                            "Une prestation de la bibliothèque, un rendez-vous dans l'agenda, un rapport d'intervention avec les relevés, une facture envoyée avant de repartir. L'année suivante, le client est déjà dans votre liste avec l'historique de l'appareil.",
+                        ],
+                    },
+                    {
+                        heading: 'Dépannage en hiver',
+                        paragraphs: [
+                            "Déplacement, main-d'œuvre, pièce : le devis part par SMS, le client signe sur son téléphone, vous intervenez. Au-dessus de 150 € TTC, le devis écrit préalable est obligatoire ; en dessous, la facture détaillée suffit.",
+                        ],
+                    },
+                    {
+                        heading: 'Remplacement de chaudière ou pose d\'une pompe à chaleur',
+                        paragraphs: [
+                            "Partez d'un ouvrage composé (appareil, dépose de l'ancien, raccordements, mise en service, évacuation), ajustez, indiquez le taux de TVA réduit applicable aux travaux de rénovation énergétique sur attestation du client, et précisez dans les réserves ce qui relève du dossier d'aides (MaPrimeRénov', CEE) et de la qualification RGE. L'acompte se facture à la signature.",
+                        ],
+                    },
+                ],
+            },
+            {
+                heading: 'Conformité et paiement',
+                paragraphs: [
+                    "Vos factures sont au format **Factur-X 1.08**, prêtes pour la [facturation électronique obligatoire](/facture-electronique-artisan-2026). Le tableau de bord des impayés vous dit qui n'a pas réglé son entretien ; avec le plan Pro, les factures en retard sont réclamées automatiquement et les avis Google demandés après chaque intervention — ce qui, pour un chauffagiste, fait la différence sur les recherches locales.",
+                ],
+            },
+            {
+                heading: 'Combien ça coûte ?',
+                paragraphs: [
+                    "Le plan Essentiel est **gratuit, pour toujours**, sans carte bancaire : devis et factures illimités, agenda, rapports d'intervention, bibliothèque, clients, mode hors ligne. Le plan Pro (14,99 €/mois, 30 jours d'essai) ajoute les relances automatiques, les demandes d'avis Google, le point du soir et la dictée vocale illimitée.",
+                ],
+            },
+        ],
+        faq: [
+            {
+                q: "Puis-je gérer mes tournées d'entretien annuel ?",
+                a: "Oui. L'agenda planifie les rendez-vous avec rappel le matin, et chaque client garde l'historique de ses interventions (appareil, date, pièces). Le rapport d'intervention et la facture se font sur place depuis le téléphone.",
+            },
+            {
+                q: "Le rapport d'intervention peut-il servir de compte rendu d'entretien ?",
+                a: "Oui : il reprend vos observations, mesures, pièces remplacées et photos, et part par e-mail au client. Vous y ajoutez les mentions que vous souhaitez conserver pour l'attestation d'entretien.",
+            },
+            {
+                q: "Comment appliquer la TVA réduite sur une pompe à chaleur ?",
+                a: "Vous indiquez le taux applicable sur le devis (taux réduit pour les travaux de rénovation énergétique dans un logement de plus de deux ans, sur attestation du client que vous conservez). En franchise en base, la mention « TVA non applicable, art. 293 B du CGI » est automatique.",
+            },
+        ],
+        related: ['logiciel-devis-plombier', 'facture-electronique-artisan-2026', 'devis-auto-entrepreneur-mentions-obligatoires'],
+        cta: CTA_DEFAULT,
+    },
+
+    // ──────────────────────────────────────────────────────────────────────
+    {
+        slug: 'logiciel-devis-plaquiste',
+        kind: 'trade',
+        title: 'Logiciel de devis et facture pour plaquiste, gratuit | Artisan Facile',
+        description: "Devis de plâtrerie sèche au m² : cloisons, doublages, plafonds, isolation, plaques hydrofuges et phoniques, ossature, bandes, bibliothèque pré-remplie, TVA rénovation, facture Factur-X 2026. Gratuit, sans carte bancaire.",
+        kicker: 'Pour les plaquistes',
+        h1: "Le logiciel de devis et de facturation pensé pour les plaquistes",
+        lead: "Cloisons, doublages, plafonds, isolation : le devis de plaquiste se chiffre au m² avec une ossature, des plaques du bon type et des bandes qu'il ne faut pas oublier. Artisan Facile vous le fait composer pièce par pièce, depuis le chantier, gratuitement.",
+        published: '2026-11-28',
+        updated: '2026-11-28',
+        sections: [
+            {
+                heading: 'Le devis de plaquiste, c\'est des m² et des ouvrages composés',
+                paragraphs: [
+                    "Un m² de cloison, ce n'est pas une plaque : c'est des rails et des montants, deux parements, de l'isolant, des vis, des bandes, de l'enduit et du temps de pose puis de ratissage. Si le devis ne raisonne pas en ouvrages complets, on oublie toujours quelque chose, et c'est la marge qui paie.",
+                    "Artisan Facile vous laisse composer des ouvrages « cloison 72/48 », « doublage sur ossature + laine 100 mm », « plafond suspendu BA13 » qui embarquent toutes les fournitures et la main-d'œuvre au m², puis les appliquer pièce par pièce avec sous-totaux.",
+                ],
+            },
+            {
+                heading: 'Ce que vous trouvez dès la création du compte',
+                bullets: [
+                    "**Une bibliothèque plâtrerie pré-remplie** : plaques BA13 standard, hydrofuges et phoniques, ossature (rails, montants), isolation (laine de verre), consommables (vis, bandes, enduits), et la main-d'œuvre au m². Vos prix remplacent les prix indicatifs.",
+                    "**Un devis par pièce ou par lot** avec sous-totaux : le client voit la salle de bain en hydrofuge, la chambre en phonique, le plafond du séjour.",
+                    "**Des devis prêts à signer** : logo, SIRET, assurance décennale, TVA au bon taux ou franchise en base, validité, acompte, signature électronique.",
+                    "**Photos avant / après** : l'état des supports, les réseaux avant fermeture des cloisons — une photo des gaines avant la plaque évite bien des discussions avec l'électricien et le client.",
+                    "**Situations de travaux** sur les gros chantiers, acompte et solde sur les petits.",
+                ],
+            },
+            {
+                heading: 'Les cas concrets du quotidien',
+                sub: [
+                    {
+                        heading: 'Aménagement de combles',
+                        paragraphs: [
+                            "Isolation en rampants, ossature, plaques, trappes, bandes et ratissage : un lot par zone, avec les m² réels et les points singuliers (fenêtres de toit, jouées) en lignes séparées. Les situations de travaux suivent l'avancement.",
+                        ],
+                    },
+                    {
+                        heading: 'Création de cloisons dans un appartement',
+                        paragraphs: [
+                            "Un ouvrage « cloison » par type (standard, hydro, phonique), les huisseries et renforts en lignes dédiées, la réservation des passages de gaines dans les réserves. Le devis part le jour de la visite.",
+                        ],
+                    },
+                    {
+                        heading: 'Plafond suspendu et isolation',
+                        paragraphs: [
+                            "Surface au m², suspentes et fourrures, isolant, plaques, trappe de visite. En rénovation d'un logement de plus de deux ans, le taux réduit de TVA s'applique en général ; les travaux d'isolation peuvent relever du taux le plus bas, sur attestation du client.",
+                        ],
+                    },
+                ],
+            },
+            {
+                heading: 'Conformité et paiement',
+                paragraphs: [
+                    "Vos factures sont au format **Factur-X 1.08** : prêtes pour la [facturation électronique obligatoire](/facture-electronique-artisan-2026). Avec le plan Pro, les devis sans réponse sont relancés automatiquement et les factures en retard réclamées pour vous.",
+                ],
+            },
+            {
+                heading: 'Combien ça coûte ?',
+                paragraphs: [
+                    "Le plan Essentiel est **gratuit, pour toujours**, sans carte bancaire. Le plan Pro (14,99 €/mois, 30 jours d'essai) ajoute les relances automatiques, les demandes d'avis Google, le point du soir et la dictée vocale illimitée.",
+                ],
+            },
+        ],
+        faq: [
+            {
+                q: "Puis-je créer un ouvrage « cloison au m² » qui inclut toutes les fournitures ?",
+                a: "Oui. Un ouvrage regroupe plaques, ossature, isolant, consommables et main-d'œuvre pour un m² ; vous l'appliquez ensuite avec la surface de chaque pièce et le détail reste visible si vous le souhaitez.",
+            },
+            {
+                q: "La bibliothèque contient-elle les plaques hydrofuges et phoniques ?",
+                a: "Oui : BA13 standard, hydrofuge et phonique, rails et montants, laine de verre, vis, bandes et enduits, avec des temps de pose au m². Les prix sont indicatifs et se remplacent par les vôtres.",
+            },
+            {
+                q: "Comment facturer un gros chantier à l'avancement ?",
+                a: "Par situations de travaux : vous définissez l'échéancier sur le devis, chaque étape devient une facture et le solde se calcule automatiquement.",
+            },
+        ],
+        related: ['logiciel-devis-peintre', 'facture-electronique-artisan-2026', 'devis-auto-entrepreneur-mentions-obligatoires'],
+        cta: CTA_DEFAULT,
+    },
+
+    // ──────────────────────────────────────────────────────────────────────
+    {
+        slug: 'logiciel-devis-paysagiste',
+        kind: 'trade',
+        title: 'Logiciel de devis et facture pour paysagiste, gratuit | Artisan Facile',
+        description: "Devis de paysagiste et jardinier : tonte au m², taille de haie au ml, déchets verts, création de gazon et plantations, contrats d'entretien, passages récurrents, facture Factur-X 2026. Gratuit, sans carte bancaire.",
+        kicker: 'Pour les paysagistes et jardiniers',
+        h1: "Le logiciel de devis et de facturation pensé pour les paysagistes",
+        lead: "Entretien régulier chez les mêmes clients, créations ponctuelles (gazon, massifs, terrasse), déchets verts à évacuer : le paysagiste jongle entre le récurrent et le chantier. Artisan Facile tient l'agenda des passages, chiffre au m² et au ml, et facture sans ressaisie. Gratuit, sans carte bancaire.",
+        published: '2026-11-28',
+        updated: '2026-11-28',
+        sections: [
+            {
+                heading: "Le récurrent d'un côté, les créations de l'autre",
+                paragraphs: [
+                    "La tonte, la taille et le désherbage reviennent toutes les deux à quatre semaines chez les mêmes clients : ce qu'il faut, c'est un agenda fiable, un prix connu et une facture qui part toute seule. Les créations — pelouse, plantations, clôture, terrasse, arrosage — sont des devis plus détaillés, avec fourniture végétale et matériaux, acompte et saison de plantation à respecter.",
+                    "Artisan Facile gère les deux : rendez-vous récurrents dans l'agenda, prestations à l'unité du métier (m², ml, m³, sac, unité), devis composés pour les créations, et un tableau de bord qui montre qui n'a pas réglé le passage du mois.",
+                ],
+            },
+            {
+                heading: 'Ce que vous trouvez dès la création du compte',
+                bullets: [
+                    "**Une bibliothèque espaces verts pré-remplie** : tonte au m², taille de haie au ml, évacuation des déchets verts au m³, gazon en rouleau et semences, terreau, paillage, main-d'œuvre. Vos prix remplacent les prix indicatifs.",
+                    "**Un agenda** pour les passages réguliers, avec rappel le matin, vue semaine et mois, et l'historique par client.",
+                    "**Des devis prêts à signer** : logo, SIRET, assurance, TVA au bon taux ou franchise en base, validité, acompte, signature électronique.",
+                    "**Photos avant / après** rattachées au chantier : l'état du jardin à l'arrivée et au départ, la haie avant et après la taille. Vos meilleurs arguments pour les avis clients.",
+                    "**Le mode hors ligne** : au fond d'un jardin sans réseau, le devis se fait quand même.",
+                ],
+            },
+            {
+                heading: 'Les cas concrets du quotidien',
+                sub: [
+                    {
+                        heading: 'Contrat d\'entretien mensuel',
+                        paragraphs: [
+                            "Un devis annuel qui décrit les passages (fréquence, prestations incluses, évacuation des déchets), signé une fois ; les rendez-vous dans l'agenda ; une facture par passage ou par mois. Si vous êtes déclaré « services à la personne », précisez-le : vos clients particuliers peuvent bénéficier du crédit d'impôt sur les petits travaux de jardinage, dans la limite du plafond annuel.",
+                        ],
+                    },
+                    {
+                        heading: 'Création d\'une pelouse ou d\'un massif',
+                        paragraphs: [
+                            "Préparation du sol au m², apport de terre au m³, gazon en rouleau ou semis, plantations à l'unité avec le nom des végétaux, paillage, arrosage. La saison de plantation et la garantie de reprise éventuelle se notent dans les réserves.",
+                        ],
+                    },
+                    {
+                        heading: 'Élagage, abattage et débroussaillage',
+                        paragraphs: [
+                            "Forfait par arbre ou par zone, évacuation ou broyage sur place, sécurité (nacelle, périmètre) en ligne séparée. Les photos avant / après et le rapport d'intervention documentent le résultat.",
+                        ],
+                    },
+                ],
+            },
+            {
+                heading: 'Conformité et paiement',
+                paragraphs: [
+                    "Vos factures sont au format **Factur-X 1.08**, prêtes pour la [facturation électronique obligatoire](/facture-electronique-artisan-2026). Avec le plan Pro, les factures de passage en retard sont réclamées automatiquement et les avis Google demandés après chaque chantier.",
+                ],
+            },
+            {
+                heading: 'Combien ça coûte ?',
+                paragraphs: [
+                    "Le plan Essentiel est **gratuit, pour toujours**, sans carte bancaire : devis et factures illimités, agenda, bibliothèque, clients, photos, mode hors ligne. Le plan Pro (14,99 €/mois, 30 jours d'essai) ajoute les relances automatiques, les demandes d'avis Google, le point du soir et la dictée vocale illimitée.",
+                ],
+            },
+        ],
+        faq: [
+            {
+                q: "Puis-je planifier des passages réguliers chez mes clients ?",
+                a: "Oui. L'agenda gère les rendez-vous avec rappel le matin et l'historique par client ; chaque passage peut donner une facture, ou vous facturez au mois.",
+            },
+            {
+                q: "Les unités du métier (m², ml, m³) sont-elles prévues ?",
+                a: "Oui : tonte au m², taille de haie au ml, déchets verts au m³, végétaux à l'unité, terreau au sac. Chaque ligne a son unité et vous pouvez en ajouter.",
+            },
+            {
+                q: "Mes clients peuvent-ils bénéficier du crédit d'impôt jardinage ?",
+                a: "Uniquement si votre entreprise est déclarée « services à la personne » pour les petits travaux de jardinage, et dans la limite du plafond annuel. Le logiciel vous laisse indiquer cette mention et le numéro de déclaration sur vos devis et factures.",
+            },
+        ],
+        related: ['devis-auto-entrepreneur-mentions-obligatoires', 'facture-electronique-artisan-2026', 'a-propos'],
+        cta: CTA_DEFAULT,
+    },
+
+    // ──────────────────────────────────────────────────────────────────────
+    {
+        slug: 'logiciel-devis-charpentier-couvreur',
+        kind: 'trade',
+        title: 'Logiciel de devis et facture pour charpentier-couvreur, gratuit | Artisan Facile',
+        description: "Devis de charpente et couverture au m² : bois de structure, tuiles, écran sous-toiture, zinguerie, situations de travaux, photos, urgence après tempête, décennale, facture Factur-X 2026. Gratuit, sans carte bancaire.",
+        kicker: 'Pour les charpentiers et couvreurs',
+        h1: "Le logiciel de devis et de facturation pensé pour les charpentiers et couvreurs",
+        lead: "Réfection de toiture, charpente d'extension, bâchage d'urgence après une tempête : des devis au m² de toiture qui engagent des matériaux lourds, de la sécurité et une garantie décennale sans faille. Artisan Facile vous les fait chiffrer et suivre depuis le chantier, gratuitement.",
+        published: '2026-11-28',
+        updated: '2026-11-28',
+        sections: [
+            {
+                heading: 'Un devis de toiture se chiffre au m², et le reste en lignes claires',
+                paragraphs: [
+                    "Surface de toiture par versant, pente, dépose de l'ancienne couverture, écran sous-toiture, liteaunage, tuiles ou ardoises avec les chutes, faîtage, rives, zinguerie au ml (gouttières, noues, solins), et les postes que le client oublie : échafaudage, protection, évacuation des gravats. En charpente, le bois se chiffre au ml ou au m³ par section, avec la quincaillerie et le levage.",
+                    "Artisan Facile vous laisse composer ces ouvrages une fois (fourniture + main-d'œuvre au m² ou au ml) et les appliquer à chaque toiture, avec sous-totaux par lot et situations de travaux.",
+                ],
+            },
+            {
+                heading: 'Ce que vous trouvez dès la création du compte',
+                bullets: [
+                    "**Une bibliothèque charpente et couverture pré-remplie** : bois de structure (bastaings, madriers, chevrons, voliges, liteaux), tuiles, écran sous-toiture, quincaillerie (sabots), main-d'œuvre. Vos prix remplacent les prix indicatifs.",
+                    "**Des devis prêts à signer** : logo, SIRET, **assurance décennale** (indispensable et vérifiée par les clients et les assureurs en couverture), TVA au bon taux, validité, conditions de paiement, signature électronique.",
+                    "**Situations de travaux** : acompte à la commande, situations à l'avancement (dépose, charpente, couverture, zinguerie), solde à la réception.",
+                    "**Photos** datées rattachées au chantier : l'état de la charpente découverte, les pièces remplacées, la toiture terminée. Vu d'en bas, le client ne voit rien ; les photos montrent le travail.",
+                    "**Avenants** pour la panne pourrie découverte à la dépose ou la zinguerie à reprendre, signés en ligne par le client.",
+                    "**Le mode hors ligne** sur les toits de campagne sans réseau.",
+                ],
+            },
+            {
+                heading: 'Les cas concrets du quotidien',
+                sub: [
+                    {
+                        heading: 'Réfection complète d\'une toiture',
+                        paragraphs: [
+                            "Un lot par étape (échafaudage, dépose, traitement ou reprise de charpente, écran, liteaunage, couverture, zinguerie, évacuation), un échéancier de situations, et les réserves sur ce qui ne peut être constaté qu'après dépose.",
+                        ],
+                    },
+                    {
+                        heading: 'Urgence après tempête',
+                        paragraphs: [
+                            "Bâchage et mise en sécurité en devis court, photos pour l'assurance du client, puis devis de réparation définitive. Le rapport d'intervention avec photos sert au dossier de sinistre.",
+                        ],
+                    },
+                    {
+                        heading: 'Charpente d\'extension ou de carport',
+                        paragraphs: [
+                            "Bois par section et longueur, assemblages et quincaillerie, levage, couverture associée. Le délai d'approvisionnement du bois se note sur le devis, l'acompte couvre la commande.",
+                        ],
+                    },
+                ],
+            },
+            {
+                heading: 'TVA et conformité',
+                paragraphs: [
+                    "En rénovation d'un logement de plus de deux ans, le taux réduit de TVA s'applique en général sur attestation du client ; une extension neuve reste au taux normal. En franchise en base, la mention « TVA non applicable, art. 293 B du CGI » est automatique. Vos factures sont au format **Factur-X 1.08**, prêtes pour la [facturation électronique obligatoire](/facture-electronique-artisan-2026).",
+                ],
+            },
+            {
+                heading: 'Combien ça coûte ?',
+                paragraphs: [
+                    "Le plan Essentiel est **gratuit, pour toujours**, sans carte bancaire : devis et factures illimités, situations, bibliothèque, agenda, clients, photos, mode hors ligne. Le plan Pro (14,99 €/mois, 30 jours d'essai) relance vos devis sans réponse et vos factures en retard, et demande les avis Google à la fin du chantier.",
+                ],
+            },
+        ],
+        faq: [
+            {
+                q: "Puis-je facturer une toiture par situations de travaux ?",
+                a: "Oui. L'échéancier se définit sur le devis (acompte, situations à l'avancement, solde) ; chaque étape devient une facture et le reste à payer se calcule automatiquement.",
+            },
+            {
+                q: "Comment gérer ce qu'on découvre à la dépose ?",
+                a: "Par un avenant : il s'ajoute au devis signé, le client le signe en ligne, et la marge du chantier est recalculée. Les photos datées de la charpente découverte justifient la demande.",
+            },
+            {
+                q: "L'assurance décennale apparaît-elle sur mes devis et factures ?",
+                a: "Oui. Renseignée une fois dans votre profil (assureur, numéro de contrat, zone couverte), elle figure automatiquement sur chaque document, comme la loi l'exige pour les travaux soumis à la garantie décennale.",
+            },
+        ],
+        related: ['logiciel-devis-macon', 'facture-electronique-artisan-2026', 'devis-auto-entrepreneur-mentions-obligatoires'],
+        cta: CTA_DEFAULT,
+    },
+
+    // ──────────────────────────────────────────────────────────────────────
+    {
         slug: 'facture-electronique-artisan-2026',
         kind: 'guide',
         title: 'Facture électronique 2026 pour artisans et auto-entrepreneurs : le guide',
@@ -502,6 +1174,14 @@ export const PUBLIC_PAGE_LINKS = PUBLIC_PAGES.map((p) => ({
     label: {
         'logiciel-devis-electricien': 'Logiciel pour électricien',
         'logiciel-devis-plombier': 'Logiciel pour plombier',
+        'logiciel-devis-macon': 'Logiciel pour maçon',
+        'logiciel-devis-peintre': 'Logiciel pour peintre',
+        'logiciel-devis-menuisier': 'Logiciel pour menuisier',
+        'logiciel-devis-carreleur': 'Logiciel pour carreleur',
+        'logiciel-devis-chauffagiste': 'Logiciel pour chauffagiste',
+        'logiciel-devis-plaquiste': 'Logiciel pour plaquiste',
+        'logiciel-devis-paysagiste': 'Logiciel pour paysagiste',
+        'logiciel-devis-charpentier-couvreur': 'Logiciel pour charpentier-couvreur',
         'facture-electronique-artisan-2026': 'Facture électronique 2026',
         'devis-auto-entrepreneur-mentions-obligatoires': 'Mentions obligatoires du devis',
         'a-propos': 'À propos',
