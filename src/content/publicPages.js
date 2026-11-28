@@ -729,8 +729,8 @@ export const PUBLIC_PAGES = [
     {
         slug: 'logiciel-devis-paysagiste',
         kind: 'trade',
-        title: 'Logiciel de devis et facture pour paysagiste et jardinier, gratuit | Artisan Facile',
-        description: "Devis de paysagiste et jardinier : tonte au m², taille de haie au ml, évacuation des déchets verts, création de gazon et plantations, contrats d'entretien, rendez-vous récurrents, facture Factur-X 2026. Gratuit, sans carte bancaire.",
+        title: 'Logiciel de devis et facture pour paysagiste, gratuit | Artisan Facile',
+        description: "Devis de paysagiste et jardinier : tonte au m², taille de haie au ml, déchets verts, création de gazon et plantations, contrats d'entretien, passages récurrents, facture Factur-X 2026. Gratuit, sans carte bancaire.",
         kicker: 'Pour les paysagistes et jardiniers',
         h1: "Le logiciel de devis et de facturation pensé pour les paysagistes",
         lead: "Entretien régulier chez les mêmes clients, créations ponctuelles (gazon, massifs, terrasse), déchets verts à évacuer : le paysagiste jongle entre le récurrent et le chantier. Artisan Facile tient l'agenda des passages, chiffre au m² et au ml, et facture sans ressaisie. Gratuit, sans carte bancaire.",
@@ -812,8 +812,8 @@ export const PUBLIC_PAGES = [
     {
         slug: 'logiciel-devis-charpentier-couvreur',
         kind: 'trade',
-        title: 'Logiciel de devis et facture pour charpentier et couvreur, gratuit | Artisan Facile',
-        description: "Devis de charpente et couverture au m² : bois de structure, tuiles, écran sous-toiture, zinguerie, échafaudage, situations de travaux, photos, urgence après tempête, décennale, facture Factur-X 2026. Gratuit, sans carte bancaire.",
+        title: 'Logiciel de devis et facture pour charpentier-couvreur, gratuit | Artisan Facile',
+        description: "Devis de charpente et couverture au m² : bois de structure, tuiles, écran sous-toiture, zinguerie, situations de travaux, photos, urgence après tempête, décennale, facture Factur-X 2026. Gratuit, sans carte bancaire.",
         kicker: 'Pour les charpentiers et couvreurs',
         h1: "Le logiciel de devis et de facturation pensé pour les charpentiers et couvreurs",
         lead: "Réfection de toiture, charpente d'extension, bâchage d'urgence après une tempête : des devis au m² de toiture qui engagent des matériaux lourds, de la sécurité et une garantie décennale sans faille. Artisan Facile vous les fait chiffrer et suivre depuis le chantier, gratuitement.",
